@@ -40,6 +40,13 @@ public interface AdminScanDao {
     List<String> getTableColumns(@Param("table") String table);
     
     /**
+     * 테이블 칼럼 데이터 취득 로직
+     * @param table
+     * @return List<String>
+     */
+    List<Map<String, String>> getTableInformations(@Param("table") String table);
+    
+    /**
      * 테이블 데이터 취득 로직
      * @param table
      * @param string
@@ -47,5 +54,12 @@ public interface AdminScanDao {
      */
     List<Map<String, Object>> getTableDatas(@Param("table") String table, 
             @Param("columns")String columns);
+
+    /**
+     * 테이블 칼럼 변경 로직
+     * @param alterNotNull
+     * @return
+     */
+    Integer alterTable(String alterNotNull);
 
 }

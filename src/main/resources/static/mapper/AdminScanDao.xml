@@ -21,6 +21,11 @@
 	
 	</insert>
 	
+	<update id="alterTable">
+	ALTER TABLE ${table} ${values}
+	
+	</update>
+	
 	<insert id="commentOn">
 	COMMENT ON COLUMN ${comment}
 	
@@ -28,7 +33,7 @@
 	
 	<select id="getTableColumns" useCache="false" resultType="java.lang.String">
 	SELECT 
-		C.COLUMN_NAME || DECODE(U.CONSTRAINT_TYPE,NULL,'','(PK)')
+		C.COLUMN_NAME || DECODE(U.CONSTRAINT_TYPE,NULL,'','(PK)') AS COLUMN_NAME
 	FROM 
 		COLS C 
 		LEFT OUTER JOIN
@@ -41,6 +46,23 @@
 			AND UC.TABLE_NAME      = UC.TABLE_NAME
 	   		AND UC.CONSTRAINT_NAME = UC.CONSTRAINT_NAME
 	   		)
+	WHERE C.TABLE_NAME = #{table}
+	ORDER BY C.COLUMN_ID ASC
+	</select>
+	
+	<select id="getTableInformations" useCache="false" resultType="java.util.HashMap">
+	SELECT 
+		C.COLUMN_NAME AS COLUMN_NAME, 
+		C.DATA_TYPE AS DATA_TYPE, 
+		DECODE(C.DATA_TYPE,'NUMBER', C.DATA_PRECISION || DECODE(DATA_SCALE,'0','',',' || C.DATA_SCALE), C.DATA_LENGTH) DATA_LENGTH, 
+		C.NULLABLE AS NULLABLE,
+		C.DATA_DEFAULT AS DATA_DEFAULT, 
+		COM.COMMENTS AS COMMENTS
+	FROM 
+		COLS C LEFT OUTER JOIN
+		USER_COL_COMMENTS COM
+		ON(C.TABLE_NAME = COM.TABLE_NAME AND 
+			   C.COLUMN_NAME = COM.COLUMN_NAME)
 	WHERE C.TABLE_NAME = #{table}
 	ORDER BY C.COLUMN_ID ASC
 	</select>
