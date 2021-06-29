@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<script type="text/javascript" th:src="@{/js/jquery-3.6.0.min.js}" ></script>
+<script type="text/javascript" th:src="@{/js/common_js.js}" ></script>
+<!-- <script type="text/javascript" th:src="@{/js/element.js}"></script>
+<link th:href="@{/css/main.css}" rel="stylesheet" /> -->
+<title>Error</title>
+</head>
+<body>
+에러!<br>
+Error Logs<br>
+<div th:text='${errorLogs}'/>
+</body>
+</html>

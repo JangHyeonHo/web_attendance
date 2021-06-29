@@ -1,0 +1,25 @@
+사용 DB = Oracle Database 18c Express Edition for Windows x64
+다운 -> https://www.oracle.com/database/technologies/xe-downloads.html
+
+12c이상에서 설정(유저 명에 C##안붙이는방법)
+alter session set "_ORACLE_SCRIPT"=true;
+
+테이블 스페이스 생성
+CREATE TABLESPACE TS_ATTENDANCE
+DATAFILE 'TS_ATTENDANCE.dbf' 
+SIZE 64M 
+REUSE AUTOEXTEND ON NEXT 10M MAXSIZE UNLIMITED LOGGING;
+
+오라클 계정 생성
+CREATE USER admin IDENTIFIED BY admin 
+DEFAULT TABLESPACE TS_ATTENDANCE quota unlimited ON TS_ATTENDANCE;
+
+
+권한 부여(전권한)
+GRANT CONNECT, RESOURCE to admin;
+
+DB데이터 등록(자동시스템)
+1. Run Application으로 스프링부트를 실행함
+2. 주소창에 localhost:9080/admin_settings를 실행
+3. 화면에 성공이라 뜨면 DB확인후 테이블이 들어와있는지 확인
+4. 성공 후 데이터 입력 버튼으로 데이터도 복사(수동입력 -> localhost:9080/data_settings)

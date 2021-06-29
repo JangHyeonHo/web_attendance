@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.attendance.pro.dao.AdminScanDao">
+
+	<select id="isTableExisting" resultType="java.lang.String">
+	SELECT 
+		1 
+		FROM
+			DUAL
+		WHERE
+			EXISTS
+			(SELECT OBJECT_NAME FROM USER_OBJECTS WHERE OBJECT_NAME=UPPER(#{tableName}))
+	
+	</select>
+	
+	<insert id="createTable">
+	CREATE TABLE ${table} ${values}
+	
+	</insert>
+	
+	<insert id="commentOn">
+	COMMENT ON COLUMN ${comment}
+	
+	</insert>
+	
+	<select id="getTableColumns" useCache="false" resultType="java.lang.String">
+	SELECT 
+		C.COLUMN_NAME || DECODE(U.CONSTRAINT_TYPE,NULL,'','(PK)')
+	FROM 
+		COLS C 
+		LEFT OUTER JOIN
+		USER_CONS_COLUMNS UC 
+			ON(C.TABLE_NAME = UC.TABLE_NAME
+	   		AND C.COLUMN_NAME = UC.COLUMN_NAME)
+   		LEFT OUTER JOIN
+		USER_CONSTRAINTS U
+			ON (UC.OWNER           = UC.OWNER
+			AND UC.TABLE_NAME      = UC.TABLE_NAME
+	   		AND UC.CONSTRAINT_NAME = UC.CONSTRAINT_NAME
+	   		)
+	WHERE C.TABLE_NAME = #{table}
+	ORDER BY C.COLUMN_ID ASC
+	</select>
+	
+	<select id="getTableDatas" useCache="false" resultType="java.util.HashMap">
+	SELECT 
+		${columns}
+	FROM 
+		${table} 
+	ORDER BY
+		UPDATE_DATE DESC
+	</select>
+
+</mapper>
