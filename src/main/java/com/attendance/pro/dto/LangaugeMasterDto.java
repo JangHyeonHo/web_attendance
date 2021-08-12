@@ -2,9 +2,13 @@ package com.attendance.pro.dto;
 
 public class LangaugeMasterDto extends BaseDto {
     
-    /*
+    /**
+     * 
+     */
+    private static final long serialVersionUID = -6477122902675738944L;
+    /**
      * windowId, masterName, lang = PK
-     * */
+     */
     private String windowId;        //화면 아이디
     private String masterName;   //언어명
     private String lang;                 //언어

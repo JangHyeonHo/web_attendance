@@ -21,7 +21,7 @@ window_id, master_name, lang, langValue
 	FROM
 		LANGAUGE_MASTER 
 	WHERE
-		DEL_FLG = "0"
+		DEL_FLG = '0'
 </select>
 
 

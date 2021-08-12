@@ -10,9 +10,9 @@
 </head>
 <body>
 완료!
-<div th:each='log: ${successLogs}'>
-<div th:text="${log}"></div>
-<button th:if="${site}" onClick="location.href='./data_settings'">이어서 데이터 등록을 하시려면 이 버튼을 클릭하시오</button>
+<div th:each= "log: ${successLogs}">
+	<div th:text="${log}"></div>
 </div>
+<button th:if="${site}" onClick="location.href='./data_settings'">이어서 데이터 등록을 하시려면 이 버튼을 클릭하시오</button>
 </body>
 </html>

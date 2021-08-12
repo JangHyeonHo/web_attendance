@@ -1,8 +1,14 @@
 package com.attendance.pro.dto;
 
+import java.io.Serializable;
 import java.util.Date;
 
-public class BaseDto {
+public class BaseDto implements Serializable {
+    
+    /**
+     * 
+     */
+    private static final long serialVersionUID = 3837876586774989328L;
     
     private String registUser;      //등록자
     private Date registDate;        //등록일자

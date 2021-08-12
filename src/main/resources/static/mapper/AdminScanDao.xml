@@ -22,7 +22,7 @@
 	</insert>
 	
 	<update id="alterTable">
-	ALTER TABLE ${table} ${values}
+	ALTER TABLE ${columnAttribute}
 	
 	</update>
 	
@@ -30,6 +30,26 @@
 	COMMENT ON COLUMN ${comment}
 	
 	</insert>
+	
+	<insert id="insertData">
+		INSERT INTO ${table}
+		<foreach collection="columns"  item="column"  open="(" close=")" separator=",">
+	            #{column}
+	    </foreach>
+		VALUES
+		<foreach collection="datas"  item="data"  open="(" close=")" separator=",">
+	            #{data}
+	    </foreach>
+	</insert>
+	
+	<update id = "updateData">
+		UPDATE
+			${table}
+		SET
+			${update}
+		WHERE
+			${wheresPk}
+	</update>
 	
 	<select id="getTableColumns" useCache="false" resultType="java.lang.String">
 	SELECT 
@@ -42,9 +62,9 @@
 	   		AND C.COLUMN_NAME = UC.COLUMN_NAME)
    		LEFT OUTER JOIN
 		USER_CONSTRAINTS U
-			ON (UC.OWNER           = UC.OWNER
-			AND UC.TABLE_NAME      = UC.TABLE_NAME
-	   		AND UC.CONSTRAINT_NAME = UC.CONSTRAINT_NAME
+			ON (UC.OWNER           = U.OWNER
+			AND UC.TABLE_NAME      = U.TABLE_NAME
+	   		AND UC.CONSTRAINT_NAME = U.CONSTRAINT_NAME
 	   		)
 	WHERE C.TABLE_NAME = #{table}
 	ORDER BY C.COLUMN_ID ASC
@@ -74,6 +94,15 @@
 		${table} 
 	ORDER BY
 		UPDATE_DATE DESC
+	</select>
+	
+	<select id="getTableDataByColumnsPk" useCache="false" resultType="java.util.HashMap">
+	SELECT 
+		*
+	FROM 
+		${table} 
+	WHERE
+		${wheresPk}
 	</select>
 
 </mapper>

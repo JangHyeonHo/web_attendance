@@ -57,9 +57,34 @@ public interface AdminScanDao {
 
     /**
      * 테이블 칼럼 변경 로직
-     * @param alterNotNull
+     * @param columnAttribute
      * @return
      */
-    Integer alterTable(String alterNotNull);
+    Integer alterTable(@Param("columnAttribute") String columnAttribute);
+    
+    /**
+     * 데이터 입력 로직
+     * @param columns
+     * @param datas
+     * @return
+     */
+    Integer insertData(@Param("table") String table, @Param("columns") List<String> columns,
+            @Param("datas") String[] datas);
+
+    /**
+     * pk로 데이터 찾기
+     * @param wheresPk
+     * @return
+     */
+    Map<String, Object> getTableDataByColumnsPk(@Param("table") String table, @Param("wheresPk") String wheresPk);
+
+    /**
+     * 데이터 갱신 로직
+     * @param table
+     * @param string
+     * @param string2
+     */
+    Integer updateData(@Param("table") String table, @Param("update") String update,
+            @Param("wheresPk") String wheresPk);
 
 }

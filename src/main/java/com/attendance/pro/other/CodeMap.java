@@ -3,8 +3,75 @@ package com.attendance.pro.other;
 public class CodeMap {
     
     public final static String STRING_TRUE = "1";
+    public final static String ERROR = "E";
+    public final static String SUCCESS = "S";
+    public final static String RES = "res";
+    public final static String MSG = "msg";
+    public final static String RED= "redirect";
     
+    
+    
+    /**
+     * NullPointerException대응용 isEqual함수 
+     * @param a
+     * @param b
+     * @return
+     */
     public static boolean isEqual(String a, String b) {
+        if(a==null && b==null) return true;
+        if(a==null && b!=null) return false;
+        if(a!=null && b==null) return false;
+        return a.equals(b);
+    }
+    public static boolean isEqual(Object a, Object b) {
+        if(a==null && b==null) return true;
+        if(a==null && b!=null) return false;
+        if(a!=null && b==null) return false;
+        return a.equals(b);
+    }
+    public static boolean isEqual(Integer a, Integer b) {
+        if(a==null && b==null) return true;
+        if(a==null && b!=null) return false;
+        if(a!=null && b==null) return false;
+        return a.equals(b);
+    }
+    public static boolean isEqual(Double a, Double b) {
+        if(a==null && b==null) return true;
+        if(a==null && b!=null) return false;
+        if(a!=null && b==null) return false;
+        return a.equals(b);
+    }
+    public static boolean isEqual(Long a, Long b) {
+        if(a==null && b==null) return true;
+        if(a==null && b!=null) return false;
+        if(a!=null && b==null) return false;
+        return a.equals(b);
+    }
+    public static boolean isEqual(Float a, Float b) {
+        if(a==null && b==null) return true;
+        if(a==null && b!=null) return false;
+        if(a!=null && b==null) return false;
+        return a.equals(b);
+    }
+    public static boolean isEqual(Character a, Character b) {
+        if(a==null && b==null) return true;
+        if(a==null && b!=null) return false;
+        if(a!=null && b==null) return false;
+        return a.equals(b);
+    }
+    public static boolean isEqual(Short a, Short b) {
+        if(a==null && b==null) return true;
+        if(a==null && b!=null) return false;
+        if(a!=null && b==null) return false;
+        return a.equals(b);
+    }
+    public static boolean isEqual(Byte a, Byte b) {
+        if(a==null && b==null) return true;
+        if(a==null && b!=null) return false;
+        if(a!=null && b==null) return false;
+        return a.equals(b);
+    }
+    public static boolean isEqual(Boolean a, Boolean b) {
         if(a==null && b==null) return true;
         if(a==null && b!=null) return false;
         if(a!=null && b==null) return false;
