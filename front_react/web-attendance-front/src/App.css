@@ -5,6 +5,15 @@
   color : white;
 }
 
+.black {
+  color : black;
+}
+
+.black:hover{
+  color : gray;
+  text-decoration: underline;
+}
+
 .form-type-sm{
   width: 400px;
   margin: auto;

@@ -1,5 +1,6 @@
 import Login from './user_management/Login'
 import Index from './user_management/Index'
+import Admin from './user_management/Admin'
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
 import React, {useState, useEffect} from 'react';
@@ -32,6 +33,10 @@ function App() {
           return <Index />;
       case WindowId("login") :
           return <Login />;
+      case WindowId("admin") :
+          return <Admin />;
+      //case WindowId("member") :
+
       default :
           return <Index />;
     }
@@ -54,6 +59,10 @@ function App() {
               로그아웃
           </button>
           }
+          {/**테스트용 */}
+          <button className = "btn orange" onClick = {()=>windowChange(WindowId("admin"))}>
+              관리자
+          </button>
           {!data.user_name ?
           <button className = "btn orange" onClick = {()=>windowChange(WindowId("signup"))}>
               회원가입

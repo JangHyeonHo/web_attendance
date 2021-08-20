@@ -56,7 +56,7 @@ export default function Login(){
                     dirty
                 } = formik;
             return (
-                <div className="form-type-sm">
+                <div className="form-type-sm mt-5">
                     <Form className="form-control">
                         <h2 className = "text-center mt-3">LOGIN</h2>
                         <div className = "form-floating my-3">
@@ -90,19 +90,28 @@ export default function Login(){
                             <ErrorMessage name="user_pwd" component ="div" className="invalid-feedback" />
                             <label htmlFor="user_pwd">password</label>
                         </div>
-                        <div className = "mb-3">
+                        <div className = "mb-2">
                             <button type = "submit" 
-                                className= "btn orange col-6"
+                                className= "btn orange col-12"
                                 disabled = {!(dirty && isValid)}>
                                     로그인
                             </button>
-                            <button id = "password" 
-                                className="btn orange col-6"
+                        </div>
+                        <div id = "passwordConfirm" 
+                                role = "button"
+                                className="text-end my-1 black"
                                 onClick={()=>{
                                     Location.href="./pwdConfirm"
                                 }}>
                                     비밀번호 찾기
-                            </button>
+                        </div>
+                        <div id = "companyRegist" 
+                                role = "button"
+                                className="mb-4 text-end black"
+                                onClick={()=>{
+                                    Location.href="./companyRegist"
+                                }}>
+                                    아직 회사(부서) 등록하지 않으셨나요?
                         </div>
                     </Form>
                     {/**테스트용 */}
