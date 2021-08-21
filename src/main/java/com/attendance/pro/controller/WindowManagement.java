@@ -22,6 +22,7 @@ public class WindowManagement {
     public static String Logout = "W002"; 
     public static String SignUp = "W003"; 
     public static String Admin = "W004"; 
+    public static String Main = "W005"; 
     
     public boolean isConfirmPath(String windowId) {
         return confirmPath.get(windowId);
@@ -38,6 +39,7 @@ public class WindowManagement {
         path.put(Logout, false);
         path.put(SignUp, false);
         path.put(Admin, false); //test용 false -> 끝나면 true로 바꿈
+        path.put(Main, false);
         return path;
     }
     
