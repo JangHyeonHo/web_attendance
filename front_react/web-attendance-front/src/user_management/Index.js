@@ -3,6 +3,11 @@ import React from 'react';
 export default function Index(){
     
     return(
-        <div>Hello World</div>
+        <div>
+            Hello World
+            <div>
+                react
+            </div>
+        </div>
     );
 }

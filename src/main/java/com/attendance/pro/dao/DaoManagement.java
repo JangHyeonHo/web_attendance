@@ -33,6 +33,7 @@ public class DaoManagement {
         String userMaster = "{ USER_EMAIL : VARCHAR2(30) PK \"유저 이메일\", "
                 + "USER_PWD : VARCHAR2(200) NOT NULL \"유저 비밀번호\"," 
                 + "USER_NAME : VARCHAR2(50) \"유저 이름\"," 
+                + "DEPART_CD : VARCHAR2(50) \"부서 코드\"," 
                 + tableBase +"}";
         
         
