@@ -16,10 +16,18 @@ public class UserSessionInfo implements Serializable {
      */
     private static final long serialVersionUID = -4973990853064521029L;
     
-    
+    //유저 정보를 확인하기 위한 유저 코드
+    private String userCd = "";
+    //유저 이름
     private String userName = "";
     private boolean isLogin = false;
 
+    public String getUserCd() {
+        return userCd;
+    }
+    public void setUserCd(String userCd) {
+        this.userCd = userCd;
+    }
     public String getUserName() {
         return userName;
     }

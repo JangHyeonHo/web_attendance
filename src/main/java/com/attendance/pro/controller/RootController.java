@@ -12,6 +12,7 @@ import javax.annotation.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -44,6 +45,28 @@ public class RootController extends WindowManagement{
      */
     @PutMapping("/api")
     @ResponseBody
+    public Map<String,Object> putRootController(@RequestBody Map<String, Object> data) {
+        log.info(data.toString());
+        log.info(userInfo.getUserName());
+        log.debug("====index window open====");
+        Map<String, Object> resData = new HashMap<String, Object>();
+        Object winId = data.get("win_id");
+        String windowId = winId != null && !isEqual(winId, "null") ? String.valueOf(winId) : Index;
+        resData.put("window", windowId);
+        if(isEqual(loginAuth(windowId, resData),windowId)) {
+            
+        }
+        resData.put("user_name",userInfo.getUserName());
+        return resData;
+    }
+    
+    /**
+     * 이동 처리(미완성)
+     * @param data
+     * @return
+     */
+    @GetMapping("/api")
+    @ResponseBody
     public Map<String,Object> getRootController(@RequestBody Map<String, Object> data) {
         log.info(data.toString());
         log.info(userInfo.getUserName());
@@ -75,7 +98,6 @@ public class RootController extends WindowManagement{
         resData.put("window", windowId);
         if(isEqual(loginAuth(windowId, resData),windowId)) {
             if(isEqual(windowId,Login)) {
-                log.info("====Login Process Start====");
                 resData = userManagementService.loginProc(data, resData);
                 //로그인이 완료되면 세션에 로그인 정보를 등록
                 if(isEqual(resData.get(RES),SUCCESS)) {

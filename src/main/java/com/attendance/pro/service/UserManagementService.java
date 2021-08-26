@@ -37,6 +37,7 @@ public class UserManagementService extends BaseService {
      * @return
      */
     public Map<String, Object> loginProc(Map<String, Object> loginData, Map<String, Object> resData) {
+        log.info("====Login Process Start====");
         List<String> msgList = new ArrayList<String>();
         String userEmail = objectToString(loginData.get("user_email"));
         String userPwd = objectToString(loginData.get("user_pwd"));
@@ -44,6 +45,7 @@ public class UserManagementService extends BaseService {
         if(!loginValidationCheck(userEmail, userPwd , msgList)) {
             resData.put(MSG, msgList);
             resData.put(RES, ERROR);
+            log.info("====Login Process Login Error====");
             return resData;
         }
         //아이디와 비밀번호가 DB에 존재하는지 확인한다.
@@ -53,11 +55,13 @@ public class UserManagementService extends BaseService {
             msgList.add("존재하지 않는 이메일 혹은 비밀번호입니다.");
             resData.put(MSG, msgList);
             resData.put(RES, ERROR);
+            log.info("====Login Process Nothing ID====");
             return resData;
         }
         
         resData.put("user_name",user.getUserName());
         resData.put(RES, SUCCESS);
+        log.info("====Login Process End====");
         return resData;
     }
     
