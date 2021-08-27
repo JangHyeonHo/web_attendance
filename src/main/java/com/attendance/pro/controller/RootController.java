@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -39,43 +40,20 @@ public class RootController extends WindowManagement{
     private Logger log = LoggerFactory.getLogger(RootController.class);
     
     /**
-     * 화면 처리
-     * @param data
-     * @return
-     */
-    @PutMapping("/api")
-    @ResponseBody
-    public Map<String,Object> putRootController(@RequestBody Map<String, Object> data) {
-        log.info(data.toString());
-        log.info(userInfo.getUserName());
-        log.debug("====index window open====");
-        Map<String, Object> resData = new HashMap<String, Object>();
-        Object winId = data.get("win_id");
-        String windowId = winId != null && !isEqual(winId, "null") ? String.valueOf(winId) : Index;
-        resData.put("window", windowId);
-        if(isEqual(loginAuth(windowId, resData),windowId)) {
-            
-        }
-        resData.put("user_name",userInfo.getUserName());
-        return resData;
-    }
-    
-    /**
      * 이동 처리(미완성)
      * @param data
      * @return
      */
     @GetMapping("/api")
     @ResponseBody
-    public Map<String,Object> getRootController(@RequestBody Map<String, Object> data) {
-        log.info(data.toString());
-        log.info(userInfo.getUserName());
-        log.debug("====index window open====");
+    public Map<String,Object> getRootController(@RequestParam(name =  "win_id", required = false, defaultValue = "W000") String windowId) {
+        log.debug("====window open proc====");
+        log.info("debug : " + windowId);
+        String locationKey = "window";
         Map<String, Object> resData = new HashMap<String, Object>();
-        Object winId = data.get("win_id");
-        String windowId = winId != null && !isEqual(winId, "null") ? String.valueOf(winId) : Index;
-        resData.put("window", windowId);
-        if(isEqual(loginAuth(windowId, resData),windowId)) {
+        windowId = windowId != null ? windowId : Index;
+        resData.put(locationKey, windowId);
+        if(isEqual(loginAuth(windowId, resData, locationKey),windowId)) {
             
         }
         resData.put("user_name",userInfo.getUserName());
@@ -90,13 +68,15 @@ public class RootController extends WindowManagement{
     @PostMapping("/api")
     @ResponseBody
     public Map<String,Object> postLoginWindow(@RequestBody Map<String, Object> data) {
+        
+        String locationKey = "window";
         //확인용
-        log.info(data.toString());
+        log.info("debug : " + data.toString());
         Map<String, Object> resData = new HashMap<String, Object>();
         Object winId = data.get("win_id");
         String windowId = winId != null && !isEqual(winId, "null") ? String.valueOf(winId) : Index;
-        resData.put("window", windowId);
-        if(isEqual(loginAuth(windowId, resData),windowId)) {
+        resData.put(locationKey, windowId);
+        if(isEqual(loginAuth(windowId, resData, locationKey),windowId)) {
             if(isEqual(windowId,Login)) {
                 resData = userManagementService.loginProc(data, resData);
                 //로그인이 완료되면 세션에 로그인 정보를 등록
@@ -116,26 +96,26 @@ public class RootController extends WindowManagement{
         return resData;
     }
     
-    private String loginAuth(String windowId, Map<String, Object> resData) {
+    private String loginAuth(String windowId, Map<String, Object> resData, String key) {
         //1. 유저 로그인이 되어있어야 하는 페이지인지
         if(isConfirmPath(windowId)) {
             //2. 유저가 로그인이 되어 있는지
             if(!userInfo.isLogin()) {
                 //되어있지 않으면 로그인 화면으로
-                resData.put("window", Login);
+                resData.put(key, Login);
             } 
         } else {
             //유저가 로그인 중인지 유저가 로그인 중인데 로그인, 회원가입 화면을 띄웠는지 => 띄웠으면 기본화면으로
             if(userInfo.isLogin() && (isEqual(windowId, Login) || isEqual(windowId, SignUp))) {
-                resData.put("window", Index);
+                resData.put(key, Index);
             //유저가 로그인중인데 로그아웃을 호출했는지
             } else if(isEqual(windowId, Logout)){
                 userInfo.setLogin(false);
                 userInfo.setUserName("");
-                resData.put("window", Login);
+                resData.put(key, Login);
             } 
         }
-        return String.valueOf(resData.get("window"));
+        return String.valueOf(resData.get(key));
     }
 
 }

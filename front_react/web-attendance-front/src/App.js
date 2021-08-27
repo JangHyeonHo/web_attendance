@@ -9,22 +9,28 @@ import WindowId from './WindowId';
 import axios from 'axios';
 
 function App() {
-  const callId = {location_id};
-
   const [data, setData] = useState('');
 
-  function windowChange(windowId){
-      const headers = {
-        'Content-type': 'application/json'
+  function windowChange(win_id){
+    console.log(win_id);
+    console.log(WindowId(win_id));
+    var url = "";
+      if(win_id!==""){
+        url = '?win_id='+WindowId(win_id);
       }
-      axios.put('/api',{"win_id" : windowId},{headers}).then(res=>{
+      console.log(window.location)
+      console.log(url);
+      axios.get('/api'+url).then(res=>{
+        console.log(res);
         setData(res.data);
+        componentCall();
       });
   }
 
   useEffect(
     ()=>{
-        windowChange(callId);
+      const win_id = window.location.pathname.replace('/','');
+      windowChange(win_id);
     }, []
   );
 
@@ -40,7 +46,7 @@ function App() {
       //case WindowId("member") :
 
       default :
-          return <Index />;
+          return <LoadingWindow/>;
     }
   }
   
@@ -49,29 +55,33 @@ function App() {
     <Router>
       <div>
         <header>
-          <button className = "btn orange" onClick = {()=>windowChange(WindowId("index"))}>
+          <button className = "btn orange" onClick = {()=>windowChange('index')}>
               홈
           </button>
           {!data.user_name ?
-          <button className = "btn orange" onClick = {()=>windowChange(WindowId("login"))}>
+          <button className = "btn orange" onClick = {()=>windowChange('login')}>
               로그인
           </button>
           :
-          <button className = "btn orange" onClick = {()=>windowChange(WindowId("logout"))}>
+          <button className = "btn orange" onClick = {()=>windowChange('logout')}>
               로그아웃
           </button>
           }
           {/**테스트용 */}
-          <button className = "btn orange" onClick = {()=>windowChange(WindowId("admin"))}>
+          <button className = "btn orange" onClick = {()=>windowChange('admin')}>
               관리자
           </button>
           {!data.user_name ?
-          <button className = "btn orange" onClick = {()=>windowChange(WindowId("signup"))}>
+          <button className = "btn orange" onClick = {()=>windowChange('signup')}>
               회원가입
           </button>
           :
           <span>{data.user_name} 님</span>
           }
+          <button className= "btn orange col-6" id = "admin" onClick={()=>{
+                        window.location.replace("/admin");
+                    }}>화면이동 테스트용
+          </button>
         </header>
         <div className="Contents">
           <Route path="/" component={componentCall} />
@@ -81,6 +91,12 @@ function App() {
   );
 
 
+}
+
+function LoadingWindow(){
+  return (
+    <div></div>
+  );
 }
 
 export default App;

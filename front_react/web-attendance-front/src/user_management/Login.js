@@ -4,8 +4,9 @@ import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 import WindowId from '../WindowId';
 import axios from 'axios';
+import Router, { Route } from 'react-router-dom'
 
-export default function Login(){
+export default function Login({history}){
     const initData = { user_email : "", user_pwd : "", win_id : WindowId("login")};
     
     async function submitLoginProc(values){
@@ -39,7 +40,7 @@ export default function Login(){
                 submitLoginProc(values).then((resp)=>{
                     const retData = resp.data;
                     if(retData.res==="S"){
-                        window.location.replace("/");
+                        window.location.replace('/'+WindowId("index"));
                     } else{
                         setErrors({user_email:retData.msg,user_pwd:retData.msg});
                     }
@@ -109,8 +110,10 @@ export default function Login(){
                     {/**테스트용 */}
                     <button className= "btn orange col-6" id = "admin" onClick={()=>{
                         const values = { user_email : "admin@webatt.com", user_pwd : "adminadmin1!", win_id : "W001"};
-                        submitLoginProc(values);
-                        window.location.replace("/");
+                        submitLoginProc(values).then((resp)=>{
+                            const retData = resp.data;
+                            window.location.replace('/?win_id=W004');
+                        });
                     }}>test용 관리자 로그인</button>
                 </div>
             );
