@@ -101,17 +101,9 @@ export default function Login(){
                                 role = "button"
                                 className="text-end my-1 black"
                                 onClick={()=>{
-                                    Location.href="./pwdConfirm"
+                                    Location.href="./?winId=pwdConfirm"
                                 }}>
                                     비밀번호 찾기
-                        </div>
-                        <div id = "companyRegist" 
-                                role = "button"
-                                className="mb-4 text-end black"
-                                onClick={()=>{
-                                    Location.href="./companyRegist"
-                                }}>
-                                    아직 회사(부서) 등록하지 않으셨나요?
                         </div>
                     </Form>
                     {/**테스트용 */}

@@ -9,6 +9,8 @@ import WindowId from './WindowId';
 import axios from 'axios';
 
 function App() {
+  const callId = {location_id};
+
   const [data, setData] = useState('');
 
   function windowChange(windowId){
@@ -22,7 +24,7 @@ function App() {
 
   useEffect(
     ()=>{
-        windowChange(null);
+        windowChange(callId);
     }, []
   );
 
