@@ -15,8 +15,11 @@ function App() {
     console.log(win_id);
     console.log(WindowId(win_id));
     var url = "";
-      if(win_id!==""){
-        url = '?win_id='+WindowId(win_id);
+      if(win_id !== ""){
+        const encodeId = WindowId(win_id);
+        if(encodeId !== undefined){
+          url = '?win_id='+encodeId;
+        }
       }
       console.log(window.location)
       console.log(url);
@@ -46,7 +49,7 @@ function App() {
       //case WindowId("member") :
 
       default :
-          return <LoadingWindow/>;
+          return (<div></div>);
     }
   }
   
@@ -91,12 +94,6 @@ function App() {
   );
 
 
-}
-
-function LoadingWindow(){
-  return (
-    <div></div>
-  );
 }
 
 export default App;

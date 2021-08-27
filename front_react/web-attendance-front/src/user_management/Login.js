@@ -40,7 +40,7 @@ export default function Login({history}){
                 submitLoginProc(values).then((resp)=>{
                     const retData = resp.data;
                     if(retData.res==="S"){
-                        window.location.replace('/'+WindowId("index"));
+                        window.location.replace('/index');
                     } else{
                         setErrors({user_email:retData.msg,user_pwd:retData.msg});
                     }
@@ -112,7 +112,7 @@ export default function Login({history}){
                         const values = { user_email : "admin@webatt.com", user_pwd : "adminadmin1!", win_id : "W001"};
                         submitLoginProc(values).then((resp)=>{
                             const retData = resp.data;
-                            window.location.replace('/?win_id=W004');
+                            window.location.replace('/admin');
                         });
                     }}>test용 관리자 로그인</button>
                 </div>
