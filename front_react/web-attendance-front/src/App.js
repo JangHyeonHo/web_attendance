@@ -43,7 +43,7 @@ function App() {
       case WindowId("index") :
           return <Index />;
       case WindowId("login") :
-          return <Login />;
+          return <Login windows={data.windows}/>;
       case WindowId("admin") :
           return <Admin />;
       //case WindowId("member") :
@@ -52,40 +52,47 @@ function App() {
           return (<div></div>);
     }
   }
+
+  function headerChange(){
+    console.log(data);
+    //document.getElementById('home').innerText();
+  }
   
 
   return (
     <Router>
       <div>
-        <header>
-          <button className = "btn orange" onClick = {()=>windowChange('index')}>
-              홈
-          </button>
-          {!data.user_name ?
-          <button className = "btn orange" onClick = {()=>windowChange('login')}>
-              로그인
-          </button>
-          :
-          <button className = "btn orange" onClick = {()=>windowChange('logout')}>
-              로그아웃
-          </button>
-          }
-          {/**테스트용 */}
-          <button className = "btn orange" onClick = {()=>windowChange('admin')}>
-              관리자
-          </button>
-          {!data.user_name ?
-          <button className = "btn orange" onClick = {()=>windowChange('signup')}>
-              회원가입
-          </button>
-          :
-          <span>{data.user_name} 님</span>
-          }
-          <button className= "btn orange col-6" id = "admin" onClick={()=>{
-                        window.location.replace("/admin");
-                    }}>화면이동 테스트용
-          </button>
-        </header>
+        {data.headers ?
+          <header>
+            <button id="home" className = "btn orange" onClick = {()=>windowChange('index')}>
+              {data.headers.HOME}
+            </button>
+            {!data.user_name ?
+            <button id="login" className = "btn orange" onClick = {()=>windowChange('login')}>
+              {data.headers.LOGIN}
+            </button>
+            :
+            <button id="logout" className = "btn orange" onClick = {()=>windowChange('logout')}>
+              {data.headers.LOGOUT}
+            </button>
+            }
+            {/**테스트용 */}
+            <button id="admin" className = "btn orange" onClick = {()=>windowChange('admin')}>
+              {data.headers.ADMIN}
+            </button>
+            {!data.user_name ?
+            <button id="signup" className = "btn orange" onClick = {()=>windowChange('signup')}>
+              {data.headers.SIGNUP}
+            </button>
+            :
+            <span>{data.user_name} 님</span>
+            }
+            <button className= "btn orange col-6" id = "admin" onClick={()=>{
+                          window.location.replace("/admin");
+                      }}>화면이동 테스트용
+            </button>
+          </header>
+        : <header></header> }
         <div className="Contents">
           <Route path="/" component={componentCall} />
         </div>

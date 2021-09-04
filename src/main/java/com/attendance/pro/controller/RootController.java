@@ -5,16 +5,17 @@ import static com.attendance.pro.other.CodeMap.SUCCESS;
 import static com.attendance.pro.other.CodeMap.isEqual;
 
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -46,7 +47,9 @@ public class RootController extends WindowManagement{
      */
     @GetMapping("/api")
     @ResponseBody
-    public Map<String,Object> getRootController(@RequestParam(name =  "win_id", required = false, defaultValue = "W000") String windowId) {
+    public Map<String,Object> getRootController(@RequestParam(name =  "win_id", required = false, defaultValue = "W000") String windowId,
+            HttpServletRequest request) {
+        Locale locale = request.getLocale();
         log.debug("====window open proc====");
         log.info("debug : " + windowId);
         String locationKey = "window";
@@ -56,6 +59,11 @@ public class RootController extends WindowManagement{
         if(isEqual(loginAuth(windowId, resData, locationKey),windowId)) {
             
         }
+        //test용
+       // resData.put("windows", getLangOfValueMapping((String)resData.get(locationKey), Locale.ENGLISH));
+        //resData.put("headers", getLangOfValueMapping(Default, Locale.ENGLISH));
+        resData.put("windows", getLangOfValueMapping((String)resData.get(locationKey), locale));
+        resData.put("headers", getLangOfValueMapping(Default, locale));
         resData.put("user_name",userInfo.getUserName());
         return resData;
     }

@@ -9,7 +9,9 @@ public class CodeMap {
     public final static String MSG = "msg";
     public final static String RED= "redirect";
     
-    
+
+    public final static String Korean = "KOR";
+    public final static String English = "ENG";
     
     /**
      * NullPointerException대응용 isEqual함수 
@@ -81,6 +83,15 @@ public class CodeMap {
     //A가 B들중에서 하나라도 같은값이 있으면 TRUE
     public static boolean isEqualMultyisOne(String a, String... b) {
         for(String c : b) {
+            if(isEqual(a,  c)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    public static boolean isEqualMultyisOne(Object a, Object... b) {
+        for(Object c : b) {
             if(isEqual(a,  c)) {
                 return true;
             }

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.attendance.pro.dao.LanguageMasterDao">
+
+<sql id="columns">
+WINDOW_ID, FRONT_LANG, LANG, OPTION_VALUE, LANG_VALUE
+</sql>
+
+<resultMap type="com.attendance.pro.dto.LanguageMasterDto" id="LanguageMasterDto">
+	<result column="WINDOW_ID"  property="windowId"  javaType="java.lang.String"/>
+	<result column="FRONT_LANG"  property="frontLang" javaType="java.lang.String"/>
+	<result column="LANG" property="lang" javaType="java.lang.String"/>
+	<result column="OPTION_VALUE"  property="optionValue" javaType="java.lang.Integer"/>
+	<result column="LANG_VALUE"  property="langValue" javaType="java.lang.String"/>
+</resultMap>
+
+<select id="getAllLangs" resultMap="LanguageMasterDto">
+	SELECT <include refid="columns"></include>
+	FROM
+		LANGUAGE_MST
+	WHERE
+		DEL_FLG = '0'
+		<if test="lang!=null">
+		AND LANG = #{lang}
+		</if>
+		<if test="window!=null">
+		AND WINDOW_ID = #{window}
+		</if>
+	ORDER BY WINDOW_ID
+</select>
+
+<insert id="insertData" parameterType="com.attendance.pro.dto.LanguageMasterDto">
+	INSERT INTO LANGUAGE_MST
+		(WINDOW_ID, FRONT_LANG, LANG, OPTION_VALUE, LANG_VALUE, REGIST_USER, REGIST_DATE, UPDATE_USER, UPDATE_DATE, UPDATE_CNT, DEL_FLG)
+	VALUES(#{windowId }, #{frontLang}, #{lang}, #{optionValue}, #{langValue}, 'SYSTEM', sysdate, 'SYSTEM', sysdate, 0, '0')
+</insert>
+
+
+</mapper>

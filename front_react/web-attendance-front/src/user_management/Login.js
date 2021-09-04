@@ -6,7 +6,7 @@ import WindowId from '../WindowId';
 import axios from 'axios';
 import Router, { Route } from 'react-router-dom'
 
-export default function Login({history}){
+export default function Login({window}){
     const initData = { user_email : "", user_pwd : "", win_id : WindowId("login")};
     
     async function submitLoginProc(values){
@@ -59,7 +59,7 @@ export default function Login({history}){
             return (
                 <div className="form-type-sm mt-5">
                     <Form className="form-control">
-                        <h2 className = "text-center mt-3">LOGIN</h2>
+                        <h2 className = "text-center mt-3">{windows.LOGIN}</h2>
                         <div className = "form-floating my-3">
                             <Field type = "text" 
                                 id = "user_email" 
@@ -75,7 +75,7 @@ export default function Login({history}){
                                 required
                                 autoComplete="off"/>
                             <ErrorMessage name="user_email" component ="div" className="invalid-feedback" />
-                            <label htmlFor="user_id">Email</label>
+                            <label htmlFor="user_id">{windows.EMAIL}</label>
                         </div>
                         <div className = "form-floating mb-4">
                             <Field type = "password" 
@@ -89,13 +89,13 @@ export default function Login({history}){
                                     } 
                                 required/>
                             <ErrorMessage name="user_pwd" component ="div" className="invalid-feedback" />
-                            <label htmlFor="user_pwd">password</label>
+                            <label htmlFor="user_pwd">{windows.PWD}</label>
                         </div>
                         <div className = "mb-2">
                             <button type = "submit" 
                                 className= "btn orange col-12"
                                 disabled = {!(dirty && isValid)}>
-                                    로그인
+                                    {windows.LOGIN}
                             </button>
                         </div>
                         <div id = "passwordConfirm" 
@@ -104,7 +104,7 @@ export default function Login({history}){
                                 onClick={()=>{
                                     Location.href="./?winId=pwdConfirm"
                                 }}>
-                                    비밀번호 찾기
+                                    {windows.PWDSEARCH}
                         </div>
                     </Form>
                     {/**테스트용 */}

@@ -28,6 +28,8 @@ import org.springframework.web.servlet.ModelAndView;
 
 import com.attendance.pro.dao.AdminScanDao;
 import com.attendance.pro.dao.DaoManagement;
+import com.attendance.pro.dao.LanguageMasterDao;
+import com.attendance.pro.dto.LanguageMasterDto;
 
 @Component
 public class AdminSettingLogic {
@@ -77,6 +79,9 @@ public class AdminSettingLogic {
 
     @Autowired
     AdminScanDao adminScanDao;
+    
+    @Autowired
+    LanguageMasterDao languageMasterDao;
     
     //제외 컬럼 확인용
     private boolean exceptColumn(String columns) {
@@ -699,6 +704,14 @@ public class AdminSettingLogic {
             return false;
         }
         return true;
+    }
+
+    public List<LanguageMasterDto> getAllLangs(String lang, String windowId) {
+        return languageMasterDao.getAllLangs(lang, windowId);
+    }
+
+    public int insertLangMst(LanguageMasterDto dto) {
+        return languageMasterDao.insertData(dto);
     }
 
 }
