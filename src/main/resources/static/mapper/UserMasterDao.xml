@@ -10,6 +10,7 @@ user_email, user_pwd, user_name
 </sql>
 
 <resultMap type="com.attendance.pro.dto.UserDto" id="UserDto">
+	<result column="user_cd" property="userCd" />
 	<result column="user_email" property="userEmail" />
 	<result column="user_pwd" property="userPwd" />
 	<result column="user_name" property="userName" />
@@ -17,7 +18,7 @@ user_email, user_pwd, user_name
 
 <select id="getUser" resultMap="UserDto">
 	SELECT 
-		USER_NAME
+		USER_CD, USER_NAME
 	FROM
 		USER_MST 
 	WHERE

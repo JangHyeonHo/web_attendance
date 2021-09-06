@@ -5,8 +5,10 @@ import static com.attendance.pro.other.CodeMap.MSG;
 import static com.attendance.pro.other.CodeMap.RES;
 import static com.attendance.pro.other.CodeMap.SUCCESS;
 
+import java.math.BigInteger;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -40,7 +42,7 @@ public class UserManagementService extends BaseService {
         log.info("====Login Process Start====");
         List<String> msgList = new ArrayList<String>();
         String userEmail = objectToString(loginData.get("user_email"));
-        String userPwd = objectToString(loginData.get("user_pwd"));
+        String userPwd = passwordEncrypt(objectToString(loginData.get("user_pwd")));
         //서버에서 한 번 더 유효성을 검사한다.
         if(!loginValidationCheck(userEmail, userPwd , msgList)) {
             resData.put(MSG, msgList);
@@ -60,6 +62,7 @@ public class UserManagementService extends BaseService {
         }
         
         resData.put("user_name",user.getUserName());
+        resData.put("user_cd",user.getUserCd());
         resData.put(RES, SUCCESS);
         log.info("====Login Process End====");
         return resData;
@@ -74,6 +77,25 @@ public class UserManagementService extends BaseService {
      */
     private boolean loginValidationCheck(String userEmail, String userPwd, List<String> msgList) {
         return true;
+    }
+    
+    /**
+     * 비밀번호 암호화 로직(단방향)(SHA-512)
+     * @param originPwd 원래 비밀번호
+     * @return 암호화된 비밀번호
+     */
+    private String passwordEncrypt(String originPwd) {
+        String encryptPwd = new String();
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-512");
+            md.update(originPwd.getBytes());
+            encryptPwd = String.format("%0128x", new BigInteger(1, md.digest()));
+            log.info(encryptPwd);
+        } catch (NoSuchAlgorithmException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+        return encryptPwd;
     }
 
 }

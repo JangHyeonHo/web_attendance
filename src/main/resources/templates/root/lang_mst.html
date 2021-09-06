@@ -16,6 +16,28 @@ $(function(){
 		$("#searchs").toggle("fast");
 	})
 	
+	$(".windowRefer").on("click",function(){
+		var windowId = $(this).parent().prevAll().eq(4).text();
+		$("#windowId").val(windowId).prop("selected",true);
+		$("#windowId").attr("disabled", true);
+		$("#forms").show("fast");
+	})
+	
+	$(".langRefer").on("click",function(){
+		var langVal = $(this).parent().prevAll().eq(0).text();
+		var option = $(this).parent().prevAll().eq(1).text();
+		var frontLang = $(this).parent().prevAll().eq(3).text();
+		var windowId = $(this).parent().prevAll().eq(4).text();
+		$("#windowId").val(windowId).prop("selected",true);
+		$("#windowId").attr("disabled", true);
+		$("#frontLang").val(frontLang);
+		$("#frontLang").attr("disabled", true);
+		$("#optionValue").val(option)
+		$("#optionValue").attr("disabled", true);
+		$("#langValue").val(langVal)
+		$("#forms").show("fast");
+	})
+	
 	$("#search").on("click",function(){
 		var winVal = $("#qwindowId").val();
 		var langVal = $("#qlang").val();
@@ -38,7 +60,10 @@ $(function(){
 	
 	$("form").on("submit",function(event){
 		event.preventDefault();
-		var queryString = $("form").serialize();		
+    	$("#windowId").attr("disabled", false);
+    	$("#frontLang").attr("disabled", false);
+    	$("#optionValue").attr("disabled", false);
+		var queryString = $("form").serialize();
 		$.ajax({
 			type : 'post',
             url : './lang_mst',
@@ -133,20 +158,22 @@ $(function(){
 			<th scope="col">언어</th>
 			<th scope="col">옵션 값</th>
 			<th scope="col">언어 값</th>
+			<th scope="col">항목 참조(빠른 등록)</th>
 			<th scope="col">삭제 상황</th>
 		</tr>
 	</thead>
 	<tbody>
 		<tr class = "table-light"  th:if="${langs.isEmpty()}">
-			<td class="text-center fw-bold text-danger" colspan="6">데이터가 존재하지 않습니다.</td>
+			<td class="text-center fw-bold text-danger" colspan="7">데이터가 존재하지 않습니다.</td>
 		</tr>
 		<tr class = "table-light" th:each= "lang: ${langs}">
-			<td  th:text="${lang.windowId}"></td>
-			<td  th:text="${lang.frontLang}"></td>
-			<td  th:text="${lang.lang}"></td>
-			<td  th:text="${lang.optionValue}"></td>
-			<td  th:text="${lang.langValue}"></td>
-			<td>현재 미지원</td>
+			<td class="align-middle" th:text="${lang.windowId}"></td>
+			<td class="align-middle"  th:text="${lang.frontLang}"></td>
+			<td class="align-middle"  th:text="${lang.lang}"></td>
+			<td class="align-middle"  th:text="${lang.optionValue}"></td>
+			<td class="align-middle"  th:text="${lang.langValue}"></td>
+			<td><button class="windowRefer btn btn-warning">화면참조</button><button class="langRefer btn btn-success">언어참조</button></td>
+			<td class="align-middle" >현재 미지원</td>
 		</tr>
 </tbody>
 </table>

@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.attendance.pro.config.UserSessionInfo;
+import com.attendance.pro.service.AttendanceService;
 import com.attendance.pro.service.UserManagementService;
 
 /**
@@ -37,6 +38,9 @@ public class RootController extends WindowManagement{
     
     @Autowired
     private UserManagementService userManagementService = null;
+    
+    @Autowired
+    private AttendanceService attendanceService = null;
     
     private Logger log = LoggerFactory.getLogger(RootController.class);
     
@@ -56,14 +60,25 @@ public class RootController extends WindowManagement{
         Map<String, Object> resData = new HashMap<String, Object>();
         windowId = windowId != null ? windowId : Index;
         resData.put(locationKey, windowId);
-        if(isEqual(loginAuth(windowId, resData, locationKey),windowId)) {
-            
+        windowId = loginAuth(windowId, resData, locationKey);
+        if(isEqual(windowId,Login)) {
+            log.info("====Login Process Start====");
+        } else if(isEqual(windowId,SignUp)) {
+            log.info("====SignUp Process Start====");
+        } else if(isEqual(windowId,Attendance)) {
+            resData = attendanceService.getAttendanceData(userInfo.getUserCd(), resData);
         }
         //test용
        // resData.put("windows", getLangOfValueMapping((String)resData.get(locationKey), Locale.ENGLISH));
         //resData.put("headers", getLangOfValueMapping(Default, Locale.ENGLISH));
-        resData.put("windows", getLangOfValueMapping((String)resData.get(locationKey), locale));
-        resData.put("headers", getLangOfValueMapping(Default, locale));
+        Map<String, String> windowData = getLangOfValueMapping(String.valueOf(resData.get(locationKey)), locale);
+        if(windowData!=null) {
+            resData.put("windows", windowData);
+        }
+        Map<String, String> headerData = getLangOfValueMapping(Default, locale);
+        if(headerData!=null) {
+            resData.put("headers", headerData);
+        }
         resData.put("user_name",userInfo.getUserName());
         return resData;
     }
@@ -75,7 +90,7 @@ public class RootController extends WindowManagement{
      */
     @PostMapping("/api")
     @ResponseBody
-    public Map<String,Object> postLoginWindow(@RequestBody Map<String, Object> data) {
+    public Map<String,Object> postRootController(@RequestBody Map<String, Object> data) {
         
         String locationKey = "window";
         //확인용
@@ -90,12 +105,15 @@ public class RootController extends WindowManagement{
                 //로그인이 완료되면 세션에 로그인 정보를 등록
                 if(isEqual(resData.get(RES),SUCCESS)) {
                     //로그인 완료 후 메인화면으로
-                    resData.put("window", Index);
+                    resData.put("window", Attendance);
                     userInfo.setUserName(String.valueOf(resData.get("user_name")));
+                    userInfo.setUserCd(String.valueOf(resData.get("user_cd")));
                     userInfo.setLogin(true);
                 }
             } else if(isEqual(windowId,SignUp)) {
                 log.info("====SignUp Process Start====");
+            } else if(isEqual(windowId,Attendance)) {
+                resData = attendanceService.attendanceProc(userInfo.getUserCd(), data, resData);
             }
             
         } else {
@@ -113,9 +131,9 @@ public class RootController extends WindowManagement{
                 resData.put(key, Login);
             } 
         } else {
-            //유저가 로그인 중인지 유저가 로그인 중인데 로그인, 회원가입 화면을 띄웠는지 => 띄웠으면 기본화면으로
-            if(userInfo.isLogin() && (isEqual(windowId, Login) || isEqual(windowId, SignUp))) {
-                resData.put(key, Index);
+            //유저가 로그인 중인지 유저가 로그인 중인데 로그인, 회원가입, 홈 화면을 띄웠는지 => 띄웠으면 출결화면으로
+            if(userInfo.isLogin() && (isEqual(windowId, Login) || isEqual(windowId, SignUp) || isEqual(windowId, Index))) {
+                resData.put(key, Attendance);
             //유저가 로그인중인데 로그아웃을 호출했는지
             } else if(isEqual(windowId, Logout)){
                 userInfo.setLogin(false);

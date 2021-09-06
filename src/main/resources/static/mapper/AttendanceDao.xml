@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.attendance.pro.dao.AttendanceDao">
+
+<sql id="columns">
+ATTENDANCE_DATE, ATTENDANCE_SEQ, ATTENDANCE_TYPE,
+ATTENDANCE_STATUS, USER_CD, ATTENDANCE_REG_DATE,
+ATTENDANCE_UPD_DATE, ATTENDANCE_DEL_DATE, ATTENDANCE_UPD_CNT,
+ATTENDANCE_DEL_CNT, LATITUDE, LONGITUDE, PLACE_INFO, TERMINAL,
+ERROR_CD,ERROR_MSG
+</sql>
+
+<resultMap type="com.attendance.pro.dto.AttendanceDto" id="AttendanceDto">
+	<result column="ATTENDANCE_DATE"  property="attendanceDate"  javaType="java.util.Date"/>
+	<result column="ATTENDANCE_SEQ"  property="attendanceSeq" javaType="java.lang.Integer"/>
+	<result column="ATTENDANCE_TYPE" property="attendanceType" javaType="java.lang.Integer"/>
+	<result column="ATTENDANCE_STATUS"  property="attendanceStatus" javaType="java.lang.Integer"/>
+	<result column="ATTENDANCE_REG_DATE"  property="attendanceRegDate" javaType="java.util.Date"/>
+	<result column="ATTENDANCE_UPD_DATE"  property="attendanceUpdDate" javaType="java.util.Date"/>
+	<result column="ATTENDANCE_DEL_DATE"  property="attendanceDelDate" javaType="java.util.Date"/>
+	<result column="ATTENDANCE_UPD_CNT"  property="attendanceUpdCnt" javaType="java.lang.Integer"/>
+	<result column="ATTENDANCE_DEL_CNT"  property="attendanceDelCnt" javaType="java.lang.Integer"/>
+	<result column="LATITUDE"  property="latitude" javaType="java.lang.String"/>
+	<result column="LONGITUDE"  property="longitude" javaType="java.lang.String"/>
+	<result column="PLACE_INFO"  property="placeInfo" javaType="java.lang.String"/>
+	<result column="TERMINAL"  property="terminal" javaType="java.lang.String"/>
+	<result column="ERROR_CD"  property="errorCd" javaType="java.lang.String"/>
+	<result column="ERROR_MSG"  property="errorMsg" javaType="java.lang.String"/>
+	<result column="USER_CD"  property="userDto.userCd" javaType="java.lang.String"/>
+</resultMap>
+
+<select id="getAttendanceSeq" resultType="java.lang.Integer">
+	SELECT 
+		NVL(MAX(ATTENDANCE_SEQ),'0')
+	FROM
+		ATTENDANCE
+	WHERE
+		ATTENDANCE_DATE <![CDATA[>]]> TRUNC(SYSDATE)
+		AND USER_CD            = #{userCd}
+</select>
+
+<insert id="registAttendance" parameterType="com.attendance.pro.dto.AttendanceDto">
+	INSERT INTO ATTENDANCE
+		(ATTENDANCE_DATE, ATTENDANCE_SEQ, ATTENDANCE_TYPE,
+		 USER_CD, LATITUDE, LONGITUDE, PLACE_INFO, TERMINAL,
+		 <if test='errorCd != null'>
+		 	ERROR_CD, ERROR_MSG,
+		 </if>
+		 REGIST_USER, REGIST_DATE, UPDATE_USER, UPDATE_DATE, UPDATE_CNT, DEL_FLG)
+	VALUES(#{attendanceDate, jdbcType=DATE}, #{attendanceSeq, jdbcType=INTEGER}, 
+	#{attendanceType, jdbcType=INTEGER}, #{userDto.userCd, jdbcType=VARCHAR}, 
+	#{latitude, jdbcType=VARCHAR}, #{longitude, jdbcType=VARCHAR}, 
+	#{placeInfo, jdbcType=VARCHAR}, #{terminal, jdbcType=VARCHAR},
+	 <if test='errorCd != null'>
+		 	#{errorCd, jdbcType=VARCHAR}, #{errorMsg, jdbcType=VARCHAR},
+		 </if>
+	 'SYSTEM', SYSDATE, 'SYSTEM', SYSDATE, 0, '0')
+</insert>
+
+<select id="getNewestAttendance" resultMap="AttendanceDto">
+	SELECT ATTENDANCE_TYPE, ATTENDANCE_STATUS, ATTENDANCE_REG_DATE
+	FROM 
+	(SELECT 
+			ATTENDANCE_TYPE, ATTENDANCE_STATUS, ATTENDANCE_REG_DATE
+		FROM
+			ATTENDANCE
+		WHERE
+			USER_CD            = #{userCd}
+			AND ATTENDANCE_REG_DATE <![CDATA[>]]> TRUNC(SYSDATE-30) 
+		 	AND (ATTENDANCE_TYPE = '4' 
+		 			OR (ATTENDANCE_TYPE != '4' 
+		 			AND ATTENDANCE_STATUS  = '0'))
+		ORDER BY ATTENDANCE_REG_DATE DESC) A1
+	WHERE ROWNUM = '1'
+</select>
+
+<select id="getNewestAttendData" resultMap="AttendanceDto">
+	SELECT ATTENDANCE_TYPE, ATTENDANCE_STATUS, ATTENDANCE_REG_DATE
+	FROM 
+	(SELECT 
+			ATTENDANCE_TYPE, ATTENDANCE_STATUS, ATTENDANCE_REG_DATE
+		FROM
+			ATTENDANCE
+		WHERE
+			USER_CD            = #{userCd}
+			AND ATTENDANCE_REG_DATE <![CDATA[>]]> TRUNC(SYSDATE-30) 
+		 	AND ATTENDANCE_TYPE = '1' 
+		 	AND ATTENDANCE_STATUS  = '0'))
+		ORDER BY ATTENDANCE_REG_DATE DESC) A1
+	WHERE ROWNUM = '1'
+</select>
+
+
+</mapper>

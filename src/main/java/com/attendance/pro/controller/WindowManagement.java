@@ -33,7 +33,7 @@ public class WindowManagement {
     public static String Logout = "W002"; 
     public static String SignUp = "W003"; 
     public static String Admin = "W004"; 
-    public static String Main = "W005"; 
+    public static String Attendance = "W005"; 
     
     public boolean isConfirmPath(String windowId) {
         return confirmPath.get(windowId);
@@ -45,12 +45,12 @@ public class WindowManagement {
      */
     private static Map<String,Boolean> setConfirmPath() {
         Map<String,Boolean> path = new HashMap<String, Boolean>();
-        path.put(Index, true);
+        path.put(Index, false);
         path.put(Login, false);
         path.put(Logout, false);
         path.put(SignUp, false);
         path.put(Admin, false); //test용 false -> 끝나면 true로 바꿈
-        path.put(Main, false);
+        path.put(Attendance, true); 
         path.put(Default, false);
         return path;
     }
@@ -99,7 +99,7 @@ public class WindowManagement {
         allId.add(Logout);
         allId.add(SignUp);
         allId.add(Admin);
-        allId.add(Main);
+        allId.add(Attendance);
         allId.add(Default);
         return allId;
     }

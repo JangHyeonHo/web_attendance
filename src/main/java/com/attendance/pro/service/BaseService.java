@@ -9,7 +9,7 @@ public class BaseService {
         if(e instanceof String) {
             return String.valueOf(e);
         }
-        return null;
+        return e.toString();
     }
     
     protected Integer objectToInteger(Object e) {

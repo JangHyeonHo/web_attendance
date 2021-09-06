@@ -35,7 +35,7 @@ WINDOW_ID, FRONT_LANG, LANG, OPTION_VALUE, LANG_VALUE
 <insert id="insertData" parameterType="com.attendance.pro.dto.LanguageMasterDto">
 	INSERT INTO LANGUAGE_MST
 		(WINDOW_ID, FRONT_LANG, LANG, OPTION_VALUE, LANG_VALUE, REGIST_USER, REGIST_DATE, UPDATE_USER, UPDATE_DATE, UPDATE_CNT, DEL_FLG)
-	VALUES(#{windowId }, #{frontLang}, #{lang}, #{optionValue}, #{langValue}, 'SYSTEM', sysdate, 'SYSTEM', sysdate, 0, '0')
+	VALUES(#{windowId }, #{frontLang}, #{lang}, #{optionValue}, #{langValue}, 'SYSTEM', SYSDATE, 'SYSTEM', SYSDATE, 0, '0')
 </insert>
 
 

@@ -4,7 +4,8 @@ export default function WindowId(key){
                     , login  : "W001"
                     , logout : "W002" 
                     , signup : "W003"
-                    , admin  : "W004"};
+                    , admin  : "W004"
+                    , attendance : "W005"};
 
     
     return windowId[key];

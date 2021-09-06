@@ -1,6 +1,7 @@
 import Login from './user_management/Login'
 import Index from './user_management/Index'
 import Admin from './user_management/Admin'
+import Attendance from './attendance_service/Attendance'
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
 import React, {useState, useEffect} from 'react';
@@ -33,6 +34,7 @@ function App() {
   useEffect(
     ()=>{
       const win_id = window.location.pathname.replace('/','');
+      window.history.replaceState(null,null,"./")
       windowChange(win_id);
     }, []
   );
@@ -46,6 +48,8 @@ function App() {
           return <Login windows={data.windows}/>;
       case WindowId("admin") :
           return <Admin />;
+      case WindowId("attendance") :
+          return <Attendance windows={data.windows} datas={data.datas}/>;
       //case WindowId("member") :
 
       default :
@@ -63,7 +67,7 @@ function App() {
     <Router>
       <div>
         {data.headers ?
-          <header>
+          <header className="container-type-md">
             <button id="home" className = "btn orange" onClick = {()=>windowChange('index')}>
               {data.headers.HOME}
             </button>
@@ -92,7 +96,7 @@ function App() {
                       }}>화면이동 테스트용
             </button>
           </header>
-        : <header></header> }
+        : <header className="container-type-md"></header> }
         <div className="Contents">
           <Route path="/" component={componentCall} />
         </div>

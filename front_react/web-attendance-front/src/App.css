@@ -9,6 +9,14 @@
   color : black;
 }
 
+.red {
+  color : red;
+}
+
+.cornflowerblue {
+  color : cornflowerblue;
+}
+
 .black:hover{
   color : gray;
   text-decoration: underline;
@@ -16,6 +24,26 @@
 
 .form-type-sm{
   width: 400px;
+  margin: auto;
+}
+
+.container-type-sm{
+  width: 400px;
+  margin: auto;
+}
+
+.x-300{
+  width: 300px;
+}
+.left-50{
+  left: 50px;
+}
+.right-50{
+  right: 50px;
+}
+
+.container-type-md{
+  width: 700px;
   margin: auto;
 }
 

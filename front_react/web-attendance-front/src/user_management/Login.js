@@ -6,7 +6,7 @@ import WindowId from '../WindowId';
 import axios from 'axios';
 import Router, { Route } from 'react-router-dom'
 
-export default function Login({window}){
+export default function Login({windows}){
     const initData = { user_email : "", user_pwd : "", win_id : WindowId("login")};
     
     async function submitLoginProc(values){
