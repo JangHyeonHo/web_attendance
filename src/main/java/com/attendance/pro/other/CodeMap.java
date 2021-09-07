@@ -7,6 +7,7 @@ public class CodeMap {
     public final static String SUCCESS = "S";
     public final static String RES = "res";
     public final static String MSG = "msg";
+    public final static String RESULT = "result";
     public final static String RED= "redirect";
     
 

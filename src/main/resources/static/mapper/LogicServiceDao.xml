@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.attendance.pro.dao.LogicServiceDao">
+
+<sql id="columns">
+RESULT_SEQ, SERVICE_NAME, ENCRYPT_RES_DATA, STATUS, USER_CD, ERROR_CD, ERROR_MSG
+</sql>
+
+<insert id="insertService">
+	INSERT INTO LOGIC_SERVICE(
+	RESULT_SEQ, SERVICE_NAME, ENCRYPT_RES_DATA, STATUS, USER_CD
+	<if test="errorCd!=null">
+	,ERROR_CD
+	,ERROR_MSG
+	</if>
+	,REGIST_USER, REGIST_DATE, UPDATE_USER, UPDATE_DATE, UPDATE_CNT, DEL_FLG
+	)
+	VALUES(#{result,jdbcType=VARCHAR},#{checkService,jdbcType=VARCHAR},#{resData,jdbcType=VARCHAR},
+	#{status,jdbcType=VARCHAR},#{userCd,jdbcType=VARCHAR}
+	<if test="errorCd!=null">
+	,#{errorCd,jdbcType=VARCHAR}
+	,#{errorMsg,jdbcType=VARCHAR}
+	</if>
+	,'SYSTEM', SYSDATE, 'SYSTEM', SYSDATE, 0, '0'
+	)
+</insert>
+
+<select id="getCheckLogic"  resultType="java.lang.String" >
+	SELECT 
+		ENCRYPT_RES_DATA
+	FROM
+		LOGIC_SERVICE 
+	WHERE
+		RESULT_SEQ       = #{result}
+		AND USER_CD  = #{userCd}
+		AND DEL_FLG     = '0'
+</select>
+
+<delete id="successDeleteToWeek">
+	DELETE FROM 
+		LOGIC_SERVICE
+	WHERE
+		STATUS = 'S'
+		AND REGIST_DATE <![CDATA[<=]]> TRUNC(SYSDATE-7)
+</delete>
+
+
+</mapper>

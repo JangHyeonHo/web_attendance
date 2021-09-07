@@ -66,7 +66,11 @@ public class RootController extends WindowManagement{
         } else if(isEqual(windowId,SignUp)) {
             log.info("====SignUp Process Start====");
         } else if(isEqual(windowId,Attendance)) {
-            resData = attendanceService.getAttendanceData(userInfo.getUserCd(), resData);
+            try {
+                resData = attendanceService.getAttendanceData(userInfo.getUserCd(), resData);
+            } catch (Exception e) {
+                log.error(e.getMessage());
+            }
         }
         //test용
        // resData.put("windows", getLangOfValueMapping((String)resData.get(locationKey), Locale.ENGLISH));
@@ -91,7 +95,6 @@ public class RootController extends WindowManagement{
     @PostMapping("/api")
     @ResponseBody
     public Map<String,Object> postRootController(@RequestBody Map<String, Object> data) {
-        
         String locationKey = "window";
         //확인용
         log.info("debug : " + data.toString());
@@ -113,9 +116,8 @@ public class RootController extends WindowManagement{
             } else if(isEqual(windowId,SignUp)) {
                 log.info("====SignUp Process Start====");
             } else if(isEqual(windowId,Attendance)) {
-                resData = attendanceService.attendanceProc(userInfo.getUserCd(), data, resData);
+                resData = attendanceService.proc(data, resData,userInfo.getUserCd());
             }
-            
         } else {
             //일치하지 않으면 화면 전환만 하게끔
         }  

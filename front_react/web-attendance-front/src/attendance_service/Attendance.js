@@ -7,22 +7,31 @@ import Clock from "react-live-clock";
 
 export default function Attendance({windows, datas}){
 
-    //react 애니메이션 사용(사용법을 잘 모르니 테스트해보는거)
     const [registBox,setRegistBox] = useState(false);
 
+    //react 애니메이션 사용(사용법을 잘 모르니 테스트해보는거)
     const transitions = useTransition(registBox, { 
                             from :{ opacity : 0, height : '0%', transform : 'translateY(-30px)'}
                             , enter : { opacity : 1, height : '100%', transform : 'translateY(0px)'}
                             , leave : { opacity : 0, height : '0%', transform : 'translateY(-30px)'}
                             , config : config.slow
                         });
+    const actions = { check : 1, regist : 2 }
+
+    function getActions(key){
+        return actions[key];
+    }
 
     const data = { attendance_type : "", latitude : "", 
                         longitude : "", place_info : "",
                         terminal : "", error_cd : "",
-                        error_msg : "",win_id : WindowId("attendance")};
+                        error_msg : "", action : "",
+                        result : "",
+                        win_id : WindowId("attendance")};
+
     const [latitude,setLatitude] = useState('');
     const [longitude,setLongitude] = useState('');
+    const [placeInfo,setPlaceInfo] = useState('');
     const [errorCd,setErrorCd] = useState('');
     const [errorMsg,setErrorMsg] = useState('');
     const [attendanceType,setAttendanceType] = useState('');
@@ -35,6 +44,7 @@ export default function Attendance({windows, datas}){
             setAttendanceType(attendanceType);
             setLatitude(latitude);
             setLongitude(longitude);
+            setPlaceInfo("테스트용 주소");
             setRegistBox(true);
             console.log("lat : "+latitude);
             console.log("long : "+longitude);
@@ -73,6 +83,20 @@ export default function Attendance({windows, datas}){
 
     function getTimeFormat(){
         return "HH시 mm분 ss초";
+    }
+
+    function attService(action, result){
+        data.attendance_type = attendanceType;
+        data.latitude = latitude;
+        data.longitude = longitude;
+        data.place_info = placeInfo;
+        data.action = getActions(action);
+        data.result = result ? result : "";
+        if(errorCd || errorMsg){
+            data.error_cd = errorCd;
+            data.error_msg = errorMsg;
+        }
+        return attendanceProc(data);
     }
 
 
@@ -126,23 +150,47 @@ export default function Attendance({windows, datas}){
                             <button  className = "btn orange w-50" onClick={()=>{
                                 var msg = getMsg();
                                 if(window.confirm(msg + " 등록하시겠습니까?")){
-                                    data.attendance_type = attendanceType;
-                                    data.latitude = latitude;
-                                    data.longitude = longitude;
-                                    data.place_info = "미완성";
-                                    if(errorCd || errorMsg){
-                                        data.error_cd = errorCd;
-                                        data.error_msg = errorMsg;
-                                    }
-                                    attendanceProc(data).then((resp)=>{
-                                        const retData = resp.data;
-                                        if(retData.res==="S"){
-                                            alert(retData.msg);
-                                            window.location.replace('./');
+                                    attService("check").then((resp)=>{
+                                        const checkResp = resp.data;
+                                        if(checkResp.res==="S"){
+                                            attService("regist", resp.data.result).then((resp)=>{
+                                                const retData = resp.data;
+                                                if(retData.res==="S"){
+                                                    alert(retData.msg[0]);
+                                                    window.location.replace('./');
+                                                } else {
+                                                    alert(retData.msg[0]);
+                                                }                                             
+                                                setRegistBox(false);
+                                            })
                                         } else{
-                                            alert(retData.msg);
+                                            console.log(checkResp)
+                                            //에러코드에 따라 처리;
+                                            switch(checkResp.err_cd){
+                                                //case 1, 2, 3, 4 같은값 2번 입력처리
+                                                case 1 :
+                                                case 2 :
+                                                case 3 :
+                                                case 4 :
+                                                    if(window.confirm(checkResp.msg[0])){
+                                                        attService("regist", resp.data.result).then((resp)=>{
+                                                            const retData = resp.data;
+                                                            if(retData.res==="S"){
+                                                                alert(retData.msg[0]);
+                                                                window.location.replace('./');
+                                                            } else {
+                                                                alert(retData.msg[0]);
+                                                            }                                             
+                                                            setRegistBox(false);
+                                                        })
+                                                    }
+                                                    break;
+                                                default :
+                                                    alert(checkResp.msg[0]);
+                                                    setRegistBox(false);
+                                                    break;
+                                            }
                                         }
-                                        setRegistBox(false);
                                     });
                                 }
                             }}> 등록

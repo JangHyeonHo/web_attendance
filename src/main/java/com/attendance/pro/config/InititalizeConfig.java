@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 
 import com.attendance.pro.controller.WindowManagement;
 import com.attendance.pro.dao.LanguageMasterDao;
+import com.attendance.pro.dao.LogicServiceDao;
 import com.attendance.pro.dto.LanguageMasterDto;
 
 @Component
@@ -23,10 +24,19 @@ public class InititalizeConfig implements InitializingBean {
     
     @Autowired
     private LanguageMasterDao languageMasterDao = null;
+    
+    @Autowired
+    private LogicServiceDao logicServiceDao = null;
 
     //언어 Properties 설정(Language Master에서 가져옴 언어별로 설정)
+    //로직테이블 삭제 설정(배치를 따로 만들지 않았으므로...)
     @Override
     public void afterPropertiesSet() throws Exception {
+        languageSetting();
+        logicServiceDeleteSetting();
+    }
+
+    public void languageSetting() {
         if(langMst==null) {
             langMst = languageMasterDao.getAllLangs(null, null);
         }
@@ -52,6 +62,12 @@ public class InititalizeConfig implements InitializingBean {
             
         }
     }
+
+    
+    private void logicServiceDeleteSetting() {
+        logicServiceDao.successDeleteToWeek();
+    }
+    
     
 
 }

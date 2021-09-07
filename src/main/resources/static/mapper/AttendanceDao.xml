@@ -44,19 +44,26 @@ ERROR_CD,ERROR_MSG
 
 <insert id="registAttendance" parameterType="com.attendance.pro.dto.AttendanceDto">
 	INSERT INTO ATTENDANCE
-		(ATTENDANCE_DATE, ATTENDANCE_SEQ, ATTENDANCE_TYPE,
+		(ATTENDANCE_DATE, ATTENDANCE_SEQ, ATTENDANCE_TYPE, 
+		<if test='attendanceStatus != null'>
+		ATTENDANCE_STATUS,
+		</if>
 		 USER_CD, LATITUDE, LONGITUDE, PLACE_INFO, TERMINAL,
 		 <if test='errorCd != null'>
 		 	ERROR_CD, ERROR_MSG,
 		 </if>
 		 REGIST_USER, REGIST_DATE, UPDATE_USER, UPDATE_DATE, UPDATE_CNT, DEL_FLG)
 	VALUES(#{attendanceDate, jdbcType=DATE}, #{attendanceSeq, jdbcType=INTEGER}, 
-	#{attendanceType, jdbcType=INTEGER}, #{userDto.userCd, jdbcType=VARCHAR}, 
+	#{attendanceType, jdbcType=INTEGER}, 
+	<if test='attendanceStatus != null'>
+		#{attendanceStatus, jdbcType=INTEGER},
+	</if>
+	#{userDto.userCd, jdbcType=VARCHAR}, 
 	#{latitude, jdbcType=VARCHAR}, #{longitude, jdbcType=VARCHAR}, 
 	#{placeInfo, jdbcType=VARCHAR}, #{terminal, jdbcType=VARCHAR},
 	 <if test='errorCd != null'>
 		 	#{errorCd, jdbcType=VARCHAR}, #{errorMsg, jdbcType=VARCHAR},
-		 </if>
+	 </if>
 	 'SYSTEM', SYSDATE, 'SYSTEM', SYSDATE, 0, '0')
 </insert>
 
@@ -88,7 +95,7 @@ ERROR_CD,ERROR_MSG
 			USER_CD            = #{userCd}
 			AND ATTENDANCE_REG_DATE <![CDATA[>]]> TRUNC(SYSDATE-30) 
 		 	AND ATTENDANCE_TYPE = '1' 
-		 	AND ATTENDANCE_STATUS  = '0'))
+		 	AND ATTENDANCE_STATUS  = '0'
 		ORDER BY ATTENDANCE_REG_DATE DESC) A1
 	WHERE ROWNUM = '1'
 </select>

@@ -13,27 +13,27 @@ public interface AttendanceDao {
      * @param userCd
      * @return
      */
-    public Integer getAttendanceSeq(@Param("userCd") String userCd);
+    public Integer getAttendanceSeq(@Param("userCd") String userCd) throws Exception;
 
     /**
      * 유저의 출결 데이터를 등록
      * @param userCd
      * @return
      */
-    public Integer registAttendance(AttendanceDto dto);
+    public Integer registAttendance(AttendanceDto dto) throws Exception;
     
     /**
-     * 현재 접속 유저의 오늘자 출근 데이터를 취득
+     * 현재 접속 유저의 가장 최근의 출퇴근 데이터를 취득
      * @param userCd
      * @return
      */
-    public AttendanceDto getNewestAttendance(@Param("userCd") String userCd);
+    public AttendanceDto getNewestAttendance(@Param("userCd") String userCd) throws Exception;
 
     /**
-     * 가장 최근의 출근확인용 데이터를 취득
+     * 현재 접속 유저의 가장 최근의 출근 데이터를 취득
      * @param userCd
      * @return
      */
-    public AttendanceDto getNewestAttendData(String userCd);
+    public AttendanceDto getNewestAttendData(String userCd) throws Exception;
 
 }

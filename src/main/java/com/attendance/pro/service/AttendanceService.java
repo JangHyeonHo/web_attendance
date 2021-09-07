@@ -3,9 +3,11 @@ package com.attendance.pro.service;
 import static com.attendance.pro.other.CodeMap.ERROR;
 import static com.attendance.pro.other.CodeMap.MSG;
 import static com.attendance.pro.other.CodeMap.RES;
+import static com.attendance.pro.other.CodeMap.RESULT;
 import static com.attendance.pro.other.CodeMap.SUCCESS;
 import static com.attendance.pro.other.CodeMap.isEqual;
 
+import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -34,6 +36,48 @@ public class AttendanceService extends BaseService {
 
     @Autowired
     private AttendanceDao attendanceDao = null;
+    
+    @Override
+    public Map<String, Object> proc(Map<String, Object> data, Map<String, Object> resData, String... props){
+        ArrayList<String> msgList = new ArrayList<String>();
+        String action = String.valueOf(data.get("action"));
+        String userCd = props[0];
+        try {
+            if(isEqual(action, "1")) {
+                //Check시에
+                return resData = attendanceCheck(userCd, data, resData);
+            } else if(isEqual(action, "2")) {
+                //Check용 액션을 불러오므로.
+                data.put("action", 1);
+                String result = objectToString(data.get(RESULT));
+                if(isResultDatasEqual(result, data, userCd)) {
+                    //이후 완료처리
+                    data.put("action", 2);
+                    return resData = attendanceProc(userCd, data, resData);
+                } else {
+                    msgList.add("데이터가 올바르지 않습니다. 다시 처리해 주세요.");
+                    resData.put(RES, ERROR);
+                    resData.put(MSG, msgList);
+                    return resData;
+                }
+                //확정 등록시에
+            } else {
+                return resData;
+            }
+        } catch(Exception e) {
+            msgList.add("출결이 처리되지 않았습니다. 다시 시도해 주세요.");
+            resData.put(RES, ERROR);
+            resData.put(MSG, msgList);
+            if(e instanceof SQLException) {
+                SQLException exception = (SQLException) e;
+                errorRegistSystem(data, "Attendance", userCd, String.valueOf(exception.getErrorCode()), exception.getMessage());
+            } else {
+                errorRegistSystem(data, "Attendance", userCd, "APERR", e.getMessage());
+            }
+            return resData;
+        }
+        
+    }
 
     /**
      * 유저 출결 서비스
@@ -42,11 +86,11 @@ public class AttendanceService extends BaseService {
      * @param resData
      * @return
      */
-    public Map<String, Object> attendanceProc(String userCd, Map<String, Object> data, Map<String, Object> resData) {
+    public Map<String, Object> attendanceProc(String userCd, Map<String, Object> data, Map<String, Object> resData) throws Exception {
         log.info("====Attendance Process Start====");
         List<String> msgList = new ArrayList<String>();
         //오늘 날짜의 유저 seq를 불러온다
-        log.info(userCd);
+        //log.info(userCd);
         Integer todaysSeq = attendanceDao.getAttendanceSeq(userCd);
         if(todaysSeq==null || todaysSeq==0) {
             todaysSeq = 1;
@@ -62,41 +106,26 @@ public class AttendanceService extends BaseService {
         dto.setAttendanceDate(date);
         dto.setUserDto(new UserDto());
         dto.getUserDto().setUserCd(userCd);
-        //출결 데이터 등록
-        Integer result = 0;
-        try {
-            result = attendanceDao.registAttendance(dto);
-        } catch(Exception e) {
-            log.error(e.getMessage());
-            msgList.add("데이터가 정상적으로 등록되지 않았습니다.");
-            resData.put(RES, ERROR);
-            resData.put(MSG, msgList);
-            return resData;
+        //출결 데이터가 휴식이라면(지난 출결 데이터가 휴식인지 확인
+        if(dto.getAttendanceType()==breakTime) {
+            AttendanceDto breakDto = attendanceDao.getNewestAttendance(userCd);
+            //휴식중인 상태인지 확인.
+            if(breakDto.getAttendanceType()==4 && breakDto.getAttendanceStatus() == 0) {
+                //휴식중인 상태라면 휴식 끝을 넣어준다.
+                dto.setAttendanceStatus(1);
+            }
         }
+        //출결 데이터 등록
+        Integer result = attendanceDao.registAttendance(dto);
         if(result == 0) {
-            msgList.add("데이터가 정상적으로 등록되지 않았습니다.");
-            resData.put(RES, ERROR);
-            resData.put(MSG, msgList);
-            return resData;
+            throw new Exception();
         }
         String typeMsg = "";
         String successMsg = "현재 시간 %t에 %s 하셨습니다.";
         int attType = dto.getAttendanceType();
-        switch(attType) {
-        case goToWork :
-            typeMsg = "출근";
-            break;
-        case offWork :
-            typeMsg = "퇴근";
-            break;
-        case earlyDeparture :
-            typeMsg = "조퇴";
-            break;
-        case breakTime :
-            typeMsg = "휴식";
-            break;
-        }
+        typeMsg = getStringType(attType);
         msgList.add(successMsg.replace("%s", typeMsg).replace("%t", nowTime));
+        checkRegistSystem(data, "Attendance Proc", userCd);
         resData.put(RES, SUCCESS);
         resData.put(MSG, msgList);
         log.info("====Attendance Process End====");
@@ -114,6 +143,20 @@ public class AttendanceService extends BaseService {
         dto.setErrorMsg(objectToString(data.get("error_msg")));
         return dto;
     }
+    
+    private String getStringType(int type) {
+        switch(type) {
+            case goToWork :
+                return "출근";
+            case offWork :
+                return "퇴근";
+            case earlyDeparture :
+                return "조퇴";
+            case breakTime :
+                return "휴식";
+        }
+        return "출근"; 
+    }
 
     /**
      * 출결 화면 기동시
@@ -121,7 +164,7 @@ public class AttendanceService extends BaseService {
      * @param resData
      * @return
      */
-    public Map<String, Object> getAttendanceData(String userCd, Map<String, Object> resData) {
+    public Map<String, Object> getAttendanceData(String userCd, Map<String, Object> resData) throws Exception {
         log.info("====Attendance Window Start====");
         log.info(userCd);
         Map<String, String> datas = new HashMap<String, String>();
@@ -144,26 +187,31 @@ public class AttendanceService extends BaseService {
         long regNowDiffDays = regNowDiff / (60*60); //초, 분
         String attRegTime = "";
         //출근 상태이나 퇴근을 안찍은 출근 상태일 경우
-        if(isEqual(dto.getAttendanceType(),goToWork)) {
+        int attType = dto.getAttendanceType();
+        switch(attType) {
+        case goToWork :
             attendanceSts = "출근 중";
             attRegTime = regTimeFormat.format(regDate);
             //두 시간사이가 24시간(하루)가 지났을 경우
             if(regNowDiffDays > 24) {
                 alertMsg = "출근한지 하루가 지났습니다! 퇴근을 찍어주세요";
             }
-        } else if(isEqual(dto.getAttendanceType(),offWork)) {
-            //퇴근 완료가 오늘 날짜라면 퇴근 완료, 아니면 출근 대기상태로 유지
+            break;
+        case offWork :
+          //퇴근 완료가 오늘 날짜라면 퇴근 완료, 아니면 출근 대기상태로 유지
             if(isEqual(sdf.format(regDate), sdf.format(nowDate))) {
                 attendanceSts = "퇴근 완료";
                 attRegTime = regTimeFormat.format(regDate);
             }
-        } else if(isEqual(dto.getAttendanceType(), earlyDeparture)) {
-            //조퇴 완료가 오늘 날짜라면 조퇴 완료, 아니면 출근 대기상태로 유지
+            break;
+        case earlyDeparture :
+          //조퇴 완료가 오늘 날짜라면 조퇴 완료, 아니면 출근 대기상태로 유지
             if(isEqual(sdf.format(regDate), sdf.format(nowDate))) {
                 attendanceSts = "조퇴 완료";
                 attRegTime = regTimeFormat.format(regDate);
             }
-        } else if(isEqual(dto.getAttendanceType(), breakTime)) {
+            break;
+        case breakTime :
             attendanceSts = "출근 중(휴식)";
             attRegTime = regTimeFormat.format(regDate);
             if(regNowDiffDays > 24) {
@@ -182,12 +230,113 @@ public class AttendanceService extends BaseService {
                     alertMsg = "출근한지 하루가 지났습니다! 퇴근을 찍어주세요";
                 }
             }
-        }
+            break;
+        } 
+        
         datas.put("att_time", attRegTime);
         datas.put("att_sts", attendanceSts);
         datas.put("att_msg", alertMsg);
         resData.put("datas", datas);
         log.info("====Attendance Window End====");
+        return resData;
+    }
+
+    /**
+     * 출결 체크서비스
+     * @param userCd
+     * @param data
+     * @param resData
+     * @return
+     */
+    public Map<String, Object> attendanceCheck(String userCd, Map<String, Object> data, Map<String, Object> resData) throws Exception {
+        log.info("====Attendance Check Start====");
+        List<String> msgList = new ArrayList<String>();
+        int errCd = 0;
+        //가장 최근의 출결데이터를 취득한다. [락을 건다]
+        AttendanceDto newData = attendanceDao.getNewestAttendance(userCd);
+        AttendanceDto reqData = dataToDto(data);
+        int attType = reqData.getAttendanceType();
+        //가장 최근의 데이터가 존재하지 않을 경우
+        //출근만 허용한다
+        if(newData==null) {
+            if(attType!=goToWork) {
+                errCd = 5;
+                msgList.add("출근 전이므로 퇴근/조퇴/휴식을 할 수 없습니다.");
+            }
+        } else {
+            //가장 최근의 데이터가 존재하는 경우
+            int newType = newData.getAttendanceType();
+            //가장 최근의 출결데이터와 요청한 데이터의 타입이 일치하다면(같은 출근이나 같은 퇴근반복)
+            //휴식의 경우 상관없음
+            if(isEqual(newData.getAttendanceType(),reqData.getAttendanceType())) {
+                switch(attType) {
+                case goToWork :
+                    errCd = 1;
+                    msgList.add("이미 출근 중입니다. 출근을 덮어쓸까요?");
+                    break;
+                case offWork :
+                    errCd = 2;
+                    msgList.add("이미 퇴근 중입니다. 퇴근을 덮어쓸까요?");
+                    break;
+                case earlyDeparture :
+                    errCd = 3;
+                    msgList.add("이미 조퇴하셨습니다. 조퇴를 덮어쓸까요?");
+                    break;
+                }
+            }
+            //타입 비교
+            //출근은 같은 날의 퇴근, 조퇴기록이 있을 시 재 출근 여부를 물어봐야함. 이전 기록이 휴식이면 출근 불가능
+            //퇴근, 조퇴는 이전 기록이 출근이어야함(휴식일 경우 휴식끝(1)이어야함)
+            //휴식의 경우 이전 기록이 휴식이거나 출근이어야함
+            if(errCd == 0) {
+                switch(attType) {
+                case goToWork :
+                    SimpleDateFormat sdf = new SimpleDateFormat("MM,dd");
+                    if((newType==offWork || newType==earlyDeparture) &&
+                            isEqual(sdf.format(newData.getAttendanceRegDate()), sdf.format(new Date()))) {
+                        errCd = 4;
+                        String typeMsg = getStringType(newType);
+                        msgList.add("이미 %s 완료중입니다. 재출근을 하시겠습니까?".replace("%s", typeMsg));
+                    } else {
+                        if(newType==breakTime) {
+                            errCd = 8;
+                            String typeMsg = getStringType(newType);
+                            msgList.add("%s 처리가 되어 있으므로 퇴근을 하셔야 재 출근이 가능합니다.".replace("%s", typeMsg));
+                        }
+                    }
+                    break;
+                case offWork :
+                case earlyDeparture :
+                    if(!(newType==goToWork || 
+                        (newType==breakTime && newData.getAttendanceStatus()==1))) {
+                        errCd = 6;
+                        String typeMsg = getStringType(attType);
+                        msgList.add("출근 중이 아니기 때문에 %s 하실 수 없습니다.".replace("%s", typeMsg));
+                    }
+                    break;
+                case breakTime :
+                    if(!(newType==goToWork || 
+                            newType==breakTime)) {
+                        errCd = 7;
+                        String typeMsg = getStringType(attType);
+                        String typeMsg2 = getStringType(newType);
+                        msgList.add("%s1 하셨으므로 %s2 이 불가능합니다.".replace("%s1", typeMsg2)
+                                .replace("%s2", typeMsg));
+                    }
+                    break;
+                }
+            }
+        }
+        String result = checkRegistSystem(data, "Attendance Check", userCd);
+        resData.put(RESULT, result);
+        if(errCd==0) {
+            resData.put(RES, SUCCESS);
+        } else {
+            resData.put(RES, ERROR);
+            resData.put("err_cd", errCd);
+        }
+        resData.put(MSG, msgList);
+        log.info("====Attendance Check End====");
         return resData;
     }
 
