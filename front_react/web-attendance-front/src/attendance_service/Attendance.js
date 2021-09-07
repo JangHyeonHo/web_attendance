@@ -152,8 +152,16 @@ export default function Attendance({windows, datas}){
                                 if(window.confirm(msg + " 등록하시겠습니까?")){
                                     attService("check").then((resp)=>{
                                         const checkResp = resp.data;
+                                        if(checkResp.window!==data.win_id){
+                                            alert("세션이 종료되었습니다. 다시 로그인을 해주세요")
+                                            window.location.replace('/login');
+                                        }
                                         if(checkResp.res==="S"){
                                             attService("regist", resp.data.result).then((resp)=>{
+                                                if(checkResp.window!==data.win_id){
+                                                    alert("세션이 종료되었습니다. 다시 로그인을 해주세요")
+                                                    window.location.replace('/login');
+                                                }
                                                 const retData = resp.data;
                                                 if(retData.res==="S"){
                                                     alert(retData.msg[0]);
@@ -174,6 +182,10 @@ export default function Attendance({windows, datas}){
                                                 case 4 :
                                                     if(window.confirm(checkResp.msg[0])){
                                                         attService("regist", resp.data.result).then((resp)=>{
+                                                            if(checkResp.window!==data.win_id){
+                                                                alert("세션이 종료되었습니다. 다시 로그인을 해주세요")
+                                                                window.location.replace('/login');
+                                                            }
                                                             const retData = resp.data;
                                                             if(retData.res==="S"){
                                                                 alert(retData.msg[0]);
