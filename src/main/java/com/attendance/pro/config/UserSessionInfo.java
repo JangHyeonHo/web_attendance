@@ -1,6 +1,7 @@
 package com.attendance.pro.config;
 
 import java.io.Serializable;
+import java.util.Locale;
 
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
@@ -20,8 +21,26 @@ public class UserSessionInfo implements Serializable {
     private String userCd = "";
     //유저 이름
     private String userName = "";
+    //로그인이 되었는지 확인
     private boolean isLogin = false;
-
+    //관리자인지 확인
+    private boolean isAdmin = false;
+    //세션 지역정보
+    private Locale userLocale = null;
+    
+       
+    public boolean isAdmin() {
+        return isAdmin;
+    }
+    public void setAdmin(boolean isAdmin) {
+        this.isAdmin = isAdmin;
+    }
+    public Locale getUserLocale() {
+        return userLocale;
+    }
+    public void setUserLocale(Locale userLocale) {
+        this.userLocale = userLocale;
+    }
     public String getUserCd() {
         return userCd;
     }
@@ -41,6 +60,12 @@ public class UserSessionInfo implements Serializable {
         this.isLogin = isLogin;
     }
     
-    
+    public void sessionClear() {
+        userCd = "";
+        userName = "";
+        isLogin = false;
+        isAdmin = false;
+        userLocale = null;
+    }
 
 }

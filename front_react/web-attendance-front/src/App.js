@@ -2,9 +2,10 @@ import Login from './user_management/Login'
 import Index from './user_management/Index'
 import Admin from './user_management/Admin'
 import Attendance from './attendance_service/Attendance'
+import Details from './attendance_service/Details'
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useRef} from 'react';
 import {BrowserRouter as Router, Route} from 'react-router-dom';
 import WindowId from './WindowId';
 import axios from 'axios';
@@ -20,6 +21,7 @@ function App() {
         const encodeId = WindowId(win_id);
         if(encodeId !== undefined){
           url = '?win_id='+encodeId;
+          //url += '&lang='+"EN"; //(영어로 보고 싶을때)
         }
       }
       console.log(window.location)
@@ -29,6 +31,7 @@ function App() {
         setData(res.data);
         componentCall();
       });
+      
   }
 
   useEffect(
@@ -68,30 +71,30 @@ function App() {
       <div>
         {data.headers ?
           <header className="container-type-md">
-            <button id="home" className = "btn orange" onClick = {()=>windowChange('index')}>
+            <button id="home" className = "btn back-orange" onClick = {()=>windowChange('index')}>
               {data.headers.HOME}
             </button>
             {!data.user_name ?
-            <button id="login" className = "btn orange" onClick = {()=>windowChange('login')}>
+            <button id="login" className = "btn back-orange" onClick = {()=>windowChange('login')}>
               {data.headers.LOGIN}
             </button>
             :
-            <button id="logout" className = "btn orange" onClick = {()=>windowChange('logout')}>
+            <button id="logout" className = "btn back-orange" onClick = {()=>windowChange('logout')}>
               {data.headers.LOGOUT}
             </button>
             }
             {/**테스트용 */}
-            <button id="admin" className = "btn orange" onClick = {()=>windowChange('admin')}>
+            <button id="admin" className = "btn back-orange" onClick = {()=>windowChange('admin')}>
               {data.headers.ADMIN}
             </button>
             {!data.user_name ?
-            <button id="signup" className = "btn orange" onClick = {()=>windowChange('signup')}>
+            <button id="signup" className = "btn back-orange" onClick = {()=>windowChange('signup')}>
               {data.headers.SIGNUP}
             </button>
             :
             <span>{data.user_name} 님</span>
             }
-            <button className= "btn orange col-6" id = "admin" onClick={()=>{
+            <button className= "btn back-orange" id = "admin" onClick={()=>{
                           window.location.replace("/admin");
                       }}>화면이동 테스트용
             </button>

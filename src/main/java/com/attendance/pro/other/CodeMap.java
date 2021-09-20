@@ -115,5 +115,9 @@ public class CodeMap {
         if(o==null) return true;
         return false;
     }
+    
+    public static String getMsg(String msg, String defaultMsg) {
+        return msg==null ? defaultMsg : msg;
+    }
 
 }

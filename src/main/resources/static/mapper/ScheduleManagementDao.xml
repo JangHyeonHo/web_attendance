@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.attendance.pro.dao.ScheduleManagementDao">
+
+<sql id="columns">
+USER_CD, SCHEDULE_CD, SCHEDULE_DATE, SCHEDULE_START_TIME, SCHEDULE_END_TIME,
+HOLIDAY_SEQ, ADMIN_APPROVE
+</sql>
+
+<resultMap type="com.attendance.pro.dto.ScheduleManagementDto" id="ScheduleManagementDto">
+	<result column="USER_CD" property="userDto.userCd" />
+	<result column="SCHEDULE_CD" property="scheduleCd" />
+	<result column="SCHEDULE_DATE" property="scheduleDate" />
+	<result column="SCHEDULE_START_TIME" property="scheduleStartTime" />
+	<result column="SCHEDULE_END_TIME" property="scheduleEndTime" />
+	<result column="HOLIDAY_SEQ" property="holidayValuesDto.holidaySeq" />
+	<result column="ADMIN_APPROVE" property="adminApprove" />
+</resultMap>
+
+<select id="getNowMonthSchedule" resultMap="ScheduleManagementDto">
+	SELECT 
+		DECODE(sm.SCHEDULE_DATE, NULL,
+		 da.SC_DATE, sm.SCHEDULE_DATE) SCHEDULE_DATE <!-- 한달의 날짜 전부 취득 -->,
+		NVL(DECODE(sm.HOLIDAY_SEQ, NULL, 
+		(
+			SELECT SCHEDULE_START_TIME FROM 
+				(SELECT 
+					SCHEDULE_START_TIME 
+				FROM 
+					SCHEDULE_MANAGEMENT 
+				WHERE 
+					DEL_FLG = '0'
+					AND USER_CD = #{userCd, jdbcType=VARCHAR}
+					AND HOLIDAY_SEQ = -1
+					AND SCHEDULE_DATE <![CDATA[<]]> da.SC_DATE
+					ORDER BY SCHEDULE_DATE DESC
+				)
+			WHERE ROWNUM = 1
+		)
+		, sm.SCHEDULE_START_TIME ),
+		'0900') SCHEDULE_START_TIME,  <!-- 최신  스케쥴 시작시간(없으면 0900)-->
+		NVL(DECODE(sm.HOLIDAY_SEQ, NULL, 
+		(
+			SELECT SCHEDULE_END_TIME FROM 
+					(SELECT 
+						SCHEDULE_END_TIME 
+					FROM 
+						SCHEDULE_MANAGEMENT 
+					WHERE 
+						DEL_FLG = '0'
+						AND USER_CD = #{userCd, jdbcType=VARCHAR}
+						AND HOLIDAY_SEQ = -1
+						AND SCHEDULE_DATE <![CDATA[<]]> da.SC_DATE
+						ORDER BY SCHEDULE_DATE DESC
+					)
+				WHERE ROWNUM = 1
+			)
+		, sm.SCHEDULE_END_TIME ),
+		'1800') SCHEDULE_END_TIME , <!-- 최신  스케쥴 끝시간(없으면 0900)-->
+		sm.HOLIDAY_SEQ,
+		sm.ADMIN_APPROVE
+	FROM
+	(SELECT 
+	      (#{nowDate, jdbcType=DATE} + LEVEL-1) AS SC_DATE
+	     FROM DUAL
+	     CONNECT BY LEVEL <![CDATA[<=]]> #{nextDate, jdbcType=DATE}
+	      - #{nowDate, jdbcType=DATE}
+	) da <!-- 한달 달력 취득-->
+		LEFT OUTER JOIN
+		SCHEDULE_MANAGEMENT sm
+	<!-- 조인 조건 -->
+	ON (da.SC_DATE = sm.SCHEDULE_DATE
+	AND sm.DEL_FLG = '0'
+	AND sm.USER_CD = #{userCd, jdbcType=VARCHAR}
+	AND (sm.SCHEDULE_DATE <![CDATA[>=]]> #{nowDate, jdbcType=DATE} 
+		AND sm.SCHEDULE_DATE <![CDATA[<]]> #{nextDate, jdbcType=DATE}
+		)
+	)
+	ORDER BY da.SC_DATE ASC
+</select>
+
+
+</mapper>

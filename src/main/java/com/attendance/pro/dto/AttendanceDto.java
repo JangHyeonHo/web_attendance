@@ -24,6 +24,7 @@ public class AttendanceDto extends BaseDto{
     private String terminal;
     private String errorCd;
     private String errorMsg;
+    private String remark;
     private UserDto userDto;
     
     public Date getAttendanceDate() {
@@ -115,6 +116,12 @@ public class AttendanceDto extends BaseDto{
     }
     public void setErrorMsg(String errorMsg) {
         this.errorMsg = errorMsg;
+    }
+    public String getRemark() {
+        return remark;
+    }
+    public void setRemark(String remark) {
+        this.remark = remark;
     }
     public UserDto getUserDto() {
         return userDto;

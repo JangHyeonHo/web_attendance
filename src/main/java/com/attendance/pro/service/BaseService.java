@@ -23,17 +23,21 @@ public class BaseService implements BaseServiceImpl{
             return null;
         }
         if(e instanceof String) {
-            return String.valueOf(e);
+            return (String) e;
         }
         return e.toString();
     }
     
     protected Integer objectToInteger(Object e) {
-        String s = objectToString(e);
-        if(e instanceof Integer) {
+        try {
+            String s = objectToString(e);
+            if(e instanceof Integer) {
+                return (Integer) e;
+            }
             return Integer.valueOf(s);
+        } catch(NumberFormatException ex) {
+            return null;
         }
-        return null;
     }
     
     protected Boolean objectToBoolean(Object e) {
@@ -45,11 +49,15 @@ public class BaseService implements BaseServiceImpl{
     }
     
     protected Double objectToDouble(Object e) {
-        String s = objectToString(e);
-        if(e instanceof Double) {
+        try {
+            String s = objectToString(e);
+            if(e instanceof Double) {
+                return (Double) e;
+            }
             return Double.valueOf(s);
+        } catch(NumberFormatException ex) {
+            return null;
         }
-        return null;
     }
     
     /**
@@ -131,7 +139,7 @@ public class BaseService implements BaseServiceImpl{
 
     @Override
     public Map<String, Object> proc(Map<String, Object> data, 
-            Map<String, Object> resData, 
+            Map<String, Object> resData, Map<String, String> windowData,
             String... props) {
         
         return resData;

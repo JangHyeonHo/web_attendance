@@ -10,15 +10,16 @@ user_email, user_pwd, user_name
 </sql>
 
 <resultMap type="com.attendance.pro.dto.UserDto" id="UserDto">
-	<result column="user_cd" property="userCd" />
-	<result column="user_email" property="userEmail" />
-	<result column="user_pwd" property="userPwd" />
-	<result column="user_name" property="userName" />
+	<result column="USER_CD" property="userCd" />
+	<result column="USER_EMAIL" property="userEmail" />
+	<result column="USER_PWD" property="userPwd" />
+	<result column="USER_NAME" property="userName" />
+	<result column="USER_RANK" property="userRank" />
 </resultMap>
 
 <select id="getUser" resultMap="UserDto">
 	SELECT 
-		USER_CD, USER_NAME
+		USER_CD, USER_NAME, USER_RANK
 	FROM
 		USER_MST 
 	WHERE

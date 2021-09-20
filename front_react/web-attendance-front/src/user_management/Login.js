@@ -4,9 +4,10 @@ import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 import WindowId from '../WindowId';
 import axios from 'axios';
+import IsNotLang from '../common_service/IsNotLang';
 import Router, { Route } from 'react-router-dom'
 
-export default function Login({windows}){
+export default function Login({windows={}}){
     const initData = { user_email : "", user_pwd : "", win_id : WindowId("login")};
     
     async function submitLoginProc(values){
@@ -20,14 +21,12 @@ export default function Login({windows}){
     //validation check
     const validationSchema = Yup.object().shape({
         user_email : Yup.string()
-            .email("이메일 형식으로 해주세요")
-            .required("공백은 불가능"),
+            .email(IsNotLang(windows.EMAILERR1,"이메일 형식이 아닙니다."))
+            .required(IsNotLang(windows.EMAILERR2,"이메일을 입력해 주세요.")),
         user_pwd : Yup.string()
-            .required("공백은 불가능")
-            .min(8, "비밀번호는 최소 8글자 이상으로 해주셔야합니다")
+            .required(IsNotLang(windows.PWDERR1,"비밀번호를 입력해 주세요."))
             .matches(/^((?=.*[\d])(?=.*[a-z])(?=.*[A-Z])|(?=.*[a-z])(?=.*[A-Z])(?=.*[^\w\d\s])|(?=.*[\d])(?=.*[A-Z])(?=.*[^\w\d\s])|(?=.*[\d])(?=.*[a-z])(?=.*[^\w\d\s])).{8,30}$/
-            ,"비밀번호는 영문자, 특수문자, 숫자를 포함하여 8자 이상으로 해주세요")
-            .max(30, "비밀번호는 최대 30글자까지 입력가능합니다")
+            ,IsNotLang(windows.PWDERR2,"비밀번호는 영문자, 특수문자, 숫자를 포함하여 \n8자 이상, 30글자 미만으로 해주세요"))
     });
 
     return(
@@ -59,7 +58,7 @@ export default function Login({windows}){
             return (
                 <div className="form-type-sm mt-5">
                     <Form className="form-control">
-                        <h2 className = "text-center mt-3">{windows.LOGIN}</h2>
+                        <h2 className = "text-center mt-3">{IsNotLang(windows.LOGIN,"로그인")}</h2>
                         <div className = "form-floating my-3">
                             <Field type = "text" 
                                 id = "user_email" 
@@ -75,7 +74,7 @@ export default function Login({windows}){
                                 required
                                 autoComplete="off"/>
                             <ErrorMessage name="user_email" component ="div" className="invalid-feedback" />
-                            <label htmlFor="user_id">{windows.EMAIL}</label>
+                            <label htmlFor="user_id">{IsNotLang(windows.EMAIL,"이메일")}</label>
                         </div>
                         <div className = "form-floating mb-4">
                             <Field type = "password" 
@@ -88,23 +87,23 @@ export default function Login({windows}){
                                         : "form-control"
                                     } 
                                 required/>
-                            <ErrorMessage name="user_pwd" component ="div" className="invalid-feedback" />
-                            <label htmlFor="user_pwd">{windows.PWD}</label>
+                            <ErrorMessage name="user_pwd" component ="div" className="invalid-feedback pre-wrap" />
+                            <label htmlFor="user_pwd">{IsNotLang(windows.PWD,"비밀번호")}</label>
                         </div>
                         <div className = "mb-2">
                             <button type = "submit" 
-                                className= "btn orange col-12"
+                                className= "btn back-orange col-12"
                                 disabled = {!(dirty && isValid)}>
-                                    {windows.LOGIN}
+                                    {IsNotLang(windows.LOGIN,"로그인")}
                             </button>
                         </div>
-                        <div id = "passwordConfirm" 
+                        <div id = "pwdSearch" 
                                 role = "button"
                                 className="text-end my-1 black"
                                 onClick={()=>{
-                                    Location.href="./?winId=pwdConfirm"
+                                    Location.href="./?winId=pwdSearch"
                                 }}>
-                                    {windows.PWDSEARCH}
+                                    {IsNotLang(windows.PWDSEARCH,"비밀번호 찾기")}
                         </div>
                     </Form>
                     {/**테스트용 */}

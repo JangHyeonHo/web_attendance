@@ -1,5 +1,8 @@
 package com.attendance.pro.dao;
 
+import java.util.Date;
+import java.util.List;
+
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -34,6 +37,24 @@ public interface AttendanceDao {
      * @param userCd
      * @return
      */
-    public AttendanceDto getNewestAttendData(String userCd) throws Exception;
+    public AttendanceDto getNewestAttendData(@Param("userCd") String userCd) throws Exception;
+
+    /**
+     * 유저의 한달 입력 데이터를 취득
+     * @param userCd
+     * @param nowDate
+     * @param nextDate
+     * @return
+     */
+    public List<AttendanceDto> getNowMonthStamp(@Param("userCd") String userCd,
+            @Param("nowDate") Date nowDate,
+            @Param("nextDate") Date nextDate);
+
+    /**
+     * 재 출근시 현 날짜의 이전 데이터들을 삭제처리
+     * @param dto
+     * @return
+     */
+    public Integer reAttendingToDeleteStatus(AttendanceDto dto);
 
 }

@@ -1,8 +1,13 @@
-
-
-.orange {
+/*
+ custom css
+*/
+.back-orange {
   background-color : #fd7e14;
   color : white;
+}
+
+.orange {
+  color : orange;
 }
 
 .black {
@@ -27,11 +32,6 @@
   margin: auto;
 }
 
-.container-type-sm{
-  width: 400px;
-  margin: auto;
-}
-
 .x-300{
   width: 300px;
 }
@@ -41,11 +41,39 @@
 .right-50{
   right: 50px;
 }
+.x-scroll-none{
+  overflow-x: hidden!important;
+}
 
+.container-type-sm{
+  width: 400px;
+  margin: auto;
+}
 .container-type-md{
   width: 700px;
   margin: auto;
 }
+.container-type-lg{
+  width: 1000px;
+  margin: auto;
+}
+.cal-date-sun{
+  color: red;
+}
+.cal-date-sat{
+  color: royalblue;
+}
+.cal-date-weekday{
+  color: black;
+}
+
+.pre-wrap{
+  white-space: pre-wrap;
+}
+
+/*
+ custom css end
+*/
 
 .App {
   text-align: center;

@@ -21,6 +21,8 @@ import com.attendance.pro.other.CodeMap;
 @Controller
 public class WindowManagement {
     
+    protected final String LocationKey = "window";
+    
     private static Map<String,Map<String, String>> kor = null;
     private static Map<String,Map<String, String>> eng = null;
     
@@ -34,9 +36,10 @@ public class WindowManagement {
     public static String SignUp = "W003"; 
     public static String Admin = "W004"; 
     public static String Attendance = "W005"; 
+    public static String AttDetails = "W006"; 
     
     public boolean isConfirmPath(String windowId) {
-        return confirmPath.get(windowId);
+        return confirmPath.get(windowId)!=null ? confirmPath.get(windowId) : confirmPath.get(Index) ;
     }
     
     /**
@@ -51,6 +54,7 @@ public class WindowManagement {
         path.put(SignUp, false);
         path.put(Admin, false); //test용 false -> 끝나면 true로 바꿈
         path.put(Attendance, true); 
+        path.put(AttDetails, true);
         path.put(Default, false);
         return path;
     }
@@ -58,12 +62,12 @@ public class WindowManagement {
     //언어설정
     public static Map<String, String> getLangOfValueMapping(String windowId, Locale locale) {
         if(isEqualMultyisOne(locale, Locale.KOREAN, Locale.KOREA)) {
-            return kor.get(windowId);
+            return kor.get(windowId)!=null ? kor.get(windowId) : new HashMap<String, String>();
         } else if(isEqualMultyisOne(locale, Locale.JAPANESE, Locale.JAPAN)) {
             //현호 한정(해외 작업때문에)
-            return kor.get(windowId);
+            return kor.get(windowId)!=null ? kor.get(windowId) : new HashMap<String, String>();
         } else {
-            return eng.get(windowId);
+            return eng.get(windowId)!=null ? eng.get(windowId) : new HashMap<String, String>();
         }
     }
 
@@ -100,6 +104,7 @@ public class WindowManagement {
         allId.add(SignUp);
         allId.add(Admin);
         allId.add(Attendance);
+        allId.add(AttDetails);
         allId.add(Default);
         return allId;
     }
@@ -109,6 +114,15 @@ public class WindowManagement {
         allLangs.add(CodeMap.Korean);
         allLangs.add(CodeMap.English);
         return allLangs;
+    }
+    
+    public Locale getLocales(String lang) {
+        if(isEqualMultyisOne(lang, CodeMap.Korean, "KO")) {
+            return Locale.KOREAN;
+        } else if(isEqualMultyisOne(lang, CodeMap.English, "EN")) {
+            return Locale.ENGLISH;
+        }
+        return Locale.KOREAN;
     }
     
     
