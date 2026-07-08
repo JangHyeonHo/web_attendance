@@ -85,3 +85,8 @@ hs_err_pid*
 .apt_generated/
 .apt_generated_test/
 target/classes/META-INF/maven/com.attendance.pro/web_attendance/pom.properties
+
+# frontend (Vite)
+frontend/node_modules/
+frontend/dist/
+frontend/*.tsbuildinfo
