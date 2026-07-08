@@ -17,22 +17,22 @@ public final class AttendanceDtos {
     private AttendanceDtos() {
     }
 
-    @Schema(description = "출결 체크 요청(확정 전 사전 검사)")
+    @Schema(description = "schema.check-request")
     public record CheckRequest(
-            @Schema(description = "출결 타입") @NotNull(message = "{validation.attendance.type.required}") AttendanceType type,
-            @Schema(description = "위도", example = "37.5665000") Double latitude,
-            @Schema(description = "경도", example = "126.9780000") Double longitude,
-            @Schema(description = "장소 정보", example = "서울시 중구") @Size(max = 200) String placeInfo,
-            @Schema(description = "단말 정보", example = "Chrome/Windows") @Size(max = 100) String terminal) {
+            @Schema(description = "schema.attendance-type") @NotNull(message = "{validation.attendance.type.required}") AttendanceType type,
+            @Schema(description = "schema.field.latitude", example = "37.5665000") Double latitude,
+            @Schema(description = "schema.field.longitude", example = "126.9780000") Double longitude,
+            @Schema(description = "schema.field.place-info", example = "서울시 중구") @Size(max = 200) String placeInfo,
+            @Schema(description = "schema.field.terminal", example = "Chrome/Windows") @Size(max = 100) String terminal) {
     }
 
-    @Schema(description = "출결 체크 응답")
+    @Schema(description = "schema.check-response")
     public record CheckResponse(
-            @Schema(description = "확정 가능 여부") boolean allowed,
-            @Schema(description = "사용자 확인(덮어쓰기/재출근) 필요 여부") boolean requiresConfirmation,
-            @Schema(description = "체크 결과 코드(문제 없으면 null)") ConfirmCode code,
-            @Schema(description = "표시 메시지(문제 없으면 null)") String message,
-            @Schema(description = "확정 요청에 사용할 토큰(확정 가능할 때만 발급)") String token) {
+            @Schema(description = "schema.check-response.allowed") boolean allowed,
+            @Schema(description = "schema.check-response.requires-confirmation") boolean requiresConfirmation,
+            @Schema(description = "schema.check-response.code") ConfirmCode code,
+            @Schema(description = "schema.check-response.message") String message,
+            @Schema(description = "schema.check-response.token") String token) {
 
         public static CheckResponse ok(String token) {
             return new CheckResponse(true, false, null, null, token);
@@ -47,28 +47,28 @@ public final class AttendanceDtos {
         }
     }
 
-    @Schema(description = "출결 확정 요청(체크에서 받은 토큰 + 체크와 동일한 데이터)")
+    @Schema(description = "schema.confirm-request")
     public record ConfirmRequest(
-            @Schema(description = "체크 응답으로 받은 토큰") @NotBlank(message = "{validation.attendance.token.required}") String token,
-            @Schema(description = "출결 타입") @NotNull(message = "{validation.attendance.type.required}") AttendanceType type,
-            @Schema(description = "위도", example = "37.5665000") Double latitude,
-            @Schema(description = "경도", example = "126.9780000") Double longitude,
-            @Schema(description = "장소 정보", example = "서울시 중구") @Size(max = 200) String placeInfo,
-            @Schema(description = "단말 정보", example = "Chrome/Windows") @Size(max = 100) String terminal) {
+            @Schema(description = "schema.confirm-request.token") @NotBlank(message = "{validation.attendance.token.required}") String token,
+            @Schema(description = "schema.attendance-type") @NotNull(message = "{validation.attendance.type.required}") AttendanceType type,
+            @Schema(description = "schema.field.latitude", example = "37.5665000") Double latitude,
+            @Schema(description = "schema.field.longitude", example = "126.9780000") Double longitude,
+            @Schema(description = "schema.field.place-info", example = "서울시 중구") @Size(max = 200) String placeInfo,
+            @Schema(description = "schema.field.terminal", example = "Chrome/Windows") @Size(max = 100) String terminal) {
 
         public CheckRequest toCheckRequest() {
             return new CheckRequest(type, latitude, longitude, placeInfo, terminal);
         }
     }
 
-    @Schema(description = "출결 확정 응답")
+    @Schema(description = "schema.stamp-response")
     public record StampResponse(
-            @Schema(description = "출결 타입") AttendanceType type,
-            @Schema(description = "스탬프 시각") LocalDateTime stampedAt,
-            @Schema(description = "표시 메시지", example = "현재 시간 09:00에 출근 하셨습니다.") String message) {
+            @Schema(description = "schema.attendance-type") AttendanceType type,
+            @Schema(description = "schema.stamp-response.stamped-at") LocalDateTime stampedAt,
+            @Schema(description = "schema.stamp-response.message", example = "현재 시간 09:00에 출근 하셨습니다.") String message) {
     }
 
-    @Schema(description = "현재 출결 상태", enumAsRef = true)
+    @Schema(description = "schema.work-status", enumAsRef = true)
     public enum WorkStatus {
         /** 출근 대기 */
         WAITING,
@@ -89,7 +89,7 @@ public final class AttendanceDtos {
         }
     }
 
-    @Schema(description = "출결 상태 알림", enumAsRef = true)
+    @Schema(description = "schema.status-alert", enumAsRef = true)
     public enum StatusAlert {
         /** 출근한지 하루 경과 - 퇴근 필요 */
         OVERDUE_OFF_WORK,
@@ -102,30 +102,30 @@ public final class AttendanceDtos {
         }
     }
 
-    @Schema(description = "출결 상태 응답")
+    @Schema(description = "schema.status-response")
     public record StatusResponse(
-            @Schema(description = "현재 상태") WorkStatus status,
-            @Schema(description = "상태 표시 텍스트(요청 언어로 번역됨)", example = "출근 중") String statusLabel,
-            @Schema(description = "기준 스탬프 시각(대기 상태면 null)") LocalDateTime stampedAt,
-            @Schema(description = "알림(없으면 null)") StatusAlert alert,
-            @Schema(description = "알림 표시 텍스트(없으면 null)") String alertLabel) {
+            @Schema(description = "schema.status-response.status") WorkStatus status,
+            @Schema(description = "schema.status-response.status-label", example = "출근 중") String statusLabel,
+            @Schema(description = "schema.status-response.stamped-at") LocalDateTime stampedAt,
+            @Schema(description = "schema.status-response.alert") StatusAlert alert,
+            @Schema(description = "schema.status-response.alert-label") String alertLabel) {
     }
 
-    @Schema(description = "일별 출결(월별 상세의 한 행)")
+    @Schema(description = "schema.daily-attendance")
     public record DailyAttendance(
-            @Schema(description = "날짜") LocalDate date,
-            @Schema(description = "휴일 여부(공휴일/개인휴일)") boolean holiday,
-            @Schema(description = "스케쥴 시업 시각", example = "09:00") String scheduleStart,
-            @Schema(description = "스케쥴 종업 시각", example = "18:00") String scheduleEnd,
-            @Schema(description = "출근 시각(미출근이면 null)", example = "09:12") String stampIn,
-            @Schema(description = "퇴근 시각(미퇴근이면 null, 자정 넘긴 퇴근은 24+시간, 예: 25:10)", example = "18:03") String stampOut) {
+            @Schema(description = "schema.daily-attendance.date") LocalDate date,
+            @Schema(description = "schema.daily-attendance.holiday") boolean holiday,
+            @Schema(description = "schema.daily-attendance.schedule-start", example = "09:00") String scheduleStart,
+            @Schema(description = "schema.daily-attendance.schedule-end", example = "18:00") String scheduleEnd,
+            @Schema(description = "schema.daily-attendance.stamp-in", example = "09:12") String stampIn,
+            @Schema(description = "schema.daily-attendance.stamp-out", example = "18:03") String stampOut) {
     }
 
-    @Schema(description = "월별 출결 상세 응답")
+    @Schema(description = "schema.monthly-response")
     public record MonthlyResponse(
-            @Schema(description = "연도", example = "2026") int year,
-            @Schema(description = "월(1~12)", example = "7") int month,
-            @Schema(description = "일별 출결") List<DailyAttendance> days) {
+            @Schema(description = "schema.field.year", example = "2026") int year,
+            @Schema(description = "schema.field.month", example = "7") int month,
+            @Schema(description = "schema.monthly-response.days") List<DailyAttendance> days) {
     }
 
 }

@@ -195,9 +195,14 @@ class AttendanceServiceTest {
             ConfirmRequest tampered = new ConfirmRequest(checkResponse.token(),
                     AttendanceType.GO_TO_WORK, 35.0, 129.0, "부산", "Chrome");
 
+            //예외는 메시지 키를 담고, 실제 문구는 GlobalExceptionHandler가 요청 언어로 해석한다
             assertThatThrownBy(() -> service.confirm(USER_ID, tampered))
                     .isInstanceOf(ApiException.class)
-                    .hasMessageContaining("데이터가 올바르지 않습니다");
+                    .satisfies(e -> {
+                        ApiException apiException = (ApiException) e;
+                        assertThat(apiException.getCode()).isEqualTo("CHECK_MISMATCH");
+                        assertThat(apiException.getMessageKey()).isEqualTo("attendance.check.mismatch");
+                    });
         }
 
         @Test

@@ -37,16 +37,16 @@ public class LanguageController {
     @Operation(summary = "api.language.texts.summary", description = "api.language.texts.description")
     @GetMapping("/api/v1/i18n/{windowId}")
     public Map<String, String> texts(
-            @Parameter(description = "화면(그룹) ID", example = "attendance") @PathVariable("windowId") String windowId,
-            @Parameter(description = "언어(KOR/ENG/JPN)", example = "KOR") @RequestParam(name = "lang", defaultValue = "KOR") String lang) {
+            @Parameter(description = "schema.field.window-id", example = "attendance") @PathVariable("windowId") String windowId,
+            @Parameter(description = "schema.field.lang", example = "KOR") @RequestParam(name = "lang", defaultValue = "KOR") String lang) {
         return languageService.texts(windowId, lang);
     }
 
     @Operation(summary = "api.language.list.summary", description = "api.language.list.description")
     @GetMapping("/api/v1/admin/i18n")
     public List<EntryResponse> list(
-            @Parameter(description = "화면(그룹) ID 필터") @RequestParam(name = "windowId", required = false) String windowId,
-            @Parameter(description = "언어 필터(KOR/ENG/JPN)") @RequestParam(name = "lang", required = false) String lang) {
+            @Parameter(description = "schema.field.window-id-filter") @RequestParam(name = "windowId", required = false) String windowId,
+            @Parameter(description = "schema.field.lang-filter") @RequestParam(name = "lang", required = false) String lang) {
         return languageService.list(windowId, lang);
     }
 

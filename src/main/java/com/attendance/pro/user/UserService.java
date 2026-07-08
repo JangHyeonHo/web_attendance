@@ -5,7 +5,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.attendance.pro.common.ApiException;
-import com.attendance.pro.common.Messages;
 import com.attendance.pro.user.UserDtos.SignupRequest;
 import com.attendance.pro.user.UserDtos.UserResponse;
 
@@ -16,12 +15,10 @@ import com.attendance.pro.user.UserDtos.UserResponse;
 public class UserService {
 
     private final UserMapper userMapper;
-    private final Messages messages;
     private final PasswordEncoder passwordEncoder;
 
-    public UserService(UserMapper userMapper, Messages messages) {
+    public UserService(UserMapper userMapper) {
         this.userMapper = userMapper;
-        this.messages = messages;
         this.passwordEncoder = new BCryptPasswordEncoder();
     }
 
@@ -30,7 +27,7 @@ public class UserService {
      */
     public UserResponse signup(SignupRequest request) {
         if (userMapper.existsByEmail(request.email())) {
-            throw ApiException.conflict("EMAIL_DUPLICATED", messages.get("user.email.duplicated"));
+            throw ApiException.conflict("EMAIL_DUPLICATED", "user.email.duplicated");
         }
         UserCreate create = new UserCreate(
                 request.email(),

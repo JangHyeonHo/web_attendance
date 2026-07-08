@@ -4,7 +4,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 import com.attendance.pro.common.ApiException;
-import com.attendance.pro.common.Messages;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -17,16 +16,10 @@ import jakarta.servlet.http.HttpSession;
 @Component
 public class AuthInterceptor implements HandlerInterceptor {
 
-    private final Messages messages;
-
-    public AuthInterceptor(Messages messages) {
-        this.messages = messages;
-    }
-
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
         if (currentUser(request) == null) {
-            throw ApiException.unauthorized(messages.get("error.unauthorized"));
+            throw ApiException.unauthorized();
         }
         return true;
     }

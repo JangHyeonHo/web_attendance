@@ -8,7 +8,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
  * false 인 코드는 처리 불가.
  * 표시 메시지는 메시지 키(confirm.{name})로 로케일별 해석한다.
  */
-@Schema(description = "출결 체크 결과 코드", enumAsRef = true)
+@Schema(description = "schema.confirm-code", enumAsRef = true)
 public enum ConfirmCode {
 
     /** 이미 출근 중 - 덮어쓰기 확인 */

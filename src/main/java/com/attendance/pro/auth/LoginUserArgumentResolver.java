@@ -8,7 +8,6 @@ import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
 
 import com.attendance.pro.common.ApiException;
-import com.attendance.pro.common.Messages;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -17,12 +16,6 @@ import jakarta.servlet.http.HttpServletRequest;
  */
 @Component
 public class LoginUserArgumentResolver implements HandlerMethodArgumentResolver {
-
-    private final Messages messages;
-
-    public LoginUserArgumentResolver(Messages messages) {
-        this.messages = messages;
-    }
 
     @Override
     public boolean supportsParameter(MethodParameter parameter) {
@@ -36,7 +29,7 @@ public class LoginUserArgumentResolver implements HandlerMethodArgumentResolver 
         HttpServletRequest request = webRequest.getNativeRequest(HttpServletRequest.class);
         SessionUser user = AuthInterceptor.currentUser(request);
         if (user == null) {
-            throw ApiException.unauthorized(messages.get("error.unauthorized"));
+            throw ApiException.unauthorized();
         }
         return user;
     }

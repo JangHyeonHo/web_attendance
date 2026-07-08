@@ -89,7 +89,7 @@ public class AttendanceService {
     public StampResponse confirm(long userId, ConfirmRequest request) {
         String storedHash = attendanceMapper.findCheckHash(request.token(), userId);
         if (storedHash == null || !storedHash.equals(payloadHash(userId, request.toCheckRequest()))) {
-            throw ApiException.badRequest("CHECK_MISMATCH", messages.get("attendance.check.mismatch"));
+            throw ApiException.badRequest("CHECK_MISMATCH", "attendance.check.mismatch");
         }
         attendanceMapper.deleteCheck(request.token());
 
@@ -236,7 +236,7 @@ public class AttendanceService {
     @Transactional(readOnly = true)
     public MonthlyResponse monthly(long userId, int year, int month) {
         if (month < 1 || month > 12) {
-            throw ApiException.badRequest("INVALID_MONTH", messages.get("attendance.month.invalid"));
+            throw ApiException.badRequest("INVALID_MONTH", "attendance.month.invalid");
         }
         YearMonth yearMonth = YearMonth.of(year, month);
         LocalDate from = yearMonth.atDay(1);

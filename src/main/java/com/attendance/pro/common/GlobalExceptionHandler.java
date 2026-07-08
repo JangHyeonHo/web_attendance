@@ -26,8 +26,9 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<ErrorResponse> handleApiException(ApiException e) {
+        //예외가 담고 있는 메시지 키를 요청 로케일로 해석한다
         return ResponseEntity.status(e.getStatus())
-                .body(ErrorResponse.of(e.getCode(), e.getMessage()));
+                .body(ErrorResponse.of(e.getCode(), messages.get(e.getMessageKey(), e.getArgs())));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

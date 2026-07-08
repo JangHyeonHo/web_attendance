@@ -65,8 +65,8 @@ public class AttendanceController {
     @Operation(summary = "api.attendance.monthly.summary", description = "api.attendance.monthly.description")
     @GetMapping("/monthly")
     public MonthlyResponse monthly(@LoginUser SessionUser user,
-            @Parameter(description = "연도", example = "2026") @RequestParam("year") int year,
-            @Parameter(description = "월(1~12)", example = "7") @RequestParam("month") int month) {
+            @Parameter(description = "schema.field.year", example = "2026") @RequestParam("year") int year,
+            @Parameter(description = "schema.field.month", example = "7") @RequestParam("month") int month) {
         return attendanceService.monthly(user.userId(), year, month);
     }
 

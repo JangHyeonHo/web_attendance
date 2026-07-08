@@ -7,7 +7,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 /**
  * 출결 타입.
  */
-@Schema(description = "출결 타입", enumAsRef = true)
+@Schema(description = "schema.attendance-type", enumAsRef = true)
 public enum AttendanceType {
 
     /** 출근 */
@@ -42,7 +42,7 @@ public enum AttendanceType {
                 return type;
             }
         }
-        throw ApiException.badRequest("INVALID_TYPE", "알 수 없는 출결 타입입니다: " + code);
+        throw ApiException.badRequest("INVALID_TYPE", "attendance.type.invalid", code);
     }
 
 }

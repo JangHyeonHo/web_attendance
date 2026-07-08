@@ -5,7 +5,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.attendance.pro.common.ApiException;
-import com.attendance.pro.common.Messages;
 import com.attendance.pro.user.User;
 import com.attendance.pro.user.UserMapper;
 
@@ -16,12 +15,10 @@ import com.attendance.pro.user.UserMapper;
 public class AuthService {
 
     private final UserMapper userMapper;
-    private final Messages messages;
     private final PasswordEncoder passwordEncoder;
 
-    public AuthService(UserMapper userMapper, Messages messages) {
+    public AuthService(UserMapper userMapper) {
         this.userMapper = userMapper;
-        this.messages = messages;
         this.passwordEncoder = new BCryptPasswordEncoder();
     }
 
@@ -32,7 +29,7 @@ public class AuthService {
     public SessionUser authenticate(String email, String rawPassword) {
         User user = userMapper.findByEmail(email);
         if (user == null || !passwordEncoder.matches(rawPassword, user.passwordHash())) {
-            throw ApiException.unauthorized(messages.get("auth.login.failed"));
+            throw ApiException.unauthorized("auth.login.failed");
         }
         return new SessionUser(user.userId(), user.email(), user.name(), user.admin());
     }
