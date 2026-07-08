@@ -5,6 +5,9 @@ import { useApp } from '../app/AppContext'
 import type { AttendanceType, CheckRequest, StatusResponse } from '../api/types'
 import { DetailsScreen } from './DetailsScreen'
 
+/** 시계/시각 표기를 UI 언어에 맞추기 위한 로케일 매핑 */
+const LOCALE_OF: Record<string, string> = { KOR: 'ko-KR', ENG: 'en-US', JPN: 'ja-JP' }
+
 const TYPE_LABEL_KEYS: Record<AttendanceType, string> = {
   GO_TO_WORK: 'ATTEND',
   OFF_WORK: 'OFFWORK',
@@ -29,7 +32,7 @@ interface PendingConfirmation {
 
 /** W005 출결 */
 export function AttendanceScreen() {
-  const { t, data } = useApp()
+  const { t, data, lang } = useApp()
   //화면 전개시 navigation 응답에 동봉된 초기 상태를 사용하고, 이후 갱신은 status API로
   const [status, setStatus] = useState<StatusResponse | null>((data as StatusResponse) ?? null)
   const [pending, setPending] = useState<PendingStamp | null>(null)
@@ -44,11 +47,16 @@ export function AttendanceScreen() {
     return () => clearInterval(timer)
   }, [])
 
-  //언어 전환 등으로 화면이 재전개되면 navigation 응답의 초기 데이터로 상태를 동기화
+  //언어 전환 등으로 화면이 재전개되면 navigation 응답의 초기 데이터로 상태를 동기화하고,
+  //이전 언어로 받아둔 일회성 메시지(성공/에러/확인 패널)는 정리한다
   useEffect(() => {
     if (data) {
       setStatus(data as StatusResponse)
     }
+    setMessage(null)
+    setError(null)
+    setPending(null)
+    setConfirmation(null)
   }, [data])
 
   async function refreshStatus() {
@@ -135,7 +143,7 @@ export function AttendanceScreen() {
       <div className="center">
         <div className="today">
           {now.getMonth() + 1}/{now.getDate()}{' '}
-          <span className="clock">{now.toLocaleTimeString()}</span>
+          <span className="clock">{now.toLocaleTimeString(LOCALE_OF[lang])}</span>
         </div>
         <p>
           {t('STATUS_PREFIX')}{' '}
@@ -164,7 +172,7 @@ export function AttendanceScreen() {
         <div className="stamp-box">
           <h3>{t(TYPE_LABEL_KEYS[pending.type])}</h3>
           <p>
-            {t('CURRENT_TIME')}: {now.toLocaleTimeString()}
+            {t('CURRENT_TIME')}: {now.toLocaleTimeString(LOCALE_OF[lang])}
           </p>
           <p className="muted">
             {t('LATITUDE')}: {pending.latitude ?? '-'} / {t('LONGITUDE')}: {pending.longitude ?? '-'}
