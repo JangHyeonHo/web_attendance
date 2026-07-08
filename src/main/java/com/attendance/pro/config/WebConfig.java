@@ -43,6 +43,7 @@ public class WebConfig implements WebMvcConfigurer {
                         "/api/v1/auth/login",
                         "/api/v1/users",
                         "/api/v1/i18n/**",
+                        "/api/v1/navigation",
                         "/api/v1/admin/**");
         //관리자 전용 API
         registry.addInterceptor(adminInterceptor)
