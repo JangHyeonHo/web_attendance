@@ -170,7 +170,7 @@ frontend/                           # 프론트엔드 (Vite + React 19 + TypeScr
 | `attendance_check` | 체크→확정 사이의 변조 방지 토큰(+요청 해시) |
 | `work_schedule` | 일자별 근무시간 오버라이드/개인 휴일 (미등록 일자는 09:00~18:00) |
 | `holiday` | 전사 공휴일 |
-| `language_master` | 다국어 텍스트(화면 그룹 + 키 + 언어) |
+| `language_master` | 다국어 텍스트(화면 그룹 + 키 + 언어). UI 텍스트 시드는 `V3__seed_ui_texts.sql` |
 
 ## 테스트
 

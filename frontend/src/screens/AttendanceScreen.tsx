@@ -4,9 +4,7 @@ import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import type { AttendanceType, CheckRequest, StatusResponse } from '../api/types'
 import { DetailsScreen } from './DetailsScreen'
-
-/** 시계/시각 표기를 UI 언어에 맞추기 위한 로케일 매핑 */
-const LOCALE_OF: Record<string, string> = { KOR: 'ko-KR', ENG: 'en-US', JPN: 'ja-JP' }
+import { localeOf } from '../i18n/lang'
 
 const TYPE_LABEL_KEYS: Record<AttendanceType, string> = {
   GO_TO_WORK: 'ATTEND',
@@ -143,7 +141,7 @@ export function AttendanceScreen() {
       <div className="center">
         <div className="today">
           {now.getMonth() + 1}/{now.getDate()}{' '}
-          <span className="clock">{now.toLocaleTimeString(LOCALE_OF[lang])}</span>
+          <span className="clock">{now.toLocaleTimeString(localeOf(lang))}</span>
         </div>
         <p>
           {t('STATUS_PREFIX')}{' '}
@@ -172,7 +170,7 @@ export function AttendanceScreen() {
         <div className="stamp-box">
           <h3>{t(TYPE_LABEL_KEYS[pending.type])}</h3>
           <p>
-            {t('CURRENT_TIME')}: {now.toLocaleTimeString(LOCALE_OF[lang])}
+            {t('CURRENT_TIME')}: {now.toLocaleTimeString(localeOf(lang))}
           </p>
           <p className="muted">
             {t('LATITUDE')}: {pending.latitude ?? '-'} / {t('LONGITUDE')}: {pending.longitude ?? '-'}

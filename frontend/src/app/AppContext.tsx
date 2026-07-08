@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { ReactNode } from 'react'
 import { navigationApi } from '../api/endpoints'
 import { setUnauthorizedHandler } from '../api/client'
-import { makeT } from '../i18n/builtin'
+import { makeT } from '../i18n/lang'
 import type { Lang, ScreenCode } from '../api/types'
 
 /**
@@ -65,10 +65,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     void navigate()
   }, [navigate])
 
-  const t = useMemo(() => {
-    const merged = { ...headers, ...texts }
-    return makeT(lang, merged)
-  }, [lang, texts, headers])
+  const t = useMemo(() => makeT({ ...headers, ...texts }), [texts, headers])
 
   const value = useMemo<AppState>(
     () => ({ screen, userName, lang, data, t, navigate, ready }),

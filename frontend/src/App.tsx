@@ -35,7 +35,8 @@ export default function App() {
   const { screen, userName, lang, t, navigate, ready } = useApp()
 
   if (!ready) {
-    return <div className="panel center muted">{t('LOADING')}</div>
+    //첫 navigation 응답 전에는 텍스트가 없으므로 언어 중립 표시
+    return <div className="panel center muted">...</div>
   }
 
   return (
