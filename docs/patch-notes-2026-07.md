@@ -100,7 +100,7 @@
 | 플랫폼 | Boot 2.5.2 / Java 8 (EOL) | Boot 4.1.0 / Java 21 (지원 중) |
 | DB | Oracle RDS(폐기) + 자작 DDL 생성기 | MariaDB + Flyway + docker-compose |
 | API | 단일 /api + Map | 리소스별 REST + record + 검증 |
-| 문서 | 없음 | Swagger(3개 언어) + docs/ 4종 |
+| 문서 | 없음 | Swagger(모델 설명까지 3개 언어) + docs/ 4종 |
 | 비밀번호 | SHA-512 무솔트(+해시 로그 출력) | BCrypt |
 | 관리자 보호 | 없음(무인증 셋업 URL 포함) | 세션 + 관리자 인터셉터 |
 | 언어 | 화면 텍스트만 한/영 | 화면 텍스트 + 서버 메시지 + Swagger 한/영/일 |
@@ -109,7 +109,6 @@
 
 ## 남은 리스크 / 후속 과제
 
-- `@Schema`(DTO 필드 설명)의 3개 언어화
 - 운영 프로파일(Swagger/devtools 비활성, 세션 저장소) 분리
 - 매퍼 SQL 통합 테스트(Testcontainers)
 - 프론트 재작성(navigation 기반) — 점검 보고서 참조
