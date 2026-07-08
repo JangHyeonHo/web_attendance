@@ -24,7 +24,7 @@ import jakarta.validation.Valid;
  * 다국어 텍스트 API.
  * 조회는 공개, 등록/목록 관리는 관리자 전용(/api/v1/admin/**).
  */
-@Tag(name = "Language", description = "다국어 텍스트 API")
+@Tag(name = "Language", description = "api.language.tag")
 @RestController
 public class LanguageController {
 
@@ -34,24 +34,23 @@ public class LanguageController {
         this.languageService = languageService;
     }
 
-    @Operation(summary = "화면 텍스트 조회",
-            description = "화면(그룹) ID와 언어에 해당하는 텍스트 맵(key → value)을 돌려준다. 로그인 불필요.")
+    @Operation(summary = "api.language.texts.summary", description = "api.language.texts.description")
     @GetMapping("/api/v1/i18n/{windowId}")
     public Map<String, String> texts(
             @Parameter(description = "화면(그룹) ID", example = "attendance") @PathVariable("windowId") String windowId,
-            @Parameter(description = "언어(KOR/ENG)", example = "KOR") @RequestParam(name = "lang", defaultValue = "KOR") String lang) {
+            @Parameter(description = "언어(KOR/ENG/JPN)", example = "KOR") @RequestParam(name = "lang", defaultValue = "KOR") String lang) {
         return languageService.texts(windowId, lang);
     }
 
-    @Operation(summary = "[관리자] 언어 텍스트 목록", description = "언어 마스터 전체/조건 목록을 돌려준다.")
+    @Operation(summary = "api.language.list.summary", description = "api.language.list.description")
     @GetMapping("/api/v1/admin/i18n")
     public List<EntryResponse> list(
             @Parameter(description = "화면(그룹) ID 필터") @RequestParam(name = "windowId", required = false) String windowId,
-            @Parameter(description = "언어 필터(KOR/ENG)") @RequestParam(name = "lang", required = false) String lang) {
+            @Parameter(description = "언어 필터(KOR/ENG/JPN)") @RequestParam(name = "lang", required = false) String lang) {
         return languageService.list(windowId, lang);
     }
 
-    @Operation(summary = "[관리자] 언어 텍스트 등록/갱신", description = "동일 키가 있으면 값을 갱신한다.")
+    @Operation(summary = "api.language.upsert.summary", description = "api.language.upsert.description")
     @PostMapping("/api/v1/admin/i18n")
     @ResponseStatus(HttpStatus.CREATED)
     public void upsert(@Valid @RequestBody UpsertRequest request) {

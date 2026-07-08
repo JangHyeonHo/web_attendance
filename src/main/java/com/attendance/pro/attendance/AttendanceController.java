@@ -28,7 +28,7 @@ import jakarta.validation.Valid;
 /**
  * 출결 API.
  */
-@Tag(name = "Attendance", description = "출결 API (로그인 필요)")
+@Tag(name = "Attendance", description = "api.attendance.tag")
 @RestController
 @RequestMapping("/api/v1/attendance")
 public class AttendanceController {
@@ -39,30 +39,22 @@ public class AttendanceController {
         this.attendanceService = attendanceService;
     }
 
-    @Operation(summary = "출결 상태 조회",
-            description = "현재 출결 상태(출근 대기/출근 중/퇴근 완료 등)와 알림을 돌려준다.")
+    @Operation(summary = "api.attendance.status.summary", description = "api.attendance.status.description")
     @GetMapping("/status")
     public StatusResponse status(@LoginUser SessionUser user) {
         return attendanceService.status(user.userId());
     }
 
-    @Operation(summary = "출결 체크",
-            description = """
-                    확정 전 사전 검사. 현재 상태에서 요청한 출결 타입이 가능한지 검사한다.
-                    - allowed=true, requiresConfirmation=false: 바로 확정 가능
-                    - allowed=true, requiresConfirmation=true: 사용자에게 덮어쓰기/재출근 확인 후 확정
-                    - allowed=false: 처리 불가(메시지 표시)
-                    확정 가능한 경우 token이 발급되며, 확정 요청에 동일한 데이터와 함께 보내야 한다.""")
+    @Operation(summary = "api.attendance.check.summary", description = "api.attendance.check.description")
     @PostMapping("/check")
     public CheckResponse check(@LoginUser SessionUser user, @Valid @RequestBody CheckRequest request) {
         return attendanceService.check(user.userId(), request);
     }
 
-    @Operation(summary = "출결 확정",
-            description = "체크에서 받은 토큰과 동일한 데이터로 출결 스탬프를 등록한다. 체크 시점과 데이터가 다르면 400.")
+    @Operation(summary = "api.attendance.confirm.summary", description = "api.attendance.confirm.description")
     @ApiResponses({
-            @ApiResponse(responseCode = "201", description = "등록 완료"),
-            @ApiResponse(responseCode = "400", description = "토큰 불일치 또는 데이터 변조")
+            @ApiResponse(responseCode = "201", description = "api.attendance.confirm.201"),
+            @ApiResponse(responseCode = "400", description = "api.attendance.confirm.400")
     })
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -70,8 +62,7 @@ public class AttendanceController {
         return attendanceService.confirm(user.userId(), request);
     }
 
-    @Operation(summary = "월별 출결 상세",
-            description = "해당 월의 일자별 스케쥴과 출근/퇴근 시각을 돌려준다. 자정 넘긴 퇴근은 24+시(예: 25:10)로 표기.")
+    @Operation(summary = "api.attendance.monthly.summary", description = "api.attendance.monthly.description")
     @GetMapping("/monthly")
     public MonthlyResponse monthly(@LoginUser SessionUser user,
             @Parameter(description = "연도", example = "2026") @RequestParam("year") int year,

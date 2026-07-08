@@ -14,11 +14,11 @@ public final class AuthDtos {
     @Schema(description = "로그인 요청")
     public record LoginRequest(
             @Schema(description = "이메일", example = "admin@attendance.local")
-            @NotBlank(message = "이메일을 입력해 주세요.")
+            @NotBlank(message = "{validation.email.required}")
             String email,
 
             @Schema(description = "비밀번호", example = "Admin123!")
-            @NotBlank(message = "비밀번호를 입력해 주세요.")
+            @NotBlank(message = "{validation.password.required}")
             String password) {
     }
 

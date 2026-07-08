@@ -19,7 +19,7 @@ public final class AttendanceDtos {
 
     @Schema(description = "출결 체크 요청(확정 전 사전 검사)")
     public record CheckRequest(
-            @Schema(description = "출결 타입") @NotNull(message = "출결 타입을 입력해 주세요.") AttendanceType type,
+            @Schema(description = "출결 타입") @NotNull(message = "{validation.attendance.type.required}") AttendanceType type,
             @Schema(description = "위도", example = "37.5665000") Double latitude,
             @Schema(description = "경도", example = "126.9780000") Double longitude,
             @Schema(description = "장소 정보", example = "서울시 중구") @Size(max = 200) String placeInfo,
@@ -49,8 +49,8 @@ public final class AttendanceDtos {
 
     @Schema(description = "출결 확정 요청(체크에서 받은 토큰 + 체크와 동일한 데이터)")
     public record ConfirmRequest(
-            @Schema(description = "체크 응답으로 받은 토큰") @NotBlank(message = "토큰을 입력해 주세요.") String token,
-            @Schema(description = "출결 타입") @NotNull(message = "출결 타입을 입력해 주세요.") AttendanceType type,
+            @Schema(description = "체크 응답으로 받은 토큰") @NotBlank(message = "{validation.attendance.token.required}") String token,
+            @Schema(description = "출결 타입") @NotNull(message = "{validation.attendance.type.required}") AttendanceType type,
             @Schema(description = "위도", example = "37.5665000") Double latitude,
             @Schema(description = "경도", example = "126.9780000") Double longitude,
             @Schema(description = "장소 정보", example = "서울시 중구") @Size(max = 200) String placeInfo,
@@ -71,59 +71,44 @@ public final class AttendanceDtos {
     @Schema(description = "현재 출결 상태", enumAsRef = true)
     public enum WorkStatus {
         /** 출근 대기 */
-        WAITING("출근 대기"),
+        WAITING,
         /** 출근 중 */
-        WORKING("출근 중"),
+        WORKING,
         /** 퇴근 완료 */
-        OFF_WORK_DONE("퇴근 완료"),
+        OFF_WORK_DONE,
         /** 조퇴 완료 */
-        EARLY_DEPARTURE_DONE("조퇴 완료"),
+        EARLY_DEPARTURE_DONE,
         /** 출근 중(휴식) */
-        ON_BREAK("출근 중(휴식)"),
+        ON_BREAK,
         /** 출근 중(휴식 완료) */
-        BREAK_ENDED("출근 중(휴식 완료)");
+        BREAK_ENDED;
 
-        private final String label;
-
-        WorkStatus(String label) {
-            this.label = label;
-        }
-
-        public String label() {
-            return label;
+        /** 표시 텍스트의 메시지 키 */
+        public String labelKey() {
+            return "status." + name();
         }
     }
 
     @Schema(description = "출결 상태 알림", enumAsRef = true)
     public enum StatusAlert {
         /** 출근한지 하루 경과 - 퇴근 필요 */
-        OVERDUE_OFF_WORK("출근한지 하루가 지났습니다! 퇴근을 찍어주세요"),
+        OVERDUE_OFF_WORK,
         /** 휴식한지 하루 경과 - 휴식 완료 필요 */
-        OVERDUE_BREAK_END("휴식한지 하루가 지났습니다! 휴식 완료를 찍어주세요");
+        OVERDUE_BREAK_END;
 
-        private final String label;
-
-        StatusAlert(String label) {
-            this.label = label;
-        }
-
-        public String label() {
-            return label;
+        /** 표시 텍스트의 메시지 키 */
+        public String labelKey() {
+            return "alert." + name();
         }
     }
 
     @Schema(description = "출결 상태 응답")
     public record StatusResponse(
             @Schema(description = "현재 상태") WorkStatus status,
-            @Schema(description = "상태 표시 텍스트", example = "출근 중") String statusLabel,
+            @Schema(description = "상태 표시 텍스트(요청 언어로 번역됨)", example = "출근 중") String statusLabel,
             @Schema(description = "기준 스탬프 시각(대기 상태면 null)") LocalDateTime stampedAt,
             @Schema(description = "알림(없으면 null)") StatusAlert alert,
             @Schema(description = "알림 표시 텍스트(없으면 null)") String alertLabel) {
-
-        public static StatusResponse of(WorkStatus status, LocalDateTime stampedAt, StatusAlert alert) {
-            return new StatusResponse(status, status.label(), stampedAt,
-                    alert, alert == null ? null : alert.label());
-        }
     }
 
     @Schema(description = "일별 출결(월별 상세의 한 행)")

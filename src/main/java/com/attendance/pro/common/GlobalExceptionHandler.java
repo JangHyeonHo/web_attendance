@@ -18,6 +18,12 @@ public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
+    private final Messages messages;
+
+    public GlobalExceptionHandler(Messages messages) {
+        this.messages = messages;
+    }
+
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<ErrorResponse> handleApiException(ApiException e) {
         return ResponseEntity.status(e.getStatus())
@@ -30,14 +36,14 @@ public class GlobalExceptionHandler {
                 .map(fe -> new ErrorResponse.FieldErrorDetail(fe.getField(), fe.getDefaultMessage()))
                 .toList();
         return ResponseEntity.badRequest()
-                .body(new ErrorResponse("INVALID_INPUT", "입력값이 올바르지 않습니다.", fieldErrors));
+                .body(new ErrorResponse("INVALID_INPUT", messages.get("error.invalid-input"), fieldErrors));
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleUnexpected(Exception e) {
         log.error("unexpected error", e);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ErrorResponse.of("INTERNAL_ERROR", "처리 중 오류가 발생했습니다. 다시 시도해 주세요."));
+                .body(ErrorResponse.of("INTERNAL_ERROR", messages.get("error.internal")));
     }
 
 }

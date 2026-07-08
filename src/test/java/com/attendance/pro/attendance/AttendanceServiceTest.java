@@ -10,6 +10,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDateTime;
+import java.util.Locale;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -18,6 +19,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.i18n.LocaleContextHolder;
+import org.springframework.context.support.ResourceBundleMessageSource;
 
 import com.attendance.pro.attendance.AttendanceDtos.CheckRequest;
 import com.attendance.pro.attendance.AttendanceDtos.CheckResponse;
@@ -26,6 +29,7 @@ import com.attendance.pro.attendance.AttendanceDtos.StatusAlert;
 import com.attendance.pro.attendance.AttendanceDtos.StatusResponse;
 import com.attendance.pro.attendance.AttendanceDtos.WorkStatus;
 import com.attendance.pro.common.ApiException;
+import com.attendance.pro.common.Messages;
 
 /**
  * 출결 상태머신(체크 규칙)과 상태 조회, 확정 변조 탐지 테스트.
@@ -45,7 +49,17 @@ class AttendanceServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new AttendanceService(attendanceMapper, scheduleMapper);
+        //메시지는 실제 번들로 해석하고, 한국어 기준으로 검증한다
+        LocaleContextHolder.setLocale(Locale.KOREAN);
+        service = new AttendanceService(attendanceMapper, scheduleMapper, realMessages());
+    }
+
+    static Messages realMessages() {
+        ResourceBundleMessageSource messageSource = new ResourceBundleMessageSource();
+        messageSource.setBasename("messages/messages");
+        messageSource.setDefaultEncoding("UTF-8");
+        messageSource.setFallbackToSystemLocale(false);
+        return new Messages(messageSource);
     }
 
     private AttendanceStamp stamp(AttendanceType type, int status, LocalDateTime at) {

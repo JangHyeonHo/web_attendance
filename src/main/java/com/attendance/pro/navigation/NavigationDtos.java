@@ -18,8 +18,8 @@ public final class NavigationDtos {
             @Schema(description = "요청 화면 코드(W000~). 미지정/미지원 코드는 인덱스로 처리", example = "W005")
             String screen,
 
-            @Schema(description = "언어(KOR/ENG). 지정시 세션에 저장되어 이후 요청에도 적용", example = "KOR")
-            @Pattern(regexp = "KOR|ENG", message = "언어는 KOR 또는 ENG만 지원합니다.")
+            @Schema(description = "언어(KOR/ENG/JPN). 지정시 세션에 저장되어 이후 요청에도 적용", example = "KOR")
+            @Pattern(regexp = "KOR|ENG|JPN", message = "{validation.lang.supported}")
             String lang) {
     }
 

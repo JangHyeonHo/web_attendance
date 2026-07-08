@@ -19,7 +19,7 @@ import jakarta.validation.Valid;
 /**
  * 회원 API.
  */
-@Tag(name = "User", description = "회원 관리 API")
+@Tag(name = "User", description = "api.user.tag")
 @RestController
 @RequestMapping("/api/v1/users")
 public class UserController {
@@ -30,11 +30,11 @@ public class UserController {
         this.userService = userService;
     }
 
-    @Operation(summary = "회원가입", description = "이메일/비밀번호/이름으로 회원을 등록한다.")
+    @Operation(summary = "api.user.signup.summary", description = "api.user.signup.description")
     @ApiResponses({
-            @ApiResponse(responseCode = "201", description = "가입 완료"),
-            @ApiResponse(responseCode = "400", description = "입력값 검증 실패"),
-            @ApiResponse(responseCode = "409", description = "이메일 중복")
+            @ApiResponse(responseCode = "201", description = "api.user.signup.201"),
+            @ApiResponse(responseCode = "400", description = "api.user.signup.400"),
+            @ApiResponse(responseCode = "409", description = "api.user.signup.409")
     })
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)

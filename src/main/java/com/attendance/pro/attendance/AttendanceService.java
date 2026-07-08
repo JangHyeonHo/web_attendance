@@ -30,6 +30,7 @@ import com.attendance.pro.attendance.AttendanceDtos.StatusAlert;
 import com.attendance.pro.attendance.AttendanceDtos.StatusResponse;
 import com.attendance.pro.attendance.AttendanceDtos.WorkStatus;
 import com.attendance.pro.common.ApiException;
+import com.attendance.pro.common.Messages;
 
 /**
  * 출결 처리 서비스.
@@ -50,11 +51,13 @@ public class AttendanceService {
 
     private final AttendanceMapper attendanceMapper;
     private final ScheduleMapper scheduleMapper;
+    private final Messages messages;
     private final MonthlyAttendanceAssembler assembler = new MonthlyAttendanceAssembler();
 
-    public AttendanceService(AttendanceMapper attendanceMapper, ScheduleMapper scheduleMapper) {
+    public AttendanceService(AttendanceMapper attendanceMapper, ScheduleMapper scheduleMapper, Messages messages) {
         this.attendanceMapper = attendanceMapper;
         this.scheduleMapper = scheduleMapper;
+        this.messages = messages;
     }
 
     /**
@@ -86,7 +89,7 @@ public class AttendanceService {
     public StampResponse confirm(long userId, ConfirmRequest request) {
         String storedHash = attendanceMapper.findCheckHash(request.token(), userId);
         if (storedHash == null || !storedHash.equals(payloadHash(userId, request.toCheckRequest()))) {
-            throw ApiException.badRequest("CHECK_MISMATCH", "데이터가 올바르지 않습니다. 다시 처리해 주세요.");
+            throw ApiException.badRequest("CHECK_MISMATCH", messages.get("attendance.check.mismatch"));
         }
         attendanceMapper.deleteCheck(request.token());
 
@@ -104,8 +107,8 @@ public class AttendanceService {
                 request.latitude(), request.longitude(), request.placeInfo(), request.terminal());
         log.debug("attendance stamped: userId={}, type={}, status={}", userId, request.type(), status);
 
-        String message = "현재 시간 %s에 %s 하셨습니다.".formatted(
-                now.format(DateTimeFormatter.ofPattern("HH:mm")), request.type().label());
+        String message = messages.get("attendance.stamp.success",
+                now.format(DateTimeFormatter.ofPattern("HH:mm")), messages.get(request.type().labelKey()));
         return new StampResponse(request.type(), now, message);
     }
 
@@ -166,14 +169,14 @@ public class AttendanceService {
     }
 
     private String confirmMessage(ConfirmCode code, AttendanceStamp latest) {
-        String label = latest == null ? "" : latest.type().label();
-        return code.message(label);
+        String label = latest == null ? "" : messages.get(latest.type().labelKey());
+        return messages.get(code.messageKey(), label);
     }
 
     private String rejectMessage(ConfirmCode code, AttendanceStamp latest, AttendanceType requested) {
         //NOT_ON_DUTY는 요청 타입명을, CANNOT_BREAK는 직전 기록 타입명을 표시
         if (code == ConfirmCode.NOT_ON_DUTY) {
-            return code.message(requested.label());
+            return messages.get(code.messageKey(), messages.get(requested.labelKey()));
         }
         return confirmMessage(code, latest);
     }
@@ -185,7 +188,7 @@ public class AttendanceService {
     public StatusResponse status(long userId) {
         AttendanceStamp latest = attendanceMapper.findLatest(userId);
         if (latest == null) {
-            return StatusResponse.of(WorkStatus.WAITING, null, null);
+            return statusOf(WorkStatus.WAITING, null, null);
         }
         LocalDateTime now = LocalDateTime.now();
         long hoursSince = java.time.Duration.between(latest.stampedAt(), now).toHours();
@@ -193,30 +196,38 @@ public class AttendanceService {
 
         switch (latest.type()) {
         case GO_TO_WORK:
-            return StatusResponse.of(WorkStatus.WORKING, latest.stampedAt(),
+            return statusOf(WorkStatus.WORKING, latest.stampedAt(),
                     hoursSince > OVERDUE_HOURS ? StatusAlert.OVERDUE_OFF_WORK : null);
         case OFF_WORK:
             //퇴근이 오늘이면 퇴근 완료, 아니면 출근 대기
             return sameDay
-                    ? StatusResponse.of(WorkStatus.OFF_WORK_DONE, latest.stampedAt(), null)
-                    : StatusResponse.of(WorkStatus.WAITING, null, null);
+                    ? statusOf(WorkStatus.OFF_WORK_DONE, latest.stampedAt(), null)
+                    : statusOf(WorkStatus.WAITING, null, null);
         case EARLY_DEPARTURE:
             return sameDay
-                    ? StatusResponse.of(WorkStatus.EARLY_DEPARTURE_DONE, latest.stampedAt(), null)
-                    : StatusResponse.of(WorkStatus.WAITING, null, null);
+                    ? statusOf(WorkStatus.EARLY_DEPARTURE_DONE, latest.stampedAt(), null)
+                    : statusOf(WorkStatus.WAITING, null, null);
         case BREAK:
             if (latest.status() == AttendanceStamp.STATUS_ACTIVE) {
-                return StatusResponse.of(WorkStatus.ON_BREAK, latest.stampedAt(),
+                return statusOf(WorkStatus.ON_BREAK, latest.stampedAt(),
                         hoursSince > OVERDUE_HOURS ? StatusAlert.OVERDUE_BREAK_END : null);
             }
             //휴식 종료 상태면 기준 시각은 최근 출근 스탬프
             AttendanceStamp lastGo = attendanceMapper.findLatestGoToWork(userId);
             LocalDateTime baseTime = lastGo == null ? latest.stampedAt() : lastGo.stampedAt();
             long hoursSinceGo = java.time.Duration.between(baseTime, now).toHours();
-            return StatusResponse.of(WorkStatus.BREAK_ENDED, baseTime,
+            return statusOf(WorkStatus.BREAK_ENDED, baseTime,
                     hoursSinceGo > OVERDUE_HOURS ? StatusAlert.OVERDUE_OFF_WORK : null);
         }
-        return StatusResponse.of(WorkStatus.WAITING, null, null);
+        return statusOf(WorkStatus.WAITING, null, null);
+    }
+
+    /**
+     * 상태 응답 조립(라벨을 요청 로케일로 해석).
+     */
+    private StatusResponse statusOf(WorkStatus status, LocalDateTime stampedAt, StatusAlert alert) {
+        return new StatusResponse(status, messages.get(status.labelKey()), stampedAt,
+                alert, alert == null ? null : messages.get(alert.labelKey()));
     }
 
     /**
@@ -225,7 +236,7 @@ public class AttendanceService {
     @Transactional(readOnly = true)
     public MonthlyResponse monthly(long userId, int year, int month) {
         if (month < 1 || month > 12) {
-            throw ApiException.badRequest("INVALID_MONTH", "월은 1~12 사이로 입력해 주세요.");
+            throw ApiException.badRequest("INVALID_MONTH", messages.get("attendance.month.invalid"));
         }
         YearMonth yearMonth = YearMonth.of(year, month);
         LocalDate from = yearMonth.atDay(1);
