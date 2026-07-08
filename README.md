@@ -3,6 +3,8 @@
 Spring Boot 4 + MyBatis + **MariaDB** 기반의 웹 출결(근태) 관리 시스템 백엔드.
 
 - **REST API + Swagger**: 리소스별 엔드포인트와 타입 있는 DTO(record). API 문서는 `/swagger-ui.html`
+- **3개 언어 대응(한/영/일)**: 에러·검증·출결 메시지와 Swagger 문서가 요청 언어로 응답
+  (우선순위: navigation의 `lang`(세션 저장) → `Accept-Language` 헤더 → 한국어)
 - **세션 쿠키 인증**: 로그인 후 세션 쿠키로 호출, 관리자 API 권한 분리
 - **출결 2단계 처리**: 체크(사전 검사 + 토큰 발급) → 확정(동일 데이터 + 토큰, SHA-256 해시로 변조 탐지)
 - **Flyway 마이그레이션**: 기동시 스키마 자동 생성/버전 관리
