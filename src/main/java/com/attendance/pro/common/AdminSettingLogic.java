@@ -1,9 +1,9 @@
-package com.attendance.pro.other;
+package com.attendance.pro.common;
 
-import static com.attendance.pro.other.CodeMap.isEmpty;
-import static com.attendance.pro.other.CodeMap.isEqual;
-import static com.attendance.pro.other.CodeMap.isEqualMultyisOne;
-import static com.attendance.pro.other.CodeMap.isStringEqual;
+import static com.attendance.pro.common.CodeMap.isEmpty;
+import static com.attendance.pro.common.CodeMap.isEqual;
+import static com.attendance.pro.common.CodeMap.isAnyEqual;
+import static com.attendance.pro.common.CodeMap.isStringEqual;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -22,7 +22,6 @@ import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.ModelAndView;
 
@@ -34,10 +33,7 @@ import com.attendance.pro.dto.LanguageMasterDto;
 @Component
 public class AdminSettingLogic {
     
-    /**
-     * 로그작성
-     * */
-    private Logger log = LoggerFactory.getLogger(AdminSettingLogic.class);
+    private static final Logger log = LoggerFactory.getLogger(AdminSettingLogic.class);
     
     //기호
     public static final String COMMA = ",";
@@ -77,15 +73,18 @@ public class AdminSettingLogic {
     //public static final String FK = "Foreign Key";
     
 
-    @Autowired
-    AdminScanDao adminScanDao;
-    
-    @Autowired
-    LanguageMasterDao languageMasterDao;
+    private final AdminScanDao adminScanDao;
+
+    private final LanguageMasterDao languageMasterDao;
+
+    public AdminSettingLogic(AdminScanDao adminScanDao, LanguageMasterDao languageMasterDao) {
+        this.adminScanDao = adminScanDao;
+        this.languageMasterDao = languageMasterDao;
+    }
     
     //제외 컬럼 확인용
     private boolean exceptColumn(String columns) {
-        if(isEqualMultyisOne(columns,"REGIST_USER"
+        if(isAnyEqual(columns,"REGIST_USER"
                 , "REGIST_DATE"
                 , "UPDATE_USER"
                 , "UPDATE_DATE"

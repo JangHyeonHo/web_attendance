@@ -1,148 +1,130 @@
 package com.attendance.pro.service;
 
-import java.math.BigInteger;
+import static com.attendance.pro.common.CodeMap.RESULT;
+import static com.attendance.pro.common.CodeMap.isEqual;
+
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HexFormat;
 import java.util.Map;
-import static com.attendance.pro.other.CodeMap.isEqual;
-import static com.attendance.pro.other.CodeMap.RESULT;
-
-import org.springframework.beans.factory.annotation.Autowired;
 
 import com.attendance.pro.dao.LogicServiceDao;
 
-public class BaseService implements BaseServiceImpl{
-    
-    @Autowired
-    LogicServiceDao logicServiceDao = null;
-    
+/**
+ * 프로세스 서비스 공통 기능(형변환, 변조 체크, 에러 기록).
+ */
+public abstract class BaseService implements ProcService {
+
+    private final LogicServiceDao logicServiceDao;
+
+    protected BaseService(LogicServiceDao logicServiceDao) {
+        this.logicServiceDao = logicServiceDao;
+    }
+
     protected String objectToString(Object e) {
-        if(e==null) {
+        if (e == null) {
             return null;
         }
-        if(e instanceof String) {
-            return (String) e;
+        if (e instanceof String s) {
+            return s;
         }
         return e.toString();
     }
-    
+
     protected Integer objectToInteger(Object e) {
+        if (e instanceof Integer i) {
+            return i;
+        }
         try {
             String s = objectToString(e);
-            if(e instanceof Integer) {
-                return (Integer) e;
-            }
-            return Integer.valueOf(s);
-        } catch(NumberFormatException ex) {
+            return s == null ? null : Integer.valueOf(s);
+        } catch (NumberFormatException ex) {
             return null;
         }
     }
-    
+
     protected Boolean objectToBoolean(Object e) {
-        String s = objectToString(e);
-        if(e instanceof Boolean) {
-            return Boolean.valueOf(s);
+        if (e instanceof Boolean b) {
+            return b;
         }
         return null;
     }
-    
+
     protected Double objectToDouble(Object e) {
+        if (e instanceof Double d) {
+            return d;
+        }
         try {
             String s = objectToString(e);
-            if(e instanceof Double) {
-                return (Double) e;
-            }
-            return Double.valueOf(s);
-        } catch(NumberFormatException ex) {
+            return s == null ? null : Double.valueOf(s);
+        } catch (NumberFormatException ex) {
             return null;
         }
     }
-    
+
     /**
-     * 데이터 체크후 확정전 변조 확인용
-     * @param dto
-     * @param checkService
-     * @return result
+     * 데이터 체크 후 확정 전 변조 확인용.
+     * 체크 시점의 요청 데이터를 해시로 기록해 두고, 확정 시점에 동일한지 비교한다.
+     *
+     * @param data         요청 데이터
+     * @param checkService 체크를 요청한 서비스 명
+     * @param userCd       유저 코드
+     * @return 변조 확인 키(result)
      */
     protected String checkRegistSystem(Map<String, Object> data, String checkService, String userCd) throws Exception {
         String result = getResult(userCd);
         data.put(RESULT, result);
         try {
             String retData = retDataEncrypt(data);
-            Integer i = logicServiceDao.insertService(result, retData, checkService, userCd, "S", null, null);
+            logicServiceDao.insertService(result, retData, checkService, userCd, "S", null, null);
         } catch (NoSuchAlgorithmException e) {
             errorRegistSystem(data, checkService, userCd, "CRSERR", e.getMessage());
         }
         return result;
     }
-    
+
     /**
-     * 체크로직 데이터 암호화
-     * @param data
-     * @return
-     * @throws NoSuchAlgorithmException
+     * 체크로직 데이터 해시화(SHA-512).
      */
     private String retDataEncrypt(Map<String, Object> data) throws NoSuchAlgorithmException {
-        String retData = null;
         MessageDigest md = MessageDigest.getInstance("SHA-512");
         md.update(data.toString().getBytes());
-        retData = String.format("%0128x", new BigInteger(1, md.digest()));
-        return retData;
+        return HexFormat.of().formatHex(md.digest());
     }
-    
+
     /**
-     * 체크전 데이터와 비교
-     * @param result
-     * @param data
-     * @param userCd
-     * @return
+     * 확정 시점의 데이터가 체크 시점의 데이터와 일치하는지 비교한다.
      */
     protected boolean isResultDatasEqual(String result, Map<String, Object> data, String userCd) {
         try {
             String retData = retDataEncrypt(data);
             String encryptData = logicServiceDao.getCheckLogic(result, userCd);
-            return isEqual(retData,encryptData);
+            return isEqual(retData, encryptData);
         } catch (NoSuchAlgorithmException e) {
             return false;
         }
     }
-    
+
     /**
-     * 변조코드 출력
-     * @param userCd
-     * @return
+     * 변조 확인 키 생성(타임스탬프 + 유저 코드).
      */
     private String getResult(String userCd) {
-        String result = null;
-        Date date = new Date();
         SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMddHHmmssSS");
-        result = sdf.format(date)+userCd;
-        return result;
-    }
-    
-    /**
-     * 에러 처리 로직
-     * @param dto
-     * @param checkService
-     * @return result
-     */
-    protected void errorRegistSystem(Map<String, Object>  data, String checkService, String userCd, String errorCd, String errorMsg) {
-        String result = getResult(userCd);
-        data.put(RESULT, result);
-        if(errorMsg.length()>400) {
-            errorMsg = errorMsg.substring(0, 400);
-        }
-        Integer i = logicServiceDao.insertService(result ,data.toString(), checkService, userCd, "E" , errorCd, errorMsg);
+        return sdf.format(new Date()) + userCd;
     }
 
-    @Override
-    public Map<String, Object> proc(Map<String, Object> data, 
-            Map<String, Object> resData, Map<String, String> windowData,
-            String... props) {
-        
-        return resData;
+    /**
+     * 에러 내용을 로직 서비스 테이블에 기록한다.
+     */
+    protected void errorRegistSystem(Map<String, Object> data, String checkService, String userCd, String errorCd, String errorMsg) {
+        String result = getResult(userCd);
+        data.put(RESULT, result);
+        if (errorMsg.length() > 400) {
+            errorMsg = errorMsg.substring(0, 400);
+        }
+        logicServiceDao.insertService(result, data.toString(), checkService, userCd, "E", errorCd, errorMsg);
     }
 
 }
