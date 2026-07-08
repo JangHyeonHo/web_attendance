@@ -3,7 +3,7 @@
 - 상위 문서: [`docs/plan-saas-multitenancy.md`](../plan-saas-multitenancy.md) §3(데이터 모델), §6-1(기업/결제 정보)
 - 대상 DB: MariaDB 10.11 / 11 (로컬은 `docker-compose.yml`의 `mariadb:11`, utf8mb4)
 - 마이그레이션 파일: `src/main/resources/db/migration/V4__multitenancy.sql` (본 문서 §2의 SQL 그대로)
-- 확정 전제: Pool 모델 · `UNIQUE(tenant_id, email)` · 3단계 `users.role` · `users.status`(ACTIVE/DISABLED 사용, PENDING은 스키마만 대비) · holiday 테넌트화 · `tenant_profile`/`tenant_billing`(암호화 컬럼 VARBINARY, 카드 원본 비저장) · 기존 데이터 `DEFAULT` 테넌트 backfill · V2 시드 관리자 SYSTEM_ADMIN 승격
+- 확정 전제: Pool 모델 · `UNIQUE(tenant_id, email)` · 3단계 `users.role` · `users.status`(ACTIVE/DISABLED 사용, PENDING은 스키마만 대비) · holiday 테넌트화 · `tenant_profile`/`tenant_billing`(암호화 컬럼 **VARCHAR — `v1:` 텍스트 암호문 저장**(교차 검증 최종 결정 D-C), 카드 원본 비저장) · 기존 데이터 `DEFAULT` 테넌트 backfill · V2 시드 관리자 SYSTEM_ADMIN 승격
 - 신규 화면 UI 텍스트 시드는 **V4에 넣지 않고 V5로 분리**한다(§7).
 
 ---
@@ -14,11 +14,11 @@
 |------|------|------|
 | V4 파일 구성 | **단일 파일, 문(statement) 단위 재실행 내성(idempotent)** | MariaDB의 DDL은 비트랜잭셔널 — V4 도중 실패 시 부분 적용 상태가 남는다. `IF [NOT] EXISTS`와 `WHERE tenant_id IS NULL` 가드로 "repair 후 같은 파일 재실행"이 가능하게 작성 (§8) |
 | 테이블별 ALTER 묶음 | 컬럼 추가(NULL 허용) → backfill UPDATE → **제약/인덱스는 테이블당 1개의 ALTER로 통합** | ALTER 1문 = 테이블 리빌드 1회 + 문 단위 원자성(전부 적용 or 전부 실패). NULL→NOT NULL 변경은 INSTANT가 아니므로 묶어서 1회만 리빌드 |
-| `users.role`/`status` 타입 | `VARCHAR` + `CHECK` (MariaDB ENUM 미사용) | ENUM은 값 추가 시 ALTER 필요 + JDBC/MyBatis 매핑이 문자열과 이중화됨. CHECK는 MariaDB 10.2.1+에서 강제되므로 무결성 동일 |
+| `users.role`/`status` · **`tenant.status`** 타입 | `VARCHAR` + `CHECK` (MariaDB ENUM·TINYINT 미사용) | ENUM은 값 추가 시 ALTER 필요 + JDBC/MyBatis 매핑이 문자열과 이중화됨. CHECK는 MariaDB 10.2.1+에서 강제되므로 무결성 동일. tenant.status도 동일 결정 적용(backend `TenantStatus` enum 이름 매핑과 정합 — 교차 검증 발견 7) |
 | `is_admin` 컬럼 | **V4에서 DROP** | 앱 신버전(role 사용)과 동시 배포·단일 인스턴스·정지 배포 전제라 과도기 불필요. 보수적으로 가려면 V4에서 남기고 V6에서 DROP하는 선택지도 있으나, 죽은 컬럼이 코드에 오독을 남기므로 즉시 제거를 권장 |
 | `attendance` backfill 소스 | 상수(=DEFAULT)가 아니라 **`users` 조인** | 지금은 결과가 같지만, "자식 행의 tenant = 소유 유저의 tenant"라는 불변식을 마이그레이션 자체가 보장하게 됨. `attendance_check`/`work_schedule` 동일 |
 | DEFAULT 테넌트 ID | `tenant_id = 1` 명시 INSERT + backfill은 `tenant_code='DEFAULT'` 서브쿼리 참조 | 하드코딩 `1` 산재 방지. 리허설/운영 어디서든 코드 기준으로 동작 |
-| 암호화 컬럼 | **VARBINARY에 바이너리 직저장** (TEXT+base64 미채택) | §4 산정 근거 참조 |
+| 암호화 컬럼 | **VARCHAR에 `v1:` 텍스트 암호문 저장** (VARBINARY 바이너리 직저장 미채택 — D-C) | security-plan §2-3의 버전 프리픽스 텍스트 포맷이 정본. §4 산정 근거 참조 |
 
 배포 전제: **V4는 앱 정지 상태에서 적용**한다(구버전 앱은 `is_admin`을 조회하므로 신스키마와 비호환). 단일 인스턴스 + Flyway 기동 시 자동 적용 구조라, "신버전 배포 → 기동 시 V4 적용 → 서비스 재개"의 자연스러운 순서가 된다.
 
@@ -72,24 +72,27 @@ CREATE TABLE IF NOT EXISTS tenant (
     tenant_id   BIGINT       NOT NULL AUTO_INCREMENT COMMENT '테넌트 ID',
     tenant_code VARCHAR(20)  NOT NULL COMMENT '로그인/URL용 테넌트 코드(대문자 영숫자)',
     name        VARCHAR(100) NOT NULL COMMENT '고객사명',
-    status      TINYINT      NOT NULL DEFAULT 0 COMMENT '상태(0=ACTIVE 1=SUSPENDED)',
+    status      VARCHAR(10)  NOT NULL DEFAULT 'ACTIVE' COMMENT '상태(ACTIVE/SUSPENDED)',
     created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '등록일',
     updated_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
                              ON UPDATE CURRENT_TIMESTAMP COMMENT '수정일',
     PRIMARY KEY (tenant_id),
-    UNIQUE KEY uk_tenant_code (tenant_code)
+    UNIQUE KEY uk_tenant_code (tenant_code),
+    CONSTRAINT ck_tenant_status CHECK (status IN ('ACTIVE', 'SUSPENDED'))
 ) COMMENT '테넌트(고객사)';
+-- status는 users.role/status와 동일하게 VARCHAR+CHECK (§0 결정표 — backend TenantStatus enum 이름 매핑 정합)
 
 -- 기업 정보 (SYSTEM_ADMIN 전용 — 상위 계획 §6-1)
--- 암호화 컬럼 포맷: [키버전 1B][GCM IV 12B][암호문(평문과 동일 길이)][GCM 태그 16B] = 평문 + 29B
+-- 암호화 컬럼 포맷(텍스트, security-plan §2-3 정본): v1:{base64(iv12)}:{base64(ct||tag16)}
+--   → ASCII 문자열이므로 VARCHAR 저장 (교차 검증 최종 결정 D-C)
 CREATE TABLE IF NOT EXISTS tenant_profile (
     tenant_id       BIGINT         NOT NULL COMMENT '테넌트 ID (tenant 1:1)',
-    business_reg_no VARBINARY(256) NOT NULL COMMENT '사업자등록번호 [AES-256-GCM 암호문]',
+    business_reg_no VARCHAR(128)   NOT NULL COMMENT '사업자등록번호 [AES-256-GCM v1: 텍스트 암호문]',
     ceo_name        VARCHAR(50)    NULL COMMENT '대표자명',
     address         VARCHAR(200)   NULL COMMENT '사업장 주소',
     contact_name    VARCHAR(50)    NULL COMMENT '계약 담당자명',
     contact_email   VARCHAR(100)   NULL COMMENT '계약 담당자 이메일',
-    contact_phone   VARBINARY(256) NULL COMMENT '계약 담당자 연락처 [AES-256-GCM 암호문]',
+    contact_phone   VARCHAR(128)   NULL COMMENT '계약 담당자 연락처 [AES-256-GCM v1: 텍스트 암호문]',
     created_at      DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '등록일',
     updated_at      DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP
                                    ON UPDATE CURRENT_TIMESTAMP COMMENT '수정일',
@@ -104,7 +107,7 @@ CREATE TABLE IF NOT EXISTS tenant_billing (
     tenant_id       BIGINT         NOT NULL COMMENT '테넌트 ID (tenant 1:1)',
     billing_method  TINYINT        NOT NULL DEFAULT 0 COMMENT '결제 방식(0=INVOICE 세금계산서/이체 1=CARD PG빌링키)',
     billing_email   VARCHAR(100)   NULL COMMENT '청구서/세금계산서 수신 이메일',
-    pg_customer_key VARBINARY(512) NULL COMMENT 'PG 빌링키 [AES-256-GCM 암호문] — 어떤 API로도 평문 반환 금지',
+    pg_customer_key VARCHAR(1024)  NULL COMMENT 'PG 빌링키 [AES-256-GCM v1: 텍스트 암호문] — 어떤 API로도 평문 반환 금지',
     card_last4      CHAR(4)        NULL COMMENT '카드 마지막 4자리(표시용, 평문 허용 범위)',
     card_brand      VARCHAR(20)    NULL COMMENT '카드 브랜드(표시용)',
     plan            VARCHAR(20)    NOT NULL DEFAULT 'BASIC' COMMENT '플랜(과금은 Phase 4, 자리 확보)',
@@ -124,7 +127,7 @@ CREATE TABLE IF NOT EXISTS tenant_billing (
 --     tenant_id=1을 명시하되, 이후 모든 backfill은 코드('DEFAULT')로 참조한다.
 -- ---------------------------------------------------------
 INSERT INTO tenant (tenant_id, tenant_code, name, status)
-SELECT 1, 'DEFAULT', '기본 테넌트', 0
+SELECT 1, 'DEFAULT', '기본 테넌트', 'ACTIVE'
 WHERE NOT EXISTS (SELECT 1 FROM tenant WHERE tenant_code = 'DEFAULT');
 
 -- ---------------------------------------------------------
@@ -190,7 +193,7 @@ ALTER TABLE attendance
 
 -- ---------------------------------------------------------
 -- [5] attendance_check: tenant_id 도입 (크로스 테넌트 토큰 방지 — §6)
---     토큰 수명이 최대 1일(deleteExpiredChecks)이라 데이터가 항상 소량이다.
+--     토큰 수명이 최대 30분(deleteExpiredChecks — TTL 24h→30분 단축, security-plan §1 T7)이라 데이터가 항상 소량이다.
 -- ---------------------------------------------------------
 ALTER TABLE attendance_check
     ADD COLUMN IF NOT EXISTS tenant_id BIGINT NULL COMMENT '테넌트 ID' AFTER token;
@@ -246,7 +249,7 @@ ALTER TABLE holiday
 
 -- ---------------------------------------------------------
 -- language_master: Phase 1 변경 없음 (제품 글로벌 — 상위 계획 §3)
--- 신규 화면 UI 텍스트 시드는 V5__seed_tenant_ui_texts.sql로 분리 (§7)
+-- 신규 화면 UI 텍스트 시드는 V5__seed_saas_texts.sql로 분리 (§7)
 -- ---------------------------------------------------------
 ```
 
@@ -272,7 +275,7 @@ ALTER TABLE holiday
 | attendance | `idx_attendance_user_stamped(user_id, stamped_at)` | **유지** | `fk_attendance_user`의 지지 인덱스(삭제 시 ALTER 실패). 쿼리 관점에선 신규 인덱스와 중복이지만 FK 유지 비용으로 수용 — 쓰기 증폭이 문제되면 FK를 없애는 결정과 함께 재검토 |
 | attendance_check | PK(token) | 유지 | `findCheckHash`/`deleteCheck` — 토큰 단건 룩업. `user_id`/`tenant_id`는 인덱스 불필요한 필터 조건 |
 | attendance_check | `idx_attendance_check_tenant(tenant_id)` | 신규 | `fk_attendance_check_tenant` 지지 + 테넌트 단위 정리(장래) |
-| attendance_check | (`created_at` 인덱스) | **추가 안 함** | `deleteExpiredChecks`는 풀스캔이지만 테이블이 상시 수십 행 이하(1일 청소) — 인덱스 무가치 |
+| attendance_check | (`created_at` 인덱스) | **추가 안 함** | `deleteExpiredChecks`는 풀스캔이지만 테이블이 상시 수십 행 이하(TTL 30분 청소) — 인덱스 무가치 |
 | work_schedule | `idx_work_schedule_tenant_user_date(tenant_id, user_id, work_date)` | 신규 | `ScheduleMapper.findBetween`의 2중 조건판 + FK 지지 + 테넌트 단위 스케쥴 조회(Phase 3 관리 API) |
 | work_schedule | `uk_work_schedule_user_date(user_id, work_date)` | 유지 | "유저당 일자별 1건" 무결성(user_id가 이미 단일 테넌트에 귀속되므로 tenant_id 불포함이 맞음) + `fk_work_schedule_user` 지지 |
 | holiday | **PK `(tenant_id, holiday_date)`** | PK 교체 | `findHolidayDates`의 테넌트판: `tenant_id=?`(등호) + `holiday_date` 범위 — PK만으로 커버링 |
@@ -288,41 +291,43 @@ ALTER TABLE holiday
 
 ---
 
-## 4. 암호화 컬럼 (VARBINARY) 크기 산정과 저장 형식 결정
+## 4. 암호화 컬럼 (VARCHAR) 크기 산정과 저장 형식 결정
 
-### 4-1. 저장 포맷 (앱 레벨 AES-256-GCM, 상위 계획 §6-1)
+### 4-1. 저장 포맷 (앱 레벨 AES-256-GCM — security-plan §2-3 정본, 교차 검증 최종 결정 D-C)
 
 ```
-[키버전 1B] [IV 12B] [암호문 = 평문과 동일 바이트 수] [GCM 인증태그 16B]
-→ 고정 오버헤드 29바이트
+v1:{base64(IV 12B)}:{base64(암호문 || GCM 태그 16B)}
+→ 고정부 = "v1:"(3자) + base64(12B)=16자 + ":"(1자) = 20자
+→ 가변부 = base64(평문 바이트 + 16B) = 4 × ceil((평문+16)/3) 자
 ```
 
-- GCM은 스트림형이라 패딩이 없다: 암호문 길이 = 평문 길이.
-- IV는 GCM 권장 96bit(12B), 태그는 128bit(16B).
-- 키버전 1바이트(0~255)로 키 로테이션 대비 — 상위 계획의 "키 버전 프리픽스" 요건.
+- GCM은 스트림형이라 패딩이 없다: 암호문 길이 = 평문 길이. IV는 GCM 권장 96bit(12B), 태그는 128bit(16B).
+- `v1` 텍스트 프리픽스로 키 로테이션 대비 — 상위 계획의 "키 버전 프리픽스" 요건(security-plan §2-2).
+- 전체가 ASCII 문자열이므로 **VARCHAR 컬럼에 그대로 저장**한다(utf8mb4에서 ASCII는 1바이트/자 — 팽창 없음).
 
-### 4-2. 컬럼별 산정
+### 4-2. 컬럼별 산정 (텍스트 포맷 기준 재계산)
 
-| 컬럼 | 평문 최대 가정 | 평문 바이트 | +29B 오버헤드 | 컬럼 크기 | 여유율 |
-|------|----------------|------------|---------------|-----------|--------|
-| `tenant_profile.business_reg_no` | 한국 사업자번호 하이픈 포함 12자, 국제 확장 대비 20자(ASCII) | 20B | 49B | **VARBINARY(256)** | 5.2배 |
-| `tenant_profile.contact_phone` | E.164 최대 15자리 + 표기문자 여유 = 20자(ASCII) | 20B | 49B | **VARBINARY(256)** | 5.2배 |
-| `tenant_billing.pg_customer_key` | PG 빌링키/customerKey — 주요 PG 스펙 상한 255자(ASCII) 가정 | 255B | 284B | **VARBINARY(512)** | 1.8배 |
+| 컬럼 | 평문 최대 가정 | 평문 바이트 | 암호문 문자 수 (20 + 4×⌈(평문+16)/3⌉) | 컬럼 크기 | 여유율 |
+|------|----------------|------------|----------------------------------------|-----------|--------|
+| `tenant_profile.business_reg_no` | 한국 사업자번호 하이픈 포함 12자, 국제 확장 대비 20자(ASCII) | 20B | 20 + 48 = **68자** | **VARCHAR(128)** | 1.9배 |
+| `tenant_profile.contact_phone` | E.164 최대 15자리 + 표기문자 여유 = 20자(ASCII) | 20B | 20 + 48 = **68자** | **VARCHAR(128)** | 1.9배 |
+| `tenant_billing.pg_customer_key` | PG 빌링키/customerKey — 주요 PG 스펙 상한 255자(ASCII) 가정 | 255B | 20 + 364 = **384자** | **VARCHAR(1024)** | 2.7배 |
 
-- 산술적으로는 64/64/384로도 충분하지만, **상위 계획 §6-1의 확정값(256/256/512)을 그대로 채택**한다. VARBINARY는 가변 길이라 여유분의 저장 비용이 0이고, 키 로테이션 재암호화 과도기(이중 인코딩·포맷 마이그레이션)나 PG 교체 시 스펙 변화를 ALTER 없이 흡수한다.
+- 컬럼 크기 128/128/1024는 D-C 확정값. VARCHAR는 가변 길이라 여유분의 저장 비용이 0이고, 키 로테이션 재암호화 과도기(버전 병존)나 PG 교체 시 스펙 변화를 ALTER 없이 흡수한다.
 - 세 컬럼 모두 인덱스를 만들지 않으므로(암호문 검색은 무의미 + 결정적 암호화 금지) 인덱스 프리픽스 길이 제한도 무관하다.
 
-### 4-3. 바이너리 직저장 vs TEXT+base64 — **VARBINARY 직저장으로 확정**
+### 4-3. VARBINARY 직저장 vs VARCHAR 텍스트 포맷 — **VARCHAR 텍스트 포맷으로 확정 (D-C)**
 
-| 관점 | VARBINARY(채택) | TEXT + base64 |
-|------|------------------|----------------|
-| 저장량 | 평문+29B | (평문+29B) × 4/3 — 33% 팽창 |
-| 문자셋 안전성 | 바이트 그대로 보존(charset/collation 무관) | TEXT는 utf8mb4 유효성에 걸리므로 **어차피 base64가 강제됨** — 즉 "TEXT에 바이너리"는 애초 불가능하고 base64 왕복 코드가 추가로 필요 |
-| 애플리케이션 | MyBatis가 `byte[]` ↔ VARBINARY를 기본 TypeHandler로 직접 매핑 — 인코딩 계층 불필요 | encode/decode 계층 + 실수 여지(이중 인코딩 등) |
-| 보안 부수효과 | SQL 콘솔/덤프에서 비가독 — 복붙 유출 경로 축소, 로그 출력 금지 원칙과 정합 | 사람이 읽고 옮기기 쉬움(이 데이터엔 단점) |
-| base64가 유리한 경우 | — | 값이 JSON/CSV/로그 등 텍스트 채널로 자주 이동할 때. 본 시스템은 API 응답이 **마스킹된 평문**(`123-**-*****`)이라 암호문이 텍스트 채널을 탈 일이 없음 |
+당초 이 문서는 VARBINARY 바이너리 직저장(29B 고정 오버헤드 포맷)을 채택했으나, 교차 검증(발견 4)에서 세 문서의 암호문 포맷이 3원화된 것이 확인되어 **security-plan §2의 `v1:` 텍스트 포맷을 정본으로 통일**했다.
 
-결론: 이 시스템에서 base64의 이점이 발생하는 경로가 없고 비용(33% 팽창 + 코드 계층)만 남으므로 **VARBINARY 바이너리 직저장**.
+| 관점 | VARCHAR + `v1:` 텍스트(채택) | VARBINARY 직저장(기각) |
+|------|------------------------------|------------------------|
+| 저장량 | base64로 약 4/3배 팽창 + 프리픽스 20자 — 대상이 짧은 필드 3개뿐이라 실비용 무시 가능 | 최소(평문+29B) |
+| 키 버전 표현 | `v1:` 텍스트 프리픽스 — 사람이 읽어 버전 식별 가능, 파서 단순(`split(":", 3)`) | 1바이트 바이너리 버전 — 덤프/콘솔에서 판독 불가 |
+| 애플리케이션 | MyBatis `String` ↔ VARCHAR 기본 매핑. FieldCipher가 String을 반환하므로 인코딩 계층이 **암호화 유틸 내부에 한 번만** 존재 | `byte[]` 매핑 자체는 단순하나, security-plan 정본 포맷과 바이트 레벨 비호환(복호화 파서 분열) |
+| 운영 | 장애 시 SQL 콘솔에서 버전/형식 즉시 확인 가능 | 비가독(유출 억제 부수효과는 있으나 마스킹·로그 금지 규약으로 이미 커버) |
+
+결론: 포맷의 단일 소스는 security-plan §2-3이며, 그 포맷이 텍스트이므로 저장도 **VARCHAR 텍스트**가 일관적이다. 33% 팽창 비용은 3개 소형 컬럼에서 무의미하다.
 
 ---
 
@@ -349,7 +354,7 @@ ALTER TABLE holiday
 1. **컬럼**: `tenant_id BIGINT NOT NULL` + FK (§2 [5]). backfill은 `users` 조인 — 토큰 발급자의 테넌트가 곧 토큰의 테넌트.
 2. **조회 조건(필수)**: `findCheckHash`를 `WHERE token=? AND user_id=? AND tenant_id=?`로 — 세션의 tenantId와 불일치하면 토큰이 "존재하지 않는 것"으로 처리된다(존재 여부 비노출 원칙과 일치). user_id 조건이 이미 있어 UUID 추측 + user_id 일치까지 필요하지만, user_id 재사용/혼선(예: 향후 테넌트별 DB 분리·병합, 백업 복원 실수) 시나리오에서도 2중 조건이 최후 방어선이 된다 — 상위 계획 §5-2의 원칙 그대로.
 3. **삭제 조건(현행 버그성 허점 보완)**: 현행 `deleteCheck`는 `WHERE token = ?` 뿐이라 이론상 타 유저/타 테넌트의 토큰을 무효화(삭제)할 수 있다. `WHERE token=? AND user_id=? AND tenant_id=?`로 강화한다. `deleteExpiredChecks`는 시스템 유지보수 쿼리이므로 테넌트 조건 없이 유지(전 테넌트 청소가 올바른 동작).
-4. **앱 레벨 보강(권고)**: `payload_hash` 계산 입력에 `tenantId`를 포함시키면, 만에 하나 행이 잘못 매칭되어도 해시 대조 단계에서 한 번 더 실패한다. DB 스키마 요건은 아니므로 Phase 1 구현 시 반영.
+4. **앱 레벨 보강(확정)**: `payload_hash` 계산 입력에 `tenantId`를 포함시키면, 만에 하나 행이 잘못 매칭되어도 해시 대조 단계에서 한 번 더 실패한다. DB 스키마 요건은 아니며 Phase 1 구현 시 반영 — backend-api §2.2(AttendanceService)에 동일하게 확정 기록(교차 검증 발견 12 해소).
 5. **인덱스**: 조회가 PK(token) 단건 룩업이므로 추가 인덱스 불요. `idx_attendance_check_tenant(tenant_id)`는 FK 지지용.
 6. **(선택) 구조적 강제**: `users`에 `UNIQUE(user_id, tenant_id)`를 추가하고 자식 FK를 복합 `(user_id, tenant_id) → users(user_id, tenant_id)`로 걸면 "토큰의 테넌트 ≠ 유저의 테넌트"인 행 자체가 존재할 수 없게 된다. 인덱스 증가 비용이 있어 V4 기본안에는 넣지 않고, Phase 3 격리 강화 검토 항목으로 남긴다.
 
@@ -361,7 +366,7 @@ ALTER TABLE holiday
   - DEFAULT 테넌트 INSERT (§2 [2]) — `tenant_id=1, tenant_code='DEFAULT', name='기본 테넌트'`. `WHERE NOT EXISTS` 가드로 재실행 안전.
   - V2 시드 관리자(`admin@attendance.local`)의 **SYSTEM_ADMIN 승격** (§2 [3-3]). 소속은 DEFAULT 테넌트 그대로 둔다(운영사 전용 테넌트 분리는 상위 계획 §8-7 미결 항목과 함께 운영 시점 판단).
   - 그 외 데이터 시드는 넣지 않는다. `tenant_profile`/`tenant_billing`은 DEFAULT 테넌트 행을 만들지 않는다(개발/데모용 테넌트라 기업/결제 정보가 없는 것이 정상 — 1:1 관계는 "0 또는 1행"으로 운용).
-- **V5로 분리하는 것**: 신규 화면(테넌트 관리 W007, 로그인 폼의 회사 코드 라벨, 멤버 관리 등) UI 텍스트 시드는 `V5__seed_tenant_ui_texts.sql`로 별도 작성한다(V3와 동일하게 `INSERT IGNORE` 방식).
+- **V5로 분리하는 것**: 신규 화면 UI 텍스트 시드는 **`V5__seed_saas_texts.sql` 단일 파일**로 별도 작성한다(V3와 동일하게 `INSERT IGNORE` 방식). 구성(교차 검증 최종 결정 D-E — 파일명·구성의 확정 기록은 이 문서가 소유): ① 관리 화면 키 — 테넌트 목록 W007 / 테넌트 상세 W008 / 멤버 관리 W009 / 공통 W999 / 로그인 W001 (키 목록 정본: frontend-plan §7) ② 랜딩 W000 `LANDING_*` 키 (카피 정본: landing-page.md §2). **폐기 키 DELETE는 하지 않는다** — V3 시드의 `W003`/`INDEX_*`(및 `W999/SIGNUP`) 행은 어떤 화면도 참조하지 않는 무해한 잔존으로 허용(D-A 확정).
   - 분리 이유: ① V4는 구조(DDL) 마이그레이션으로 실패 시 대응 절차(§8)가 무겁다 — 단순 문구 INSERT가 섞이면 실패 지점/재실행 판단이 흐려진다. ② 문구는 Phase 2 화면 구현과 함께 확정되므로 라이프사이클이 다르다(상위 계획 §9 Phase 2 "언어 마스터에 신규 화면 텍스트 시드(V5)"와 일치). ③ V4 리허설을 문구 미확정 상태에서도 진행 가능.
 
 ---
@@ -381,8 +386,11 @@ docker exec web-attendance-db mariadb -uattendance -pattendance attendance \
   -e "SELECT version, description, success FROM flyway_schema_history;"
 
 # 3) 리허설용 데이터 투입 — 반드시 "이관 대상이 있는" 상태를 만든다:
-#    일반 유저 2명 이상 + is_admin 유저 1명 + 출결/스케쥴/공휴일/check 토큰 각 수 건
+#    일반 유저 2명 이상 + is_admin 유저 1명(V2 시드 관리자와 별도) + 출결/스케쥴/공휴일/check 토큰 각 수 건
 #    (V2 관리자만 있는 빈 DB 리허설은 backfill 경로를 검증하지 못한다)
+#    [필수 — 교차 검증 발견 15] is_admin 유저 1명은 V4에서 DEFAULT 소속 TENANT_ADMIN으로 변환된다.
+#    이 계정이 회귀 E2E(E2E-REG-01)·기존 curl 스모크(REG-04)의 멤버 등록/출결 실행 주체가 되므로
+#    (시드 SYSTEM_ADMIN은 화이트리스트 정책상 /tenant·/attendance 403 — security-plan §6-1) 생략 불가.
 
 # 4) V4 파일을 배치하고 신버전 기동 → Flyway가 V4 적용
 ```
@@ -475,7 +483,7 @@ docker exec web-attendance-db mariadb-dump -uroot -proot \
 | `ScheduleMapper.findHolidayDates` | `WHERE tenant_id=#{tenantId} AND holiday_date >= ... AND < ...` — **글로벌 → 테넌트 조회로 의미 자체가 변경** | `PRIMARY(tenant_id, holiday_date)` 커버링 |
 | `LanguageMapper.find` / `upsert` | **변경 없음** (language_master는 Phase 1 글로벌 유지, 테넌트 오버라이드는 Phase 4) | 기존 `uk_language_master` |
 
-신규 쿼리(참고 — V4 스키마가 지원해야 하는 것): 로그인 시 `SELECT ... FROM tenant WHERE tenant_code=? AND status=0`(`uk_tenant_code`), Phase 2의 테넌트 CRUD/멤버 목록(`uk_users_tenant_email` 선두 컬럼 = `WHERE tenant_id=?` 멤버 목록도 커버), `tenant_profile`/`tenant_billing` PK 단건 조회.
+신규 쿼리(참고 — V4 스키마가 지원해야 하는 것): 로그인 시 `SELECT ... FROM tenant WHERE tenant_code=? AND status='ACTIVE'`(`uk_tenant_code`), Phase 2의 테넌트 CRUD/멤버 목록(`uk_users_tenant_email` 선두 컬럼 = `WHERE tenant_id=?` 멤버 목록도 커버), `tenant_profile`/`tenant_billing` PK 단건 조회.
 
 ---
 
@@ -487,3 +495,12 @@ docker exec web-attendance-db mariadb-dump -uroot -proot \
 | 매퍼의 tenant 조건 누락(스키마는 못 막음) | 상위 계획 §5의 3중 장치 + §7 격리 테스트 CI 게이트. §6-6의 복합 FK는 Phase 3 검토 |
 | `is_admin` 즉시 DROP으로 구버전 앱 롤백 불가 | 앱 롤백 = DB 백업 복원과 세트로만 수행(§8-3 경로 2). 보수안(2단계 DROP)은 §0에 기록 |
 | email 유니크 의미 변화에 앱이 뒤따르지 못함 | §3-2-4: V4와 매퍼 변경(§9)을 같은 PR로 — 상위 계획 §10과 동일 원칙 |
+
+---
+
+## 교차 검증 반영 이력(2026-07-08)
+
+- D-C: 암호화 컬럼을 VARBINARY 직저장 → **VARCHAR + `v1:` 텍스트 포맷**(security-plan §2-3 정본)으로 전환 — business_reg_no/contact_phone VARCHAR(128), pg_customer_key VARCHAR(1024). §4의 산정 근거를 텍스트 포맷 기준으로 재계산, §4-3 결론 반전.
+- 발견 7: `tenant.status`를 TINYINT → **VARCHAR(10)+CHECK('ACTIVE','SUSPENDED')**로 변경(users.role/status와 동일 결정, backend enum 이름 매핑 정합). DEFAULT 테넌트 INSERT·§9 신규 쿼리도 문자열 값으로 수정.
+- D-E/D-A: V5 파일명을 **`V5__seed_saas_texts.sql`**(멤버/테넌트/랜딩 통합 단일 파일)로 확정, 폐기 키 DELETE 없이 W003/INDEX_* 잔존 허용.
+- 발견 9·15: 체크토큰 수명 주석 1일 → 30분, 리허설 시드의 DEFAULT 소속 is_admin(→TENANT_ADMIN) 유저 1명을 필수 조건으로 격상.

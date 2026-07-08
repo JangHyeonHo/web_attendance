@@ -41,7 +41,8 @@
 ### 2-2. 키 관리
 
 - 환경변수 `APP_CRYPTO_KEY`: **base64 인코딩된 32바이트**(= AES-256 키). 생성: `openssl rand -base64 32`.
-- 기동 시 검증: 디코딩 실패 또는 길이 ≠ 32바이트면 `FieldCipher` 빈 생성에서 즉시 예외 → **앱 기동 실패**(잘못된 키로 조용히 운영되는 것 방지). 로컬 개발도 기본값 없음 — 키를 저장소/코드에 두지 않는다(README에 생성 명령만 기재).
+- 기동 시 검증: 디코딩 실패 또는 길이 ≠ 32바이트면 `FieldCipher` 빈 생성에서 즉시 예외 → **앱 기동 실패**(잘못된 키로 조용히 운영되는 것 방지).
+- 키 주입 정책(교차 검증 최종 결정 D-C): **개발 기본키는 `application.properties`의 기본값으로 허용**(`app.crypto.key=${APP_CRYPTO_KEY:<dev 기본키>}` — 로컬/CI 편의. 개발 기본키로 암호화된 데이터는 운영 반입 금지). **`application-prod.properties`는 기본값 없음** — prod 프로파일에서 `APP_CRYPTO_KEY` 미설정이면 기동 실패가 올바른 동작. 운영 키는 저장소/코드에 두지 않는다(README에 생성 명령만 기재).
 - 키 버전: 현행 키 = `v1`. 로테이션 시 `APP_CRYPTO_KEY_V2` 추가 → 복호화는 프리픽스로 키 선택, 신규 암호화는 최신 버전 → 배치로 재암호화 후 구 키 제거. Phase 2에서는 v1 단일 키만 구현하고 **포맷만 로테이션 가능하게** 둔다.
 
 ### 2-3. 암호문 포맷과 구현
@@ -50,9 +51,9 @@
 포맷:  v1:{base64(iv)}:{base64(ciphertext||tag)}
        - iv: 12바이트, 암호화마다 SecureRandom 생성 (GCM에서 (키,IV) 재사용은 치명적 — 반드시 매회 랜덤)
        - tag: 128비트, ciphertext 뒤에 연접(JCA 기본 출력 그대로)
-저장:  위 문자열의 UTF-8 바이트를 VARBINARY 컬럼에 저장
-       (business_reg_no/contact_phone VARBINARY(256), pg_customer_key VARBINARY(512) — 오버헤드
-        약 base64 4/3배 + 프리픽스 28바이트 이내이므로 여유 충분)
+저장:  위 문자열(ASCII)을 그대로 VARCHAR 컬럼에 저장 (교차 검증 최종 결정 D-C)
+       (business_reg_no/contact_phone VARCHAR(128), pg_customer_key VARCHAR(1024) — 오버헤드
+        약 base64 4/3배 + 프리픽스·구분자 20자 이내이므로 여유 충분. 산정 상세는 data-migration-v4 §4)
 ```
 
 ```java
@@ -74,19 +75,18 @@ public class FieldCipher {
         this.key = new SecretKeySpec(raw, "AES");
     }
 
-    public byte[] encrypt(String plain) {
+    public String encrypt(String plain) {   // 반환 String을 VARCHAR 컬럼에 그대로 저장(D-C)
         byte[] iv = new byte[IV_LENGTH];
         random.nextBytes(iv);
         Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
         cipher.init(Cipher.ENCRYPT_MODE, key, new GCMParameterSpec(TAG_BITS, iv));
         byte[] ct = cipher.doFinal(plain.getBytes(StandardCharsets.UTF_8));
-        String encoded = VERSION + ":" + Base64.getEncoder().encodeToString(iv)
+        return VERSION + ":" + Base64.getEncoder().encodeToString(iv)
                 + ":" + Base64.getEncoder().encodeToString(ct);
-        return encoded.getBytes(StandardCharsets.UTF_8);
     }
 
-    public String decrypt(byte[] stored) {
-        String[] parts = new String(stored, StandardCharsets.UTF_8).split(":", 3);
+    public String decrypt(String stored) {
+        String[] parts = stored.split(":", 3);
         // parts[0] 버전으로 키 선택(현재는 v1만) — 미지 버전이면 예외
         ...
     }
@@ -266,7 +266,7 @@ private static final List<RouteRule> RULES = List.of(
 | `/api/v1/auth/login`, `/api/v1/i18n/**` | 인증 불요 | 인증 불요 | 인증 불요 | 현행 exclude 유지. **`POST /api/v1/users`(공개 가입)는 exclude 목록과 함께 폐기**(마스터 계획 §6 확정) |
 
 - 응답: 미인증 401(`AuthInterceptor`), role 불일치 403(`error.forbidden` — 현행 `ApiException.forbidden()` 재사용).
-- `SessionUser`는 `record SessionUser(long userId, long tenantId, String email, String name, Role role)`로 확장. `admin()` 불리언 제거 — 호출부 전수 수정(컴파일 에러로 누락 탐지).
+- `SessionUser`는 `record SessionUser(long userId, long tenantId, String tenantCode, String tenantName, String email, String name, Role role)`로 확장(backend-api §3.1 정의와 통일 — `tenantCode`/`tenantName`은 `LoginResponse` 조립·헤더 표시용). `admin()` 불리언 제거 — 호출부 전수 수정(컴파일 에러로 누락 탐지).
 
 ### 6-2. 마지막 TENANT_ADMIN 보호
 
@@ -303,7 +303,7 @@ FOR UPDATE
 | `APP_CORS_ALLOWED_ORIGINS` | CORS 화이트리스트(기존 `app.cors.allowed-origins` 바인딩) | 콤마 구분 URL | 현행 |
 
 - 현행 `application.properties`의 DB 기본값(`attendance`/`attendance`)은 로컬 편의용으로 유지하되, **운영 프로파일에는 기본값 없이** `${DB_PASSWORD}` 필수로 — 기본 크리덴셜로 운영에 뜨는 사고 방지.
-- `APP_CRYPTO_KEY`는 기본값 금지(§2-2, 기동 실패가 올바른 동작).
+- `APP_CRYPTO_KEY`는 개발 기본값 허용·**prod 프로파일만 기본값 금지**(§2-2, D-C — prod 미설정 시 기동 실패가 올바른 동작).
 
 ### 7-2. 운영 프로파일 (`application-prod.properties`, 신규)
 
@@ -380,3 +380,11 @@ Phase 3에서 `audit_log` 테이블(`audit_id, tenant_id, actor_user_id, action,
 | AES-GCM 구현 | spring-security-crypto 유틸 활용 | JCA 직접 구현(BCrypt만 spring-security-crypto 유지) | §2-1 — IV 12바이트·버전 프리픽스 요구와 불일치 |
 | 운영 프로파일 분리 | Phase 3 | Swagger off·Secure 쿠키 등 보안 항목만 Phase 1로 앞당김 | §7-2 — 운영 배포 전 필수 |
 | 체크토큰 TTL | (언급 없음, 현행 24h) | 30분 | §1 T7 — check→confirm 즉시 UX에 24h는 과잉 |
+
+---
+
+## 교차 검증 반영 이력(2026-07-08)
+
+- D-B: 본 문서 §6-1의 경로별 허용 role 화이트리스트(attendance 포함, SYSTEM_ADMIN의 tenant/attendance 403)가 **정본으로 채택**됨 — backend-api §3이 이에 맞춰 재작성(atLeast 서열 기각).
+- D-C: 본 문서 §2의 JCA 직접 구현·`v1:` 텍스트 포맷·`APP_CRYPTO_KEY`가 정본 채택. 단 저장 컬럼은 VARBINARY → **VARCHAR(128/128/1024)**로, 키는 **개발 기본값 허용·prod만 필수**로 조정(§2-2/§2-3/§7-1). `FieldCipher.encrypt`는 String 반환으로 정정.
+- 발견 21: `SessionUser`를 backend-api 정의(7필드 — tenantCode/tenantName 포함)로 갱신(§6-1).
