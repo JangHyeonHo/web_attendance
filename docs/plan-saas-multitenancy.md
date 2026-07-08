@@ -1,7 +1,7 @@
 # SaaS 멀티테넌시 전환 계획서
 
 - 목표: 출결 시스템을 **고객사(테넌트)별로 독립된 유저 풀을 갖는 SaaS**로 전환한다.
-- 상태: **계획(구현 전)**. 결정 필요 항목(§8)에 답이 정해지면 Phase 1부터 착수.
+- 상태: **계획 확정(구현 전)**. §8의 결정 항목이 확정되어 Phase 1 착수 가능.
 - 참고: v1 Admin 화면의 원 구상 메모("로그인에 회사(부서) 시스템 추가 및 DB변경 — 회사코드/회사명/직급")의 SaaS판이다.
 
 ---
@@ -70,6 +70,11 @@ CREATE TABLE tenant (
 - `SessionUser`에 `tenantId` + `role` 추가. `AdminInterceptor` → `RoleInterceptor`로 일반화(경로별 요구 role).
 - 화면 전개(navigation): W004(관리자)를 role별로 분기 — TENANT_ADMIN은 테넌트 관리 화면, SYSTEM_ADMIN은 테넌트 목록 화면. 필요시 화면 코드 추가(W007 테넌트 관리 등).
 
+3단계로 충분하되, 역할 개수 외에 **정책으로 보완해야 하는 지점** 3가지:
+1. **마지막 관리자 보호**: 테넌트의 유일한 TENANT_ADMIN을 강등/비활성할 수 없게 서버에서 차단(관리자 0명 테넌트 방지).
+2. **SYSTEM_ADMIN의 데이터 접근 경계**: 운영자는 테넌트 메타(기업정보/결제/사용량/멤버 수)까지만 보고, **테넌트 내부의 출결 데이터는 조회하지 않는 것을 기본**으로 한다(개인정보 최소 접근 원칙). 장애 지원 등으로 필요해지면 감사 로그를 남기는 별도 절차로.
+3. 부서 단위 권한(부서장이 부서원 출결 열람 등)은 `depart_cd`가 이미 있으므로 장래 role 추가 없이 "TENANT_ADMIN 부여 범위" 확장으로 대응 가능 — 지금은 스코프 밖.
+
 ## 5. 테넌트 컨텍스트 전파와 격리 강제 (Pool 모델의 생명선)
 
 **원칙: 테넌트 ID는 클라이언트가 보내는 값이 아니라, 항상 세션에서 꺼낸다.**
@@ -86,23 +91,71 @@ CREATE TABLE tenant (
 
 ## 6. 온보딩/가입 플로우 재설계
 
-현행 공개 회원가입(`POST /users`)은 "아무나 아무 테넌트에 가입"이 되므로 SaaS에서는 폐기하고:
+**[확정]** 현행 공개 회원가입(`POST /users`)은 폐기하고, 전 과정을 관리자 등록제로 운영한다:
 
 ```
-[운영사]  SYSTEM_ADMIN이 테넌트 생성 + 최초 TENANT_ADMIN 계정 발급
+[운영사]  SYSTEM_ADMIN이 테넌트(고객사) 생성 + 기업/결제 정보 등록(§6-1)
+          + 최초 TENANT_ADMIN 계정 발급
               POST /api/v1/system/tenants  {code, name, adminEmail, adminName}
-              → 초기 비밀번호 발급(또는 초대 링크 — Phase 3)
+              → 초기 비밀번호 발급(초대 링크는 Phase 3)
 
-[고객사]  방식 1(기본): TENANT_ADMIN이 멤버를 직접 등록
+[고객사]  TENANT_ADMIN이 멤버를 직접 등록
               POST /api/v1/tenant/members  {email, name, ...}
-          방식 2(선택): 멤버 셀프 가입 + 관리자 승인
-              POST /api/v1/users {tenantCode, ...} → status=PENDING
-              → TENANT_ADMIN이 승인 시 ACTIVE
 ```
+
+멤버 셀프가입+승인제는 채택하지 않음(필요해지면 `users.status=PENDING` 경로만 열면 되도록 스키마는 대비).
 
 - `users.status`(PENDING/ACTIVE/DISABLED) 컬럼 추가. 로그인은 ACTIVE만 허용.
 - 로그인: `POST /api/v1/auth/login {tenantCode, email, password}` — 실패 사유는 현행처럼 단일 메시지(테넌트 존재 여부도 비노출).
 - 이메일 초대/비밀번호 재설정은 메일 발송 인프라가 필요하므로 Phase 3로 분리.
+
+### 6-1. 기업 정보 / 결제 정보 (신규 확정 요구)
+
+특정 기업 상대 B2B 운영이므로 테넌트에 기업 정보와 청구/결제 정보를 함께 관리한다.
+
+```sql
+-- 기업 정보 (SYSTEM_ADMIN 전용 관리)
+CREATE TABLE tenant_profile (
+    tenant_id       BIGINT PRIMARY KEY,           -- tenant FK (1:1)
+    business_reg_no VARBINARY(256) NOT NULL,      -- 사업자등록번호 [암호화]
+    ceo_name        VARCHAR(50),
+    address         VARCHAR(200),
+    contact_name    VARCHAR(50),                  -- 계약 담당자
+    contact_email   VARCHAR(100),
+    contact_phone   VARBINARY(256),               -- [암호화]
+    created_at / updated_at
+);
+
+-- 청구/결제 정보 (SYSTEM_ADMIN 전용 관리)
+CREATE TABLE tenant_billing (
+    tenant_id       BIGINT PRIMARY KEY,           -- tenant FK (1:1)
+    billing_method  TINYINT NOT NULL DEFAULT 0,   -- 0=INVOICE(계산서) 1=CARD
+    billing_email   VARCHAR(100),                 -- 청구서/세금계산서 수신
+    pg_customer_key VARBINARY(512),               -- PG 빌링키 [암호화]
+    card_last4      CHAR(4),                      -- 표시용(평문 허용 범위)
+    card_brand      VARCHAR(20),
+    plan            VARCHAR(20) DEFAULT 'BASIC',
+    billed_from     DATE,
+    memo            VARCHAR(500),
+    created_at / updated_at
+);
+```
+
+**결제 정보 3원칙:**
+1. **카드 원본 정보(PAN/CVC/유효기간)는 절대 저장하지 않는다.** 카드 결제는 PG(결제대행)의
+   빌링키 방식만 사용 — 원본은 PG가 보관하고 우리는 빌링키 + 표시용 마지막 4자리만 갖는다.
+   (원본을 저장하는 순간 PCI-DSS 준수 대상이 되어 개인 운영 범위를 벗어남)
+   B2B 특성상 기본 결제는 세금계산서/계좌이체(INVOICE)로 하고 카드는 옵션.
+2. **저장 암호화**: 사업자등록번호·연락처·빌링키는 AES-256-GCM 애플리케이션 레벨 암호화.
+   키는 환경변수/KMS로 주입(코드·저장소에 두지 않음), 암호문에 키 버전 프리픽스를 붙여
+   키 로테이션에 대비. 구현은 `spring-security-crypto`(이미 도입됨)의 AES-GCM 유틸 활용.
+3. **마스킹**: 조회 API 응답은 사업자번호 `123-**-*****`, 카드 `**** **** **** 1234` 형태만 반환하고
+   빌링키는 어떤 API로도 반환하지 않는다. 로그에 결제 필드 출력 금지(toString 제외 처리).
+   수정 화면도 마스킹값 표시 + 전체 재입력 방식(부분 노출 없음).
+
+접근 통제: 두 테이블 모두 SYSTEM_ADMIN 전용. TENANT_ADMIN에게는 자기 회사의
+청구 이메일/플랜 등 비민감 항목 조회만 허용(Phase 2에서 범위 확정).
+대표자명·담당자 연락처는 개인정보이므로 계약 종료 시 파기 정책도 함께 정의(Phase 3 감사로그와 세트).
 
 ## 7. 검증 전략
 
@@ -113,16 +166,18 @@ CREATE TABLE tenant (
 - E2E: "테넌트 코드 포함 로그인 → 멤버 등록 → 그 멤버로 출결" 시나리오 추가.
 - (Phase 3) Testcontainers로 매퍼 SQL의 tenant 조건을 실 DB에서 검증 — 기존 TODO와 합류.
 
-## 8. 결정 필요 항목 (착수 전 확인)
+## 8. 결정 항목 (2026-07-08 확정)
 
-| # | 질문 | 권장안 |
-|---|------|--------|
-| 1 | 격리 모델 | Pool(공유 스키마 + tenant_id) — §1 |
-| 2 | 테넌트 식별 | 로그인 시 테넌트 코드 입력(Phase 1) → 서브도메인(Phase 4) — §2 |
-| 3 | 멤버 가입 방식 | 관리자 직접 등록 기본, 셀프가입+승인은 옵션 — §6 |
-| 4 | 셀프서브 테넌트 생성(고객이 직접 회사 등록) 허용? | Phase 1은 불허(운영자 생성만). 허용 시 남용 방지(이메일 검증 등) 필요 |
-| 5 | 기존 `DEFAULT` 테넌트의 기존 계정 처리 | 유지(개발/데모용) 또는 운영 전 삭제 |
-| 6 | 과금/플랜(멤버 수 제한 등) | Phase 4로 보류. tenant 테이블에 `plan` 컬럼 자리만 확보 |
+| # | 질문 | 결정 |
+|---|------|------|
+| 1 | 격리 모델 | ✅ Pool(공유 스키마 + tenant_id) — §1 |
+| 2 | 테넌트 식별 | ✅ 로그인 시 테넌트 코드 입력(Phase 1) → 서브도메인(Phase 4) — §2 |
+| 3 | 멤버 가입 방식 | ✅ **운영자가 테넌트 등록 → 고객사 관리자(TENANT_ADMIN)가 멤버 등록.** 셀프가입 없음 — §6 |
+| 4 | 셀프서브 테넌트 생성 | ✅ **불허. 운영자(SYSTEM_ADMIN) 생성만** — §6 |
+| 5 | 권한 모델 | ✅ 3단계(SYSTEM_ADMIN/TENANT_ADMIN/MEMBER) + §4의 보완 정책 3건 |
+| 6 | 기업/결제 정보 | ✅ **테넌트에 기업정보·청구정보 관리 추가. 암호화/마스킹 필수** — §6-1 |
+| 7 | 기존 `DEFAULT` 테넌트의 기존 계정 처리 | 유지(개발/데모용), 운영 전 삭제 (미결 — 운영 시점 판단) |
+| 8 | 과금/플랜(멤버 수 제한 등) | Phase 4로 보류. `tenant_billing.plan` 컬럼으로 자리 확보 |
 
 ## 9. 단계별 로드맵
 
@@ -135,7 +190,7 @@ CREATE TABLE tenant (
 - 완료 기준: 두 테넌트가 서로 완전히 보이지 않는 상태로 기존 전 기능 동작(E2E)
 
 ### Phase 2 — 테넌트 관리 기능
-- SYSTEM_ADMIN API: 테넌트 CRUD/정지 (`/api/v1/system/tenants`)
+- SYSTEM_ADMIN API: 테넌트 CRUD/정지 (`/api/v1/system/tenants`) + **기업/결제 정보 등록·조회(§6-1: AES-GCM 암호화, 응답 마스킹)**
 - TENANT_ADMIN API: 멤버 목록/등록/비활성/승인 (`/api/v1/tenant/members`)
 - 프론트: 관리자 화면을 role별 분기(테넌트 목록 화면 / 멤버 관리 화면), navigation Screen 확장
 - 언어 마스터에 신규 화면 텍스트 시드(V5)
