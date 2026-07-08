@@ -17,8 +17,11 @@ Spring Boot 4 + MyBatis + **MariaDB** 기반의 웹 출결(근태) 관리 시스
 # 1. DB 기동 (로컬에 MariaDB가 없다면)
 docker compose up -d
 
-# 2. 애플리케이션 기동 (스키마는 Flyway가 자동 생성)
+# 2. 백엔드 기동 (스키마는 Flyway가 자동 생성)
 ./mvnw spring-boot:run
+
+# 3. 프론트엔드 기동 (개발 모드, /api는 9080으로 프록시)
+cd frontend && npm install && npm run dev   # http://localhost:5173
 ```
 
 - 서버: http://localhost:9080
@@ -145,9 +148,13 @@ src/main/java/com/attendance/pro/
 
 src/main/resources/
 ├── application.properties
+├── messages/                       # 서버 메시지 번들(ko 기본/en/ja)
 └── db/migration/                   # Flyway 마이그레이션
     ├── V1__init.sql                # 스키마
     └── V2__seed_admin.sql          # 초기 관리자
+
+frontend/                           # 프론트엔드 (Vite + React 19 + TypeScript)
+└── src/                            # 서버 주도 화면 전개 기반 SPA (frontend/README.md 참조)
 ```
 
 - **Map 남용 제거**: 요청/응답/도메인 모두 record 기반 타입. MyBatis는 생성자 인자명 자동매핑(`arg-name-based-constructor-auto-mapping`) 사용
