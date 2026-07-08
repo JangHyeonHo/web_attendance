@@ -1,0 +1,21 @@
+# 로컬 개발용 MariaDB
+# 사용법: docker compose up -d
+services:
+  mariadb:
+    image: mariadb:11
+    container_name: web-attendance-db
+    ports:
+      - "3306:3306"
+    environment:
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_DATABASE: attendance
+      MARIADB_USER: attendance
+      MARIADB_PASSWORD: attendance
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - mariadb-data:/var/lib/mysql
+
+volumes:
+  mariadb-data:
