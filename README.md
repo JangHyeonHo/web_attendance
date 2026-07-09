@@ -1,13 +1,20 @@
-# web_attendance — 웹 출결 시스템
+# web_attendance — 웹 출결 SaaS
 
-Spring Boot 4 + MyBatis + **MariaDB** 기반의 웹 출결(근태) 관리 시스템 백엔드.
+Spring Boot 4 + MyBatis + **MariaDB** 기반의 **멀티테넌트(SaaS)** 웹 출결(근태) 관리 시스템.
 
+- **멀티테넌시(Pool 모델)**: 공유 스키마 + `tenant_id` 격리. 고객사(테넌트)별 독립 유저 풀,
+  로그인은 `테넌트 코드 + 이메일 + 비밀번호`
+- **3단계 권한**: `SYSTEM_ADMIN`(운영사) / `TENANT_ADMIN`(고객사 관리자) / `MEMBER`(직원).
+  셀프 가입 없음 — 운영자가 고객사를 등록하면 고객사 관리자가 멤버를 등록
+- **결제·기업 정보 보호**: 민감 필드 AES-256-GCM 앱 레벨 암호화 + 응답 마스킹.
+  카드 원본(PAN/CVC)은 어떤 형태로도 저장하지 않음(PG 빌링키만, 빌링키는 어떤 응답에도 비노출)
 - **REST API + Swagger**: 리소스별 엔드포인트와 타입 있는 DTO(record). API 문서는 `/swagger-ui.html`
 - **3개 언어 대응(한/영/일)**: 에러·검증·출결 메시지와 Swagger 문서가 요청 언어로 응답
   (우선순위: navigation의 `lang`(세션 저장) → `Accept-Language` 헤더 → 한국어)
-- **세션 쿠키 인증**: 로그인 후 세션 쿠키로 호출, 관리자 API 권한 분리
+- **세션 쿠키 인증**: 로그인 후 세션 쿠키로 호출 + 경로별 role 화이트리스트 인가,
+  로그인 레이트 리밋(계정 5회/IP 30회, 5분 창 → 429)
 - **출결 2단계 처리**: 체크(사전 검사 + 토큰 발급) → 확정(동일 데이터 + 토큰, SHA-256 해시로 변조 탐지)
-- **Flyway 마이그레이션**: 기동시 스키마 자동 생성/버전 관리
+- **Flyway 마이그레이션**: 기동시 스키마 자동 생성/버전 관리 (기존 데이터는 V4가 DEFAULT 테넌트로 자동 이관)
 
 ## 실행 방법
 
@@ -41,19 +48,31 @@ export DB_PASSWORD="..."
 
 ## API 개요
 
-| Method | Path | 설명 | 인증 |
+| Method | Path | 설명 | 인가 |
 |--------|------|------|------|
 | POST | `/api/v1/navigation` | **서버 주도 화면 전개** (화면 코드 + 텍스트 + 초기 데이터) | - |
-| POST | `/api/v1/auth/login` | 로그인(세션 발급) | - |
+| POST | `/api/v1/auth/login` | 로그인(테넌트 코드 + 이메일 + 비밀번호, 세션 발급) | - |
 | POST | `/api/v1/auth/logout` | 로그아웃 | 세션 |
 | GET | `/api/v1/auth/me` | 내 정보 | 세션 |
-| POST | `/api/v1/users` | 회원가입 | - |
-| GET | `/api/v1/attendance/status` | 현재 출결 상태(출근 대기/출근 중/휴식/퇴근 완료 + 24시간 경과 알림) | 세션 |
-| POST | `/api/v1/attendance/check` | 출결 체크(사전 검사 + 확정 토큰 발급) | 세션 |
-| POST | `/api/v1/attendance` | 출결 확정(스탬프 등록, 변조 탐지) | 세션 |
-| GET | `/api/v1/attendance/monthly?year=&month=` | 월별 출결 상세(일자별 스케쥴/출퇴근 시각) | 세션 |
+| GET | `/api/v1/attendance/status` | 현재 출결 상태(출근 대기/출근 중/휴식/퇴근 완료 + 24시간 경과 알림) | TA·MEMBER |
+| POST | `/api/v1/attendance/check` | 출결 체크(사전 검사 + 확정 토큰 발급) | TA·MEMBER |
+| POST | `/api/v1/attendance` | 출결 확정(스탬프 등록, 변조 탐지) | TA·MEMBER |
+| GET | `/api/v1/attendance/monthly?year=&month=` | 월별 출결 상세(일자별 스케쥴/출퇴근 시각) | TA·MEMBER |
+| POST | `/api/v1/system/tenants` | 테넌트 등록(고객사 관리자 계정 동시 생성, 초기 비밀번호 1회 반환) | SYSTEM_ADMIN |
+| GET | `/api/v1/system/tenants` | 테넌트 목록(멤버 수 포함) | SYSTEM_ADMIN |
+| PUT | `/api/v1/system/tenants/{id}/status` | 테넌트 정지/재개 | SYSTEM_ADMIN |
+| GET/PUT | `/api/v1/system/tenants/{id}/profile` | 기업 정보(사업자번호·연락처는 암호화 저장, 조회는 마스킹) | SYSTEM_ADMIN |
+| GET/PUT | `/api/v1/system/tenants/{id}/billing` | 결제 정보(빌링키 암호화 저장·비노출, `hasBillingKey`만) | SYSTEM_ADMIN |
+| GET/POST | `/api/v1/tenant/members` | 자기 테넌트 멤버 목록/등록(초기 비밀번호 1회 반환) | TENANT_ADMIN |
+| PUT | `/api/v1/tenant/members/{id}/status` | 멤버 활성/비활성(마지막 관리자 보호) | TENANT_ADMIN |
+| PUT | `/api/v1/tenant/members/{id}/role` | 관리자 지정/해제(마지막 관리자 보호) | TENANT_ADMIN |
 | GET | `/api/v1/i18n/{windowId}?lang=` | 화면 다국어 텍스트 조회 | - |
-| GET/POST | `/api/v1/admin/i18n` | 언어 마스터 목록/등록(갱신) | 관리자 |
+| GET/POST | `/api/v1/admin/i18n` | 언어 마스터 목록/등록(갱신) | SYSTEM_ADMIN |
+
+인가는 `RoleInterceptor`의 경로별 role 화이트리스트로 강제한다
+(`/api/v1/system/**`·`/api/v1/admin/**` → SYSTEM_ADMIN, `/api/v1/tenant/**` → TENANT_ADMIN,
+`/api/v1/attendance/**` → TENANT_ADMIN·MEMBER — 운영사 계정은 출결 기능을 쓰지 않는다).
+테넌트 ID는 항상 **세션에서만** 취득하며 클라이언트 입력을 신뢰하지 않는다.
 
 상세 스키마와 응답 예시는 Swagger UI 참조.
 
@@ -75,20 +94,24 @@ POST /api/v1/navigation  {screen: "W005", lang: "KOR"}
   }
 ```
 
-| 코드 | 화면 | 접근 |
-|------|------|------|
-| W000 | 인덱스 | 공개 |
+| 코드 | 화면 | 허용 role |
+|------|------|-----------|
+| W000 | 랜딩(회사/제품 소개) | 공개 |
 | W001 | 로그인 | 공개 |
 | W002 | 로그아웃(처리 후 W001로) | 공개 |
-| W003 | 회원가입 | 공개 |
-| W004 | 관리자 | 관리자 |
-| W005 | 출결 | 로그인 |
-| W006 | 출결 상세 | 로그인 |
+| W004 | 언어 마스터 관리 | SYSTEM_ADMIN |
+| W005 | 출결 | TENANT_ADMIN·MEMBER |
+| W006 | 출결 상세 | TENANT_ADMIN·MEMBER |
+| W007 | 테넌트 관리 | SYSTEM_ADMIN |
+| W008 | 기업/결제 정보(W007에 임베드 전개) | SYSTEM_ADMIN |
+| W009 | 멤버 관리 | TENANT_ADMIN |
 | W999 | 공통(헤더 텍스트용) | - |
 
-전환 규칙: 보호 화면+미로그인 → W001 / 비관리자의 W004 → W005 /
-로그인 상태의 W000·W001·W003 → 홈(관리자 W004, 일반 W005) / 알 수 없는 코드 → W000.
-`lang`은 세션에 저장되어 이후 요청에도 적용된다.
+전환 규칙: 보호 화면+미로그인 → W001(LOGIN_REQUIRED) / 허용 role 미포함 → 각자의 홈(ROLE_DENIED) /
+로그인 상태의 W000·W001 → 홈 / 알 수 없는 코드 → W000.
+홈 화면: SYSTEM_ADMIN → W007, TENANT_ADMIN·MEMBER → W005.
+`lang`은 세션에 저장되어 이후 요청에도 적용된다(로그인/로그아웃의 세션 재발급에도 이월).
+W003(회원가입)은 SaaS 전환으로 폐지 — 멤버 등록은 고객사 관리자의 W009에서만.
 
 프론트는 이 응답의 `screen` 값으로만 컴포넌트를 스위칭하고(브라우저 URL 미사용),
 개별 액션(로그인, 출결 등록 등)은 아래의 REST API를 사용한다.
@@ -128,16 +151,23 @@ src/main/java/com/attendance/pro/
 │   ├── ApiException.java           # 서비스 예외(HTTP 상태 + 코드)
 │   ├── ErrorResponse.java          # 공통 에러 응답(record)
 │   └── GlobalExceptionHandler.java # 전역 예외 -> ErrorResponse 변환
-├── auth/                           # 세션 인증
-│   ├── AuthController/Service      # 로그인/로그아웃/내정보
-│   ├── SessionUser.java            # 세션 보관 유저(record)
-│   ├── AuthInterceptor.java        # 로그인 검사
-│   ├── AdminInterceptor.java       # 관리자 검사
+├── auth/                           # 세션 인증·인가
+│   ├── AuthController/Service      # 로그인(테넌트 스코프)/로그아웃/내정보
+│   ├── SessionUser.java            # 세션 보관 유저(record: tenantId + role 포함)
+│   ├── AuthInterceptor.java        # 로그인 검사(인증)
+│   ├── RoleInterceptor.java        # 경로별 허용 role 화이트리스트(인가)
+│   ├── LoginRateLimiter.java       # 로그인 실패 레이트 리밋(계정/IP 슬라이딩 윈도우)
 │   └── @LoginUser + Resolver       # 컨트롤러에 세션 유저 주입
-├── user/                           # 회원
-│   ├── UserController/Service/Mapper
-│   └── User(record), UserCreate, UserDtos
-├── attendance/                     # 출결(핵심 도메인)
+├── tenant/                         # 테넌트(고객사) — SYSTEM_ADMIN 전용
+│   ├── SystemTenantController      # 등록/목록/정지·재개/기업·결제 정보
+│   ├── TenantService, TenantProfileService (암호화·마스킹 책임)
+│   └── Tenant/TenantProfile/TenantBilling(record) + 각 Mapper
+├── user/                           # 멤버 — TENANT_ADMIN 전용
+│   ├── MemberController/Service    # 목록/등록/활성·비활성/관리자 지정(마지막 관리자 보호)
+│   └── User(record), Role, UserStatus, UserMapper
+├── navigation/                     # 서버 주도 화면 전개
+│   └── NavigationController/Service, Screen(W코드 enum)
+├── attendance/                     # 출결(핵심 도메인, 전 쿼리 tenant_id 스코프)
 │   ├── AttendanceController/Service
 │   ├── AttendanceMapper, ScheduleMapper (MyBatis 어노테이션 매퍼)
 │   ├── AttendanceType, ConfirmCode (enum 상태머신 코드)
@@ -146,12 +176,19 @@ src/main/java/com/attendance/pro/
 └── language/                       # 다국어 텍스트
     └── LanguageController/Service/Mapper, LanguageEntry, LanguageDtos
 
+common/에는 FieldCipher(AES-256-GCM), Masking(마스킹 유틸), SecurityHeadersFilter,
+ApiException(메시지 키 지연 해석), Messages(MessageSource 래퍼) 등 횡단 관심사가 있다.
+
 src/main/resources/
-├── application.properties
+├── application.properties          # 공통(개발 기본값)
+├── application-prod.properties     # 운영(HSTS/Secure 쿠키/APP_CRYPTO_KEY 필수)
 ├── messages/                       # 서버 메시지 번들(ko 기본/en/ja)
 └── db/migration/                   # Flyway 마이그레이션
     ├── V1__init.sql                # 스키마
-    └── V2__seed_admin.sql          # 초기 관리자
+    ├── V2__seed_admin.sql          # 초기 관리자
+    ├── V3__seed_ui_texts.sql       # UI 텍스트 시드(3개국어)
+    ├── V4__multitenancy.sql        # 멀티테넌시 전환 + 기존 데이터 이관
+    └── V5__seed_saas_texts.sql     # SaaS 화면 텍스트 시드(3개국어)
 
 frontend/                           # 프론트엔드 (Vite + React 19 + TypeScript)
 └── src/                            # 서버 주도 화면 전개 기반 SPA (frontend/README.md 참조)
@@ -165,12 +202,19 @@ frontend/                           # 프론트엔드 (Vite + React 19 + TypeScr
 
 | 테이블 | 용도 |
 |--------|------|
-| `users` | 회원(이메일 UNIQUE, BCrypt 해시, 관리자 플래그) |
-| `attendance` | 출결 스탬프(타입/상태/시각/위치/단말) |
-| `attendance_check` | 체크→확정 사이의 변조 방지 토큰(+요청 해시) |
-| `work_schedule` | 일자별 근무시간 오버라이드/개인 휴일 (미등록 일자는 09:00~18:00) |
-| `holiday` | 전사 공휴일 |
-| `language_master` | 다국어 텍스트(화면 그룹 + 키 + 언어). UI 텍스트 시드는 `V3__seed_ui_texts.sql` |
+| `tenant` | 테넌트(고객사) 마스터: 코드(로그인용)/상태(ACTIVE·SUSPENDED) |
+| `tenant_profile` | 기업 정보(1:1). 사업자번호·담당자 연락처는 AES-256-GCM 암호문(`v1:iv:ct` 텍스트) |
+| `tenant_billing` | 결제 정보(1:1). PG 빌링키 암호문 + 표시용 카드 4자리. **카드 원본 비저장** |
+| `users` | 회원. `UNIQUE(tenant_id, email)`, BCrypt 해시, role(3단계)/status |
+| `attendance` | 출결 스탬프(타입/상태/시각/위치/단말) + `tenant_id` |
+| `attendance_check` | 체크→확정 사이의 변조 방지 토큰(+요청 해시) + `tenant_id`(크로스 테넌트 토큰 차단) |
+| `work_schedule` | 일자별 근무시간 오버라이드/개인 휴일 (미등록 일자는 09:00~18:00) + `tenant_id` |
+| `holiday` | 테넌트별 공휴일(PK: tenant_id + holiday_date) |
+| `language_master` | 다국어 텍스트(화면 그룹 + 키 + 언어) — 제품 글로벌(테넌트 무관). 시드는 V3/V5 |
+
+`V4__multitenancy.sql`이 기존(v2.0) 데이터를 자동 이관한다: DEFAULT 테넌트 생성 → 전 유저/출결
+backfill → `is_admin` → role 변환(V2 시드 관리자는 SYSTEM_ADMIN으로 승격) → 제약 원자 교체.
+민감 필드 암호화 키는 `APP_CRYPTO_KEY`(base64 32바이트)로 주입 — 운영 프로파일은 미지정시 기동 실패.
 
 ## 테스트
 
@@ -183,6 +227,15 @@ frontend/                           # 프론트엔드 (Vite + React 19 + TypeScr
 - `WebAttendanceApplicationTests` — 컨텍스트 기동(DB 필요, 기본 비활성)
 
 ## 버전 이력
+
+### v2.1.0 (2026-07) — SaaS 멀티테넌시 전환
+- **멀티테넌시(Pool 모델)**: 전 테이블 `tenant_id` 격리 + `V4__multitenancy.sql` 자동 이관(무중단 backfill 순서 보장). 로그인에 테넌트 코드 도입, `UNIQUE(tenant_id, email)`
+- **3단계 role + 경로 화이트리스트 인가**: `RoleInterceptor` 도입, 운영사(SYSTEM_ADMIN)는 출결 API 접근 불가. 마지막 관리자 보호(강등/비활성 409)
+- **테넌트/멤버 관리 API**: 운영자가 고객사 등록(관리자 계정 동시 생성, 초기 비밀번호 1회 표시) → 고객사 관리자가 멤버 등록. 셀프 가입(`POST /users`, W003) 폐지
+- **기업/결제 정보 보호**: `FieldCipher`(AES-256-GCM, `v1:iv:ct` 텍스트 포맷) 앱 레벨 암호화 + 응답 마스킹(`123-**-*****`), 빌링키는 존재 여부(`hasBillingKey`)만 응답. 카드 원본 비저장(PCI-DSS 범위 회피)
+- **보안 강화**: 로그인 레이트 리밋(계정 5회/IP 30회, 5분 창 → 429), 보안 응답 헤더 필터, 세션 쿠키 하드닝, 운영 프로파일(`prod`: HSTS·Secure 쿠키·암호화 키 필수)
+- **랜딩 페이지(W000)**: 회사/제품 소개 화면 신설(3개국어, 텍스트는 DB 언어 마스터 단일 출처)
+- 상세 계획·의사결정은 `docs/plan/` 7종 및 `docs/plan-saas-multitenancy.md` 참조
 
 ### v2.0.0 (2026-07) — MariaDB 전환 + REST API 재설계
 - Spring Boot `3.5` → `4.1.0`, MyBatis Starter `4.0.1`, springdoc `3.0.3`
@@ -201,7 +254,8 @@ frontend/                           # 프론트엔드 (Vite + React 19 + TypeScr
 ## 남은 과제 (TODO)
 
 - [ ] 근무 스케쥴/공휴일 등록 API (현재는 SQL로 직접 입력)
-- [ ] 관리자용 회원 관리 API (권한 부여, 비활성화)
 - [ ] 출결 데이터 조회 API의 페이징/기간 검색
-- [ ] 운영 프로파일 분리(devtools/Swagger 비활성, 세션 저장소 외부화)
+- [ ] 멤버 초대 링크(초기 비밀번호 1회 표시 방식 대체) + 비밀번호 변경/재설정 API
+- [ ] PG 결제위젯 연동(빌링키 수동 입력 대체)과 과금(플랜) 로직 — Phase 4
+- [ ] 세션 저장소 외부화(다중 인스턴스 대비), 레이트 리미터의 분산 환경 대응
 - [ ] 인증을 세션에서 토큰(JWT) 방식으로 전환할지 검토(모바일 클라이언트 대응시)
