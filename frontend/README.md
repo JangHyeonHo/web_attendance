@@ -49,7 +49,7 @@ npm run build    # tsc 타입체크 + 프로덕션 빌드(dist/)
 ```
 
 백엔드가 `http://localhost:9080`에 떠 있어야 한다(저장소 루트에서 `docker compose up -d` + `./mvnw spring-boot:run`).
-운용 배포는 `dist/`를 백엔드와 같은 오리진에서 서빙하는 것을 전제로 한다(세션 쿠키).
+운영 배포는 `dist/`를 백엔드와 같은 오리진에서 서빙하는 것을 전제로 한다(세션 쿠키).
 
 ## 구조
 
