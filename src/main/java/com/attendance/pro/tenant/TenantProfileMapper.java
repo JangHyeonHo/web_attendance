@@ -12,25 +12,28 @@ import org.apache.ibatis.annotations.Select;
 @Mapper
 public interface TenantProfileMapper {
 
+    /**
+     * country는 tenant JOIN으로 공급(정본은 tenant.country — V7 승격, 응답 계약 불변 유지).
+     */
     @Select("""
-            SELECT tenant_id, country,
-                   business_reg_no AS business_reg_no_enc,
-                   ceo_name, address, contact_name, contact_email,
-                   contact_phone AS contact_phone_enc,
-                   created_at, updated_at
-            FROM tenant_profile
-            WHERE tenant_id = #{tenantId}
+            SELECT p.tenant_id, t.country,
+                   p.business_reg_no AS business_reg_no_enc,
+                   p.ceo_name, p.address, p.contact_name, p.contact_email,
+                   p.contact_phone AS contact_phone_enc,
+                   p.created_at, p.updated_at
+            FROM tenant_profile p
+            JOIN tenant t ON t.tenant_id = p.tenant_id
+            WHERE p.tenant_id = #{tenantId}
             """)
     TenantProfile findById(@Param("tenantId") long tenantId);
 
     @Insert("""
             INSERT INTO tenant_profile
-                (tenant_id, country, business_reg_no, ceo_name, address, contact_name, contact_email, contact_phone)
+                (tenant_id, business_reg_no, ceo_name, address, contact_name, contact_email, contact_phone)
             VALUES
-                (#{tenantId}, #{country}, #{businessRegNoEnc}, #{ceoName}, #{address},
+                (#{tenantId}, #{businessRegNoEnc}, #{ceoName}, #{address},
                  #{contactName}, #{contactEmail}, #{contactPhoneEnc})
             ON DUPLICATE KEY UPDATE
-                country = #{country},
                 business_reg_no = #{businessRegNoEnc},
                 ceo_name = #{ceoName},
                 address = #{address},
@@ -39,7 +42,6 @@ public interface TenantProfileMapper {
                 contact_phone = #{contactPhoneEnc}
             """)
     int upsert(@Param("tenantId") long tenantId,
-            @Param("country") String country,
             @Param("businessRegNoEnc") String businessRegNoEnc,
             @Param("ceoName") String ceoName,
             @Param("address") String address,
