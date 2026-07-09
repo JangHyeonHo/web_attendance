@@ -38,7 +38,7 @@ CREATE TABLE tenant (
     tenant_id   BIGINT AUTO_INCREMENT PRIMARY KEY,
     tenant_code VARCHAR(20)  NOT NULL,          -- 로그인/URL용 코드 (UNIQUE)
     name        VARCHAR(100) NOT NULL,
-    status      TINYINT      NOT NULL DEFAULT 0, -- 0=ACTIVE 1=SUSPENDED
+    status      VARCHAR(10)  NOT NULL DEFAULT 'ACTIVE',  -- ACTIVE/SUSPENDED (+CHECK — users.role/status와 동일하게 VARCHAR, enum 이름 매핑 정합)
     created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uk_tenant_code (tenant_code)
 );
@@ -68,7 +68,7 @@ CREATE TABLE tenant (
 
 - `users.role` enum 컬럼(v1의 `USER_RANK` 개념의 정돈된 부활 — 마이그레이션 문서 §5에서 "복원 후보"로 기록했던 항목).
 - `SessionUser`에 `tenantId` + `role` 추가. `AdminInterceptor` → `RoleInterceptor`로 일반화(경로별 요구 role).
-- 화면 전개(navigation): W004(관리자)를 role별로 분기 — TENANT_ADMIN은 테넌트 관리 화면, SYSTEM_ADMIN은 테넌트 목록 화면. 필요시 화면 코드 추가(W007 테넌트 관리 등).
+- 화면 전개(navigation): W004 재해석 대신 **신규 화면 코드 확정(교차 검증 최종 결정 D-A)** — W007 테넌트 목록/생성, W008 테넌트 상세(기업/결제), W009 멤버 관리. 홈: SYSTEM_ADMIN→W007, TENANT_ADMIN→W005(출결 — 멤버 관리는 헤더에서 W009 진입), MEMBER→W005. 거부 사유는 `ROLE_DENIED`(구 ADMIN_ONLY 개명). W003(가입)은 폐기·영구 결번.
 
 3단계로 충분하되, 역할 개수 외에 **정책으로 보완해야 하는 지점** 3가지:
 1. **마지막 관리자 보호**: 테넌트의 유일한 TENANT_ADMIN을 강등/비활성할 수 없게 서버에서 차단(관리자 0명 테넌트 방지).
@@ -115,14 +115,15 @@ CREATE TABLE tenant (
 
 ```sql
 -- 기업 정보 (SYSTEM_ADMIN 전용 관리)
+-- 암호화 컬럼은 "v1:{b64(iv)}:{b64(ct+tag)}" 텍스트 암호문을 담는 VARCHAR (교차 검증 최종 결정 D-C)
 CREATE TABLE tenant_profile (
     tenant_id       BIGINT PRIMARY KEY,           -- tenant FK (1:1)
-    business_reg_no VARBINARY(256) NOT NULL,      -- 사업자등록번호 [암호화]
+    business_reg_no VARCHAR(128) NOT NULL,        -- 사업자등록번호 [암호화]
     ceo_name        VARCHAR(50),
     address         VARCHAR(200),
     contact_name    VARCHAR(50),                  -- 계약 담당자
     contact_email   VARCHAR(100),
-    contact_phone   VARBINARY(256),               -- [암호화]
+    contact_phone   VARCHAR(128),                 -- [암호화]
     created_at / updated_at
 );
 
@@ -131,7 +132,7 @@ CREATE TABLE tenant_billing (
     tenant_id       BIGINT PRIMARY KEY,           -- tenant FK (1:1)
     billing_method  TINYINT NOT NULL DEFAULT 0,   -- 0=INVOICE(계산서) 1=CARD
     billing_email   VARCHAR(100),                 -- 청구서/세금계산서 수신
-    pg_customer_key VARBINARY(512),               -- PG 빌링키 [암호화]
+    pg_customer_key VARCHAR(1024),                -- PG 빌링키 [암호화]
     card_last4      CHAR(4),                      -- 표시용(평문 허용 범위)
     card_brand      VARCHAR(20),
     plan            VARCHAR(20) DEFAULT 'BASIC',
@@ -147,8 +148,10 @@ CREATE TABLE tenant_billing (
    (원본을 저장하는 순간 PCI-DSS 준수 대상이 되어 개인 운영 범위를 벗어남)
    B2B 특성상 기본 결제는 세금계산서/계좌이체(INVOICE)로 하고 카드는 옵션.
 2. **저장 암호화**: 사업자등록번호·연락처·빌링키는 AES-256-GCM 애플리케이션 레벨 암호화.
-   키는 환경변수/KMS로 주입(코드·저장소에 두지 않음), 암호문에 키 버전 프리픽스를 붙여
-   키 로테이션에 대비. 구현은 `spring-security-crypto`(이미 도입됨)의 AES-GCM 유틸 활용.
+   키는 환경변수 `APP_CRYPTO_KEY`(base64 32바이트)로 주입 — 개발 기본키는 properties 기본값 허용,
+   prod 프로파일은 기본값 없음(미설정 시 기동 실패). 암호문은 `v1:` 키 버전 프리픽스 텍스트 포맷으로
+   키 로테이션에 대비. 구현은 **JCA 직접 구현**(`FieldCipher` — security-plan §2가 정본. 당초의
+   spring-security-crypto AES-GCM 유틸 활용안은 IV 12B·버전 프리픽스 요구와 맞지 않아 기각, BCrypt만 유지).
 3. **마스킹**: 조회 API 응답은 사업자번호 `123-**-*****`, 카드 `**** **** **** 1234` 형태만 반환하고
    빌링키는 어떤 API로도 반환하지 않는다. 로그에 결제 필드 출력 금지(toString 제외 처리).
    수정 화면도 마스킹값 표시 + 전체 재입력 방식(부분 노출 없음).
@@ -197,6 +200,8 @@ CREATE TABLE tenant_billing (
 
 ### Phase 3 — 운영 품질
 - 스케쥴/공휴일 관리 API(TENANT_ADMIN) — 기존 TODO 합류
+- **TENANT_ADMIN 출결 현황 조회 API**(§4 권한표의 "출결 현황 조회"의 소속 Phase 확정 — 도입 시 test-plan ISO-08 활성화)
+- Phase 2에서 이연된 계약: 테넌트명 수정, 멤버 단건 조회/이름·부서 수정/삭제/비밀번호 재발급(backend-api §1.3/§1.4)
 - 이메일 초대/비밀번호 재설정(메일 인프라 도입 시)
 - 감사 로그(누가 언제 멤버를 추가/비활성했나), MyBatis 테넌트 가드 인터셉터 검토
 - Testcontainers 통합 테스트, 운영 프로파일 분리 — 기존 TODO 합류
@@ -213,4 +218,13 @@ CREATE TABLE tenant_billing (
 | 기존 API 계약 변경(로그인에 tenantCode 추가 등) | 프론트를 같은 PR에서 함께 수정(모노레포 장점). 외부 소비자 없음 |
 | 마이그레이션 중 기존 데이터 정합성 | V4는 backfill 후 NOT NULL 제약을 거는 2단 구성, 로컬 DB로 리허설 |
 | 세션 기반 인증의 수평 확장(서버 다중화 시) | 당장은 단일 인스턴스 전제. 확장 시 Spring Session(Redis) 도입 — 기존 TODO(세션 저장소 외부화)와 동일 항목 |
-| 화면 코드/navigation의 role 분기 복잡화 | Screen 레지스트리에 요구 role을 선언적으로 추가(현 구조 그대로 확장 가능) |
+| 화면 코드/navigation의 role 분기 복잡화 | Screen 레지스트리에 허용 role 집합을 선언적으로 추가(현 구조 그대로 확장 가능 — 서열 비교 대신 화이트리스트, D-B) |
+
+---
+
+## 교차 검증 반영 이력(2026-07-08)
+
+- D-A: §4의 화면 분기를 W007/W008/W009 3분할 + role별 홈(SA→W007, TA/MEMBER→W005) + `ROLE_DENIED` 개명으로 확정.
+- D-C: §6-1의 암호화 구현을 JCA 직접 구현(`v1:` 텍스트 포맷, `APP_CRYPTO_KEY`)으로, 암호화 컬럼을 VARBINARY → VARCHAR(128/128/1024)로 정정.
+- 발견 7: §3 tenant DDL의 status를 TINYINT → VARCHAR(10)('ACTIVE'/'SUSPENDED')로 정정.
+- 발견 13: §9 Phase 3에 TENANT_ADMIN 출결 현황 조회 API와 Phase 2 이연 계약 목록을 명시.

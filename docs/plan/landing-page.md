@@ -32,9 +32,9 @@
 
 ## 2. 카피 전문 + 언어 마스터 키 (한/영/일)
 
-- 키는 기존 규약대로 **화면 그룹 `W000`** 하위, `LANDING_` 프리픽스.
-- 기존 `INDEX_TITLE`/`INDEX_SUB`는 유지(다른 화면 폴백 용도)하되 랜딩 렌더링에는 사용하지 않는다.
-- 아래 표 그대로 `V5__seed_landing_texts.sql`의 `(win_id, text_key, lang, value)` INSERT로 이관 가능.
+- 키는 기존 규약대로 **화면 그룹 `W000`** 하위, `LANDING_` 프리픽스. **이 표가 랜딩 카피·키의 유일 소스**다(교차 검증 최종 결정 D-E — frontend-plan의 종전 W000 키 13종은 폐기, 동일 키 상이 카피는 이 문서 버전 채택).
+- 기존 `INDEX_TITLE`/`INDEX_SUB`는 랜딩 렌더링에 사용하지 않으며, **V5에서 삭제하지도 않는다** — 어떤 화면도 참조하지 않는 무해한 잔존 행으로 허용(D-A 확정. W003 시드 행과 동일 취급).
+- 아래 표 그대로 **`V5__seed_saas_texts.sql`**(멤버/테넌트/랜딩 키 통합 단일 파일 — D-E)의 `(win_id, text_key, lang, value)` INSERT로 이관 가능.
 
 ### 2-1. 히어로
 
@@ -94,7 +94,7 @@
 | `LANDING_FOOTER_CONTACT` | 도입 문의: {CONTACT_EMAIL} | Sales inquiries: {CONTACT_EMAIL} | 導入に関するお問い合わせ: {CONTACT_EMAIL} |
 | `LANDING_FOOTER_COPYRIGHT` | © 2026 Web Attendance. All rights reserved. | © 2026 Web Attendance. All rights reserved. | © 2026 Web Attendance. All rights reserved. |
 
-- `{CONTACT_EMAIL}`은 시드 시점에 실제 운영자 주소로 치환(플레이스홀더 그대로 시드하지 말 것). 주소 미확정 시 임시로 `contact@attendance.example` 사용.
+- `{CONTACT_EMAIL}`은 **별도 언어 키 `CONTACT_EMAIL`(W000, 3언어 동일 값 — frontend-plan §7 안 채택)로 시드**하고, 렌더 시점에 프론트가 치환한다 — 주소 변경을 배포 없이 관리자 화면에서 처리. 주소 미확정 시 임시 값 `sales@webatt.example`.
 - `LANDING_CTA_LOGIN`은 공통 화면(W999)에 동일 문구가 이미 있으면 그 키를 재사용하고 본 키는 시드하지 않는다(중복 방지).
 
 ### 카피 검수 체크리스트 (시드 전 확인)
@@ -120,7 +120,7 @@
 
 - 히어로와 §5 CTA 섹션, 두 곳에 동일 버튼 배치(스크롤 어느 지점에서든 1클릭 거리).
 - `subject`는 언어별로 프리필: KOR `도입 문의` / ENG `Sales inquiry` / JPN `導入のお問い合わせ` — 언어 키(`LANDING_MAIL_SUBJECT`)로 관리해도 좋고, 초기엔 한국어 고정도 무방.
-- 이메일 주소는 프론트 하드코딩 대신 **환경/설정값 또는 언어 마스터(`LANDING_FOOTER_CONTACT`)에서 주입** — 주소 변경 시 재배포 불필요.
+- 이메일 주소는 프론트 하드코딩 대신 **언어 마스터의 `CONTACT_EMAIL` 키(3언어 동일 값)에서 주입**(§2-5) — 주소 변경 시 재배포 불필요.
 
 ### 3-2. 로그인 버튼
 
@@ -167,5 +167,13 @@
 ### 4-3. 구현 메모
 
 - 랜딩은 `IndexScreen.tsx`(W000)를 확장하는 방향 — navigation 응답의 `texts`에 위 키들이 실리므로 컴포넌트는 `t('LANDING_...')`만 호출하면 된다.
-- 시드는 `V5__seed_landing_texts.sql`로 추가(멀티테넌시 계획 Phase 2의 "언어 마스터 신규 화면 텍스트 시드(V5)"와 파일 번호 충돌 시 조정).
+- 시드는 **`V5__seed_saas_texts.sql` 단일 파일에 통합**(멤버/테넌트 관리 화면 키와 합본 — D-E 확정, 파일 번호 충돌 해소. 구성 기록은 data-migration-v4 §7).
 - 로그인 상태로 W000 접근 시 홈으로 리다이렉트되는 현행 전환 규칙은 유지(랜딩은 비로그인 방문자 전용이라는 전제와 일치).
+
+---
+
+## 교차 검증 반영 이력(2026-07-08)
+
+- D-E: 이 문서 §2의 `LANDING_*` 키·카피가 랜딩의 유일 소스로 채택됨(frontend-plan W000 키 목록이 이에 맞춰 수정됨). 시드 파일은 `V5__seed_saas_texts.sql` 단일 파일로 통합(종전 `V5__seed_landing_texts.sql` 명칭 폐기).
+- D-A: `INDEX_TITLE`/`INDEX_SUB`는 "폴백 유지" 표현을 "미사용·무해 잔존(V5 삭제 없음)"으로 정정.
+- CONTACT_EMAIL: mailto/푸터 주소는 frontend-plan 안(W000 `CONTACT_EMAIL` 키, 3언어 동일 값)으로 주입하는 방식 채택.
