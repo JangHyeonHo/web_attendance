@@ -9,8 +9,9 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.attendance.pro.auth.AuthDtos.LoginRequest;
-import com.attendance.pro.config.LocaleConfig;
 import com.attendance.pro.auth.AuthDtos.LoginResponse;
+import com.attendance.pro.common.ApiException;
+import com.attendance.pro.config.LocaleConfig;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -29,19 +30,33 @@ import jakarta.validation.Valid;
 public class AuthController {
 
     private final AuthService authService;
+    private final LoginRateLimiter loginRateLimiter;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, LoginRateLimiter loginRateLimiter) {
         this.authService = authService;
+        this.loginRateLimiter = loginRateLimiter;
     }
 
     @Operation(summary = "api.auth.login.summary", description = "api.auth.login.description")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "api.auth.login.200"),
-            @ApiResponse(responseCode = "401", description = "api.auth.login.401")
+            @ApiResponse(responseCode = "401", description = "api.auth.login.401"),
+            @ApiResponse(responseCode = "429", description = "api.auth.login.429")
     })
     @PostMapping("/login")
     public LoginResponse login(@Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {
-        SessionUser user = authService.authenticate(request.email(), request.password());
+        //①레이트 리밋 검사(임계 초과 시 429) → ②인증 → ③실패 기록/성공 초기화
+        String clientIp = httpRequest.getRemoteAddr();
+        loginRateLimiter.check(request.tenantCode(), request.email(), clientIp);
+        SessionUser user;
+        try {
+            user = authService.authenticate(request.tenantCode(), request.email(), request.password());
+        } catch (ApiException e) {
+            loginRateLimiter.recordFailure(request.tenantCode(), request.email(), clientIp);
+            throw e;
+        }
+        loginRateLimiter.reset(request.tenantCode(), request.email());
+
         //세션 고정 공격 방지를 위해 기존 세션을 무효화하고 새로 발급한다.
         //이때 언어 설정(LANG)은 새 세션으로 이어준다.
         HttpSession oldSession = httpRequest.getSession(false);

@@ -7,18 +7,23 @@ package com.attendance.pro.user;
 public class UserCreate {
 
     private Long userId;
+    private final long tenantId;
     private final String email;
     private final String passwordHash;
     private final String name;
     private final String departCd;
-    private final boolean admin;
+    private final Role role;
+    private final UserStatus status;
 
-    public UserCreate(String email, String passwordHash, String name, String departCd, boolean admin) {
+    public UserCreate(long tenantId, String email, String passwordHash, String name, String departCd,
+            Role role, UserStatus status) {
+        this.tenantId = tenantId;
         this.email = email;
         this.passwordHash = passwordHash;
         this.name = name;
         this.departCd = departCd;
-        this.admin = admin;
+        this.role = role;
+        this.status = status;
     }
 
     public Long getUserId() {
@@ -27,6 +32,10 @@ public class UserCreate {
 
     public void setUserId(Long userId) {
         this.userId = userId;
+    }
+
+    public long getTenantId() {
+        return tenantId;
     }
 
     public String getEmail() {
@@ -45,8 +54,12 @@ public class UserCreate {
         return departCd;
     }
 
-    public boolean isAdmin() {
-        return admin;
+    public Role getRole() {
+        return role;
+    }
+
+    public UserStatus getStatus() {
+        return status;
     }
 
 }
