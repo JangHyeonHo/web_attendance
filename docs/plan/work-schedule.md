@@ -141,7 +141,7 @@ public enum BreakPolicy {
 
 ```sql
 -- =========================================================
--- V7 [work-schedule 몫] 개인 기본 근무 스케줄
+-- [S-1] V7 work-schedule 몫: 개인 기본 근무 스케줄
 --  - 기존 전원 하드코딩(09:00~18:00)을 멤버별 컬럼으로. 기존 행은 DEFAULT로 현행 동작 보존
 --  - work_schedule(일자별 오버라이드)은 무변경 — 우선순위: work_schedule > 개인 기본값
 -- =========================================================
@@ -154,8 +154,11 @@ ALTER TABLE users
 
 - CHECK(`start < end`)는 두지 않는다 — 검증은 앱 단일 출처(§5-1). V4~V6 관례(IF NOT EXISTS, 앱이 규칙의
   단일 출처 — D20)와 동일. 언어 시드는 §9의 `INSERT IGNORE`로 같은 V7 구역에 포함.
-- V7 파일 내 배치 순서: 공휴일 몫(tenant.country) → **본 몫(users 컬럼)** → 이메일 온보딩 몫 → 각 몫의 언어 시드.
-  구역 주석(`-- [도메인 몫]`)으로 경계 명시(§11 충돌 방지).
+- **V7 확정(교차 리뷰 CR3-4 — 3문서 합의)**: 파일명 `V7__phase3.sql`. 배치 순서:
+  `[H-1]~[H-4]`(공휴일 — tenant.country/holiday) → **`[S-1]`(본 몫 — 위 users ALTER)** → `[E1]~[E4]`(이메일
+  온보딩 — user_token/mail_template/users.password_changed_at·email_key) → 언어 마스터 시드(H→S→E 순).
+  users ALTER가 [S-1]/[E3]/[E4] 3문에 나뉘지만 **단일 ALTER로 병합하지 않는다**(도메인 구획 소유 + IF NOT
+  EXISTS 멱등으로 상호 무해 — [E4]의 UNIQUE 교체만 단일문 원자성 필수). 구역 주석으로 경계 명시(§11 충돌 방지).
 
 ### 3-3. 자바 측 반영
 
@@ -165,6 +168,21 @@ ALTER TABLE users
 | `user/UserMapper.java` | `findByTenant`/`findById`/`findByEmail` SELECT에 두 컬럼 추가. `insert`는 UserCreate의 값 사용. 신규 `int updateWorkSchedule(@Param("tenantId") long tenantId, @Param("userId") long userId, @Param("workStart") LocalTime, @Param("workEnd") LocalTime)` — 2중 조건(테넌트 전파 규약) |
 | `user/UserCreate.java` | 두 필드 추가(미지정 시 서비스에서 09:00/18:00 채움 — DB DEFAULT에 맡기지 않고 응답 조립에 즉시 사용) |
 | `attendance/ScheduleMapper.java` | 신규 `WorkDefaults findWorkDefaults(tenantId, userId)` — users 테이블 SELECT지만 "그날의 스케줄 해석"이라는 근태 질의이므로 스케줄 매퍼 소유(attendance→user 패키지 의존 회피). `WorkDefaults`는 `record(LocalTime start, LocalTime end)` (attendance 패키지) |
+
+### 3-4. 소프트 삭제 멤버의 잔존 스케줄 데이터 (이메일 온보딩 접점 — 정책 확정, 교차 리뷰 CR3-9)
+
+이메일 온보딩 계획이 멤버 **소프트 삭제**(`users.deleted=TRUE`)를 도입하며 표시 정책을 본 문서에
+위임했다(email-onboarding §13-5). 확정:
+
+- **잔존 보존 + 표시 경로 없음**. 삭제 유저의 `work_schedule` 행과 `users.default_work_start/end`는
+  출결 기록과 동일하게 삭제·정리하지 않는다(감사 보존 — email-onboarding §4.2의 데이터 보존 원칙과 동일).
+- Phase 3에서 이 데이터가 화면에 나타날 경로는 **없다**: W005/W006(monthly/status)은 전부 `@LoginUser`
+  셀프서비스인데 삭제 유저는 로그인 불가(findByEmail/findById가 deleted 제외)이고, W009 멤버 목록도
+  `findByTenant`가 deleted 제외라 행 자체가 없다(스케줄 수정 조작 대상 불가 — 404).
+- 같은 이메일 **재등록은 신규 user_id**(email-onboarding [E4])이므로 구 계정의 work_schedule/기본값이
+  새 계정에 승계·표시되는 일도 없다(신규 계정은 등록 시 지정값 또는 09:00/18:00).
+- 관리자용 타인 출결/스케줄 조회 API가 생기는 Phase(교차 리뷰 Phase 1 발견 13의 이연 과제)에서
+  "삭제 유저 포함 여부"를 그 API 계약에서 재결정한다 — 본 Phase 범위 외.
 
 ---
 
@@ -194,7 +212,7 @@ BREAK 스탬프는 등록 시점에 이미 시작/종료가 확정돼 있다(`At
 
 | 메소드/경로 | 변경 | 에러(코드 / 메시지 키) |
 |---|---|---|
-| `POST /api/v1/tenant/members` | `MemberCreateRequest`에 `workStart`/`workEnd` **선택** 필드(미지정 시 09:00/18:00) | 400 `INVALID_INPUT` / `validation.work-time.format`, 400 `WORK_TIME_INVALID_RANGE` / `member.work-time.invalid-range` |
+| `POST /api/v1/tenant/members` | `MemberCreateRequest`에 `workStart`/`workEnd` **선택** 필드(미지정 시 09:00/18:00). ※ 이 API는 이메일 온보딩 계획에 의해 **초대 등록**(status=PENDING + 메일 발송)으로 전환됨 — 본 필드는 그 요청에 그대로 동봉(교차 리뷰 CR3-3, email-onboarding §4.2) | 400 `INVALID_INPUT` / `validation.work-time.format`, 400 `WORK_TIME_INVALID_RANGE` / `member.work-time.invalid-range` |
 | `PUT /api/v1/tenant/members/{userId}/schedule` | **신규** — 속성별 PUT(기존 `/status`·`/role` 패턴 계승) | 404 `MEMBER_NOT_FOUND`(타 테넌트 동일 404 — 존재 비노출), 400 위와 동일 |
 | `GET /api/v1/tenant/members` | `MemberResponse`에 `workStart`/`workEnd` 추가 | — |
 
@@ -218,6 +236,10 @@ public record MemberScheduleRequest(
         @Pattern(regexp = TIME_PATTERN, message = "{validation.work-time.format}") String workEnd) {
 }
 // MemberResponse / MemberCreateResponse: String workStart, String workEnd 추가 ("HH:mm")
+// ▼ 통합 최종 필드 집합(이메일 온보딩과 병합 — CR3-3. 정본은 email-onboarding §4.2 코드 블록과 동일):
+//   MemberCreateResponse = userId, email, name, departCd, role, status(=PENDING),
+//                          workStart, workEnd, mailSent, inviteExpiresAt   (initialPassword 폐지)
+//   MemberResponse       = 기존 필드 + workStart, workEnd + inviteExpiresAt(nullable)
 ```
 
 - 교차 검증(`workStart < workEnd`)은 `MemberService`에서 — 위반 시 400 `WORK_TIME_INVALID_RANGE`.
@@ -230,6 +252,8 @@ public record MemberScheduleRequest(
 ```java
 public record DailyAttendance(
         /* date, holiday, scheduleStart, scheduleEnd, stampIn, stampOut 현행 그대로 */
+        /* + holidayName(nullable) — 공휴일 계획 몫(holiday-plan §5-2). 통합 최종 record는
+           현행 6필드 + holidayName + 아래 3필드 = 10필드(CR3-7) */
         @Schema(description = "schema.daily-attendance.break-minutes", example = "70")
         Integer breakMinutes,          // 실휴식 합(분). 출근·퇴근 미확정이면 null
         @Schema(description = "schema.daily-attendance.statutory-break-minutes", example = "60")
@@ -270,7 +294,9 @@ public record StatusResponse(
 ```java
 public List<DailyAttendance> assemble(List<LocalDate> monthDays,
         Map<LocalDate, WorkSchedule> schedules,
-        Set<LocalDate> holidayDates,
+        Map<LocalDate, String> holidays,       // 변경: Set<LocalDate> → Map(날짜→명칭) — 공휴일 계획의
+                                               //   holidayName 공급과 병합(정본: holiday-plan §6, CR3-2).
+                                               //   휴일 판정은 containsKey — 판정 로직 자체는 불변
         List<AttendanceStamp> stamps,          // 변경: BREAK 포함 전 타입 조회로 확대(현행 매퍼는 이미 전 타입 반환)
         LocalTime defaultStart,                // 신규: 개인 기본값(ScheduleMapper.findWorkDefaults)
         LocalTime defaultEnd,
@@ -312,14 +338,24 @@ public List<DailyAttendance> assemble(List<LocalDate> monthDays,
 ### 7-1. W009 멤버 관리 (`MembersScreen.tsx` 확장 — 신규 화면 없음, W013은 미사용 예약)
 
 - 등록 폼: 근무 시작/종료 `<input type="time">` 2개(기본값 09:00/18:00 프리필). 등록 응답의 workStart/End 표시.
-- 목록: `WORK_START`/`WORK_END` 컬럼 추가. 행별 "스케줄 수정" 조작 → 인라인 time 입력 2개 + 저장
-  (`PUT /members/{userId}/schedule`) — 기존 status/role 인라인 조작과 같은 상호작용 패턴.
+  ※ 이메일 온보딩 계획의 **발송 전 확인 패널**과 합성(CR3-6): 폼(이메일/이름/부서/근무 시작/종료) 제출 →
+  이메일 강조 확인 패널 → [발송]에서 POST(스케줄 필드 동봉). 초기 비밀번호 패널은 폐지(email-onboarding §8.3).
+- 목록: `WORK_START`/`WORK_END` 컬럼 추가 — 최종 컬럼 순서(양 계획 합성):
+  `이름 | 이메일 | 부서 | 역할 | 상태 | WORK_START | WORK_END | 조작`. 행별 "스케줄 수정" 조작 → 인라인 time
+  입력 2개 + 저장(`PUT /members/{userId}/schedule`) — 기존 status/role 인라인 조작과 같은 상호작용 패턴.
+  스케줄 수정은 **PENDING(초대 대기) 행에도 허용**(입사 전 스케줄 준비 — 이메일 계획의 재발송/삭제 조작과
+  같은 행에 공존, 충돌 없음).
 - 검증 에러(400)는 기존 ApiError 배너 경로 그대로(서버 메시지 표시).
 
 ### 7-2. W006 월별 상세 (`DetailsScreen.tsx`)
 
 - 테이블 열 추가: 실휴식(`BREAK_ACTUAL`), 법정 휴게(`BREAK_STATUTORY`), 총 근무시간(`TOTAL_WORK`).
   분→`h:mm` 조립은 프론트 유틸(예: `470 → "7:50"`), null은 `-`(현행 공란 표기 관례).
+- **최종 레이아웃(공휴일 계획과 합의 — CR3-7)**: 데이터 열 = 스케줄 2 + 실적 2 + 신규 3 = **7열**.
+  휴일 행의 통합 셀은 현행 `colSpan=4`를 **`colSpan=7`로 확장**하고, 셀 내용은 공휴일 계획의
+  `{day.holidayName ?? t('HOLIDAY')}` 폴백 규칙(holiday-plan §5-2)을 따른다 — 공휴일이면 명칭,
+  개인 휴일(work_schedule.holiday)이면 기존 `HOLIDAY` 라벨. 휴일 행은 신규 3필드도 null(§8 X8)이라
+  별도 셀 표기가 없다.
 - 하단 합계 행: `MONTH_TOTAL` + `totalWorkMinutes` 표기.
 - 실휴식이 법정 휴게를 초과한 날은 실휴식 셀 강조(기존 상태 색상 토큰 재사용) — "왜 총계가 줄었는지" 시인성.
 
@@ -380,7 +416,7 @@ public List<DailyAttendance> assemble(List<LocalDate> monthDays,
 | SCH-U-02 | U | 등록 시 미지정 → 09:00/18:00 기본값으로 insert + 응답 반영 | UserCreate 캡처 검증 |
 | SCH-U-03 | U | schedule 수정 대상이 타 테넌트/미존재/SYSTEM_ADMIN → 404 | 존재 비노출 계승 |
 | ISO-15 | U | monthly가 defaults/country 조회에 세션 tenantId 전달(`verify(scheduleMapper).findWorkDefaults(eq(TENANT_A), …)`) | 전파 규약(ISO-14 계열 확장) |
-| WSC-S-01 | S | TA로 멤버 등록(10:00~19:00) → 그 멤버 monthly의 무오버라이드 일자 scheduleStart=10:00 | 개인 기본값 관통 |
+| WSC-S-01 | S | TA로 멤버 등록(10:00~19:00) → **초대 완료(메일 로그의 토큰으로 비밀번호 설정 — 이메일 온보딩 플로우 전제, CR3-11)** → 그 멤버 monthly의 무오버라이드 일자 scheduleStart=10:00 | 개인 기본값 관통 |
 | WSC-S-02 | S | 출근→휴식 90분→퇴근(9h 체류, KR) → monthly `workMinutes=450` | 초과 차감 실기동 |
 | WSC-S-03 | S | 동일 출퇴근·휴식 미기록 멤버 → `workMinutes=480` | E3 vs E2 대비쌍 |
 | WSC-S-04 | S | JP 테넌트(country=JP)에서 6h 스케줄 → `statutoryBreakMinutes=0` | 국가 분기 실기동 |
@@ -395,8 +431,8 @@ public List<DailyAttendance> assemble(List<LocalDate> monthDays,
 
 ## 11. 타 도메인 경계·충돌 주의 (교차 리뷰 요청 지점)
 
-| 상대 | 접점 | 조정 |
+| 상대 | 접점 | 조정(교차 리뷰 cross-review-phase3.md 반영 완료) |
 |------|------|------|
-| 공휴일 계획 | `tenant.country` 승격이 본 계획의 **전제**(§2-4). V7 내 구역 순서: country가 먼저 | 승격 지연 시 본 기능은 `tenant_profile.country` 임시 소스(코드 1곳 스위치) |
-| 이메일 온보딩 계획 | ① V7 단일 파일 합류 — users ALTER가 양쪽에 있으면 **구역 분리 + IF NOT EXISTS**로 상호 무해 ② `MemberDtos`/`MemberService`/W009 동시 수정(초대 흐름 vs 스케줄 필드) — 같은 파일 병합 충돌 예상, 초대 플로우의 등록 요청에도 workStart/End 선택 필드 규칙 동일 적용 ③ 화면 코드 W010~W012 선점 존중(본 계획 신규 화면 없음, W013 미사용) | |
+| 공휴일 계획 | `tenant.country` 승격이 본 계획의 **전제**(§2-4). V7 확정 순서 [H]→[S]→[E](§3-2, CR3-4). Assembler 휴일 파라미터는 `Map<LocalDate,String>`으로 확정(§6-1, CR3-2 — holiday-plan §6 정본). W006 휴일 셀 colSpan 7 + `holidayName ?? t('HOLIDAY')` 폴백 합의(§7-2, CR3-7) | 승격 지연 시 본 기능은 `tenant_profile.country` 임시 소스(코드 1곳 스위치) |
+| 이메일 온보딩 계획 | ① V7 단일 파일 합류 — users ALTER는 구역 분리 + IF NOT EXISTS로 상호 무해(병합하지 않음 — CR3-4) ② `MemberDtos`/`MemberService`/W009 동시 수정 — **통합 DTO·레이아웃 확정**(§5-1/§7-1, CR3-3/6): 초대 등록 요청에 workStart/End 선택 필드 동봉, 응답은 mailSent/inviteExpiresAt 병합 ③ 화면 코드 W010~W012 선점 존중(본 계획 신규 화면 없음, W013은 공휴일) ④ 소프트 삭제 잔존 데이터 표시 정책은 §3-4에서 확정(CR3-9) ⑤ 스모크(WSC-S-01 등)의 멤버 로그인은 초대 완료 경유(CR3-11) | |
 | 상태머신/출결 API | check/confirm/evaluate **무변경**. 휴게는 집계이지 차단 조건이 아님 | 상태머신 변경 계획이 생기면 §4 페어링 전제(휴식 중 퇴근 불가) 재검토 필요 |

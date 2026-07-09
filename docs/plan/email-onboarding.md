@@ -7,7 +7,9 @@
   - 멤버 등록 = TENANT_ADMIN이 이메일로 추가 → 본인 확인 메일 → 링크에서 비밀번호 설정 → 사용 가능.
     발송 전 이메일 재확인 단계(오송신 방지 UX) + 오송신 수습으로 정지(기존)·**삭제(신규)**.
   - 비밀번호 찾기는 같은 메커니즘·다른 본문. 변경 후 기존 세션 전부 무효화(재로그인 필수).
-  - 메일 언어 = **테넌트 소재국**(KR→한국어, JP→일본어, 그 외/미등록→영어 폴백 — D20의 country 축 재사용).
+  - 메일 언어 = **테넌트 소재국**(KR→한국어, JP→일본어, 그 외→영어 폴백[방어] — D20의 country 축 재사용.
+    소재국의 정본은 **tenant.country** — holiday-plan §1-1의 승격이 전제. NOT NULL DEFAULT 'KR' + 생성 시
+    KR/JP 검증이라 "미등록" 상태는 존재하지 않는다 — 교차 리뷰 CR3-1).
     템플릿은 DB 저장 + SYSTEM_ADMIN 관리 화면(미리보기·수정) — 언어 마스터 패턴 재사용, Flyway 시드.
     개발·테스트는 페이크 SMTP(로그 출력형), 운영은 환경변수 `SMTP_HOST/PORT/USER/PASS/FROM`.
 
@@ -60,7 +62,13 @@
 
 ## 2. DB — V7 마이그레이션 (자기 몫의 DDL)
 
-**V7은 단일 파일**로, 스케줄/공휴일 계획의 DDL과 한 파일에 합류한다(V4/V5의 단일 파일 원칙 계승). 아래는 이 문서 몫의 블록만이며, 합류 시 섹션 주석 `[E1]~[E4]`(Email)로 구분한다. 전 구문 재실행 내성(V4 방식).
+**V7은 단일 파일 `V7__phase3.sql`**로, 스케줄/공휴일 계획의 DDL과 한 파일에 합류한다(V4/V5의 단일 파일 원칙 계승). 아래는 이 문서 몫의 블록만이며, 섹션 주석 `[E1]~[E4]`(Email)로 구분한다. 전 구문 재실행 내성(V4 방식).
+
+**블록 순서(3문서 합의 — 교차 리뷰 CR3-4 확정)**: `[H-1]~[H-4]`(공휴일 — tenant.country 승격이 전 도메인의
+전제라 최선두) → `[S-1]`(스케줄 — users 근무 기본값) → `[E1]~[E4]`(본 문서) → **언어 마스터 시드**(H→S→E 순,
+각 도메인 구획 주석 유지). users ALTER가 [S-1]/[E3]/[E4] 3문으로 나뉘지만 **단일 ALTER로 병합하지 않는다** —
+도메인 구획 소유(D17 병렬 워크트리 충돌 최소화)가 리빌드 1회 절약보다 우선하고, 각 문이 IF NOT EXISTS로
+멱등이라 상호 무해하다. 단 [E4]의 UNIQUE 신구 교체는 **단일문 원자성 유지**(V4 [3-4] 관례).
 
 ```sql
 -- [E1] user_token: 초대/재설정 토큰 — 원문 비저장(SHA-256 해시만), 1회용. TTL은 앱이 부여.
@@ -167,22 +175,26 @@ DTO(`auth/AuthDtos.java`에 추가 — 필드 전체):
 
 | 메소드/경로 | 요청 DTO | 응답 / 상태 | 에러(코드 / 메시지 키) |
 |---|---|---|---|
-| `POST /tenant/members` **(변경)** | `MemberCreateRequest`(불변) | 201 `MemberCreateResponse` — **initialPassword 삭제**, `status=PENDING`, `mailSent`·`inviteExpiresAt` 추가 | 409 `EMAIL_DUPLICATED`(활성 행 기준 — email_key) |
+| `POST /tenant/members` **(변경)** | `MemberCreateRequest`(기존 필드 불변 + 스케줄 계획의 `workStart`/`workEnd` 선택 필드 — work-schedule.md §5-1과 병합, CR3-3) | 201 `MemberCreateResponse` — **initialPassword 삭제**, `status=PENDING`, `mailSent`·`inviteExpiresAt` 추가 | 409 `EMAIL_DUPLICATED`(활성 행 기준 — email_key) |
 | `POST /tenant/members/{userId}/invite` **(신규, 재발송)** | (없음) | 200 `InviteResponse` | 404 `MEMBER_NOT_FOUND`(타 테넌트·SYSTEM_ADMIN — `requireManageableMember` 재사용), 409 `MEMBER_NOT_PENDING` / `member.invite.not-pending`(ACTIVE/DISABLED 대상) |
 | `DELETE /tenant/members/{userId}` **(신규, 소프트 삭제)** | (없음) | 204 | 404 `MEMBER_NOT_FOUND`(동상), 400 `MEMBER_SELF_DELETE` / `member.delete.self`(자기 자신), 409 `LAST_TENANT_ADMIN` / `member.last-admin`(기존 guard 재사용) |
 | `GET /tenant/members` **(응답 확장)** | (없음) | 200 `List<MemberResponse>` — `inviteExpiresAt`(nullable) 추가 | — |
 | `PUT /{userId}/status` **(가드 추가)** | `MemberStatusRequest` | 200 `MemberResponse` | 기존 + **대상이 PENDING이면 400 `MEMBER_STATUS_INVALID`**(비밀번호 미설정 계정의 ACTIVE화 차단 — 수습은 재발송/삭제로) |
 
 ```java
+// ▼ 통합 최종 계약(이메일 × 스케줄 병합 — 교차 리뷰 CR3-3 확정. work-schedule.md §5-1과 동일 필드 집합)
 public record MemberCreateResponse(              // initialPassword 필드 삭제 — 초기 비밀번호 방식 폐지
         long userId, String email, String name, String departCd,
         Role role, UserStatus status,            // 항상 MEMBER / PENDING
+        String workStart, String workEnd,        // 스케줄 몫("HH:mm") — 미지정 등록은 09:00/18:00
         boolean mailSent,                        // 발송 실패해도 201(멤버는 생성됨) — false면 재발송 유도
         LocalDateTime inviteExpiresAt) {
 }
 public record InviteResponse(long userId, String email, boolean mailSent, LocalDateTime inviteExpiresAt) {
 }
-// MemberResponse: 기존 필드 + inviteExpiresAt(nullable) — PENDING+유효 INVITE 토큰이면 그 만료시각, 아니면 null(만료/실패 → "재발송 필요" 표시)
+// MemberResponse 최종 = 기존 필드(userId,email,name,departCd,role,status,createdAt)
+//   + workStart/workEnd(스케줄 몫) + inviteExpiresAt(nullable — 이 문서 몫:
+//     PENDING+유효 INVITE 토큰이면 그 만료시각, 아니면 null(만료/실패 → "재발송 필요" 표시))
 ```
 
 - **삭제 = 소프트 삭제**(`users.deleted=TRUE` — 출결 기록 보존, FK user_id 잔존) + 같은 Tx에서 `deleteByUser`(토큰 전멸).
@@ -192,6 +204,9 @@ public record InviteResponse(long userId, String email, boolean mailSent, LocalD
 - 메일 발송은 **등록 트랜잭션과 분리**: `MemberService.create` Tx(users+user_token INSERT) 커밋 후 `MemberInviteService`가
   발송. 발송 예외는 삼키고 `mailSent=false`로 응답(멤버·토큰은 유효 — 재발송이 수습 경로).
   재발송 = 기존 INVITE 토큰 DELETE + 신규 발급(72h 리셋) + 발송 — 구 링크는 즉시 무효(오송신 수습 겸용).
+- **`UserMapper.existsByEmail` 변경 필수(CR3-8)**: 현행 쿼리는 `deleted` 필터가 없어 삭제 행이 앱 레벨 중복
+  검사에 계속 걸린다 — [E4] 후에도 재등록(DEL-02)이 409로 막히는 누락. `AND deleted = FALSE`(또는
+  `email_key IS NOT NULL` 기준)로 교체해 UNIQUE(email_key)와 판정 기준을 일치시킨다.
 
 ### 4.3 변경: 테넌트 생성 `/api/v1/system/tenants` (최초 관리자도 초대로 통일)
 
@@ -199,12 +214,24 @@ public record InviteResponse(long userId, String email, boolean mailSent, LocalD
 
 | 메소드/경로 | 변경 내용 | 에러 |
 |---|---|---|
-| `POST /system/tenants` | `TenantCreateResponse`에서 **initialPassword 삭제** → `adminStatus`(=PENDING)·`mailSent` 추가. 관리자 계정은 TENANT_ADMIN/PENDING으로 생성 + INVITE 발송({inviterName}=SA 세션 name) | (기존과 동일) |
+| `POST /system/tenants` | `TenantCreateResponse`에서 **initialPassword 삭제** → `adminStatus`(=PENDING)·`mailSent` 추가. 관리자 계정은 TENANT_ADMIN/PENDING으로 생성 + INVITE 발송({inviterName}=SA 세션 name) | (기존과 동일 + 공휴일 계획의 400 `COUNTRY_UNSUPPORTED`) |
 | `POST /system/tenants/{tenantId}/admin-invite` **(신규, 재발송)** | 대상 = 그 테넌트의 PENDING인 TENANT_ADMIN **1명**일 때 재발송. 0명/2명 이상이면 409(모호성 거부) | 404 `TENANT_NOT_FOUND`, 409 `TENANT_ADMIN_INVITE_INVALID` / `tenant.admin-invite.invalid` |
 
-- 주의: 테넌트 생성 시점엔 tenant_profile(country)이 보통 미등록 → 초대 메일은 **영어 폴백**(§6.1 규칙 그대로).
-  한국/일본 고객은 기업 정보(소재국) 등록 후 `admin-invite` 재발송으로 모국어 재송신 — W007에 안내 문구.
-  생성 요청에 country를 넣는 안은 기각(country의 정본은 tenant_profile 단일 소스 — D20, 이원화 금지).
+- **소재국(country) — 정본 정정(교차 리뷰 CR3-1)**: 이 문서 초안은 "생성 요청에 country를 넣는 안 기각
+  (tenant_profile 단일 소스)"이었으나, **공휴일 계획(holiday-plan §1-1/§4)이 tenant.country 승격 +
+  `TenantCreateRequest.country` 필수 + tenant_profile.country 제거를 확정**했고 스케줄 계획도 이를 전제한다
+  — 공휴일 문서가 정본(단일 출처는 tenant.country로 이동, 이원화 없음 — D20의 취지 유지). 따라서:
+  - 생성 시점에 소재국이 확정되므로 **최초 관리자 초대 메일도 처음부터 소재국 언어**(KR→KOR, JP→JPN)로
+    발송된다. "영어 폴백 후 소재국 등록 시 재발송" 시나리오는 폐기. `admin-invite` 재발송은
+    `mailSent=false`(SMTP 실패)·미수신 수습 용도로 존속.
+- **통합 최종 계약(이메일 × 공휴일 병합 — CR3-5)**:
+  `TenantCreateResponse(tenantId, tenantCode, name, country, status, adminUserId, adminEmail,
+  adminStatus /*=PENDING*/, mailSent, holidaysSynced)` — country·holidaysSynced는 공휴일 몫(holiday-plan §4-1).
+- **생성 플로우 합성(CR3-5)**: `TenantService.create` Tx(tenant INSERT + 관리자 users INSERT(PENDING) +
+  INVITE 토큰 INSERT) 커밋 → ① INVITE 메일 발송(실패 시 `mailSent=false`) → ② 당해·익년 공휴일 sync
+  (실패 시 `holidaysSynced=false` — holiday-plan §2-5) → 응답. 두 후처리는 **상호 독립**(각자 예외 삼킴,
+  플래그·수습 경로 분리: 메일=admin-invite 재발송, 공휴일=W013 수동 동기화)이라 간섭 없음. 메일을 먼저
+  두는 이유: 외부 API 대기(최악 수 초×4)가 초대 발송을 지연시키지 않게.
 
 ### 4.4 신규: 메일 템플릿 관리 `/api/v1/admin/mail-templates` (SYSTEM_ADMIN — 글로벌 제품 자산)
 
@@ -259,7 +286,7 @@ if (current.passwordChangedAt() != null
 | `SmtpMailSender.java` | `@Profile("prod")` — spring-boot-starter-mail의 `JavaMailSender` 위임, From은 `app.mail.from` |
 | `LoggingMailSender.java` | `@Profile("!prod")` — 발송 대신 INFO 로그로 to/subject/body 전문 출력(dev 전용이므로 actionUrl 포함 — 로컬 수동 테스트·E2E가 로그에서 링크를 취득). 발송 내용을 노출하는 조회 API는 **두지 않는다** |
 | `MailTemplate.java` / `MailTemplateMapper.java` / `MailTemplateService.java` | record + 매퍼(`findAll`/`find(purpose, lang)`/`update` — 글로벌 테이블, tenantId 규약 예외로 LanguageMapper와 동급) + 서비스(로드·검증(§4.4)·치환 렌더·미리보기 샘플 값: 홍길동/에이크미(주)/예시 URL/발송 시각+TTL/김관리) |
-| `MailLanguageResolver.java` | tenant_profile.country → KR=KOR, JP=JPN, **그 외·미등록=ENG**(향후 국가 폴백 — 소유자 확정). 미지원 국가 문자열이 와도 ENG |
+| `MailLanguageResolver.java` | **tenant.country**(holiday-plan §1-1 승격 후의 정본 — CR3-1) → KR=KOR, JP=JPN, **그 외=ENG**(방어 — NOT NULL DEFAULT 'KR' + 생성 검증으로 실측 도달 불가). 미지원 국가 문자열이 와도 ENG |
 | `user/MemberInviteService.java` | 초대·재설정 발송 오케스트레이션: 토큰 발급(UserTokenService) → 링크 조립 → 언어 해석 → 렌더 → MailSender. 등록 Tx 밖에서 호출 |
 
 ### 6.2 링크 조립 (프론트 진입점 계약)
@@ -373,11 +400,11 @@ MAIL_TEMPLATES("W012", Set.of(Role.SYSTEM_ADMIN)),
 | 항목 | 변경 |
 |---|---|
 | 초기 비밀번호 패널 | **삭제**(`created`/`copyPassword`/`passwordRef` 제거) — 평문 비밀번호가 프론트 state에 실리는 일 자체가 없어진다 |
-| 오송신 방지 UX | 등록 폼 제출 → 즉시 발송하지 않고 **인라인 확인 패널**(기존 pending 확인 패널 스타일): 입력 이메일을 강조 재표시 + "이 주소로 초대 메일을 발송합니다" + [발송]/[취소]. [발송]에서 비로소 POST. 오타 발견 시 취소 → 폼 값 유지 |
+| 오송신 방지 UX | 등록 폼(이메일/이름/부서 + 스케줄 계획의 근무 시작/종료 time 입력 2개 — work-schedule.md §7-1과 병합, CR3-6) 제출 → 즉시 발송하지 않고 **인라인 확인 패널**(기존 pending 확인 패널 스타일): 입력 이메일을 강조 재표시 + "이 주소로 초대 메일을 발송합니다" + [발송]/[취소]. [발송]에서 비로소 POST(스케줄 필드 동봉). 오타 발견 시 취소 → 폼 값 유지 |
 | 등록 결과 | `mailSent=true`: "초대 메일 발송됨" 안내. `mailSent=false`: 행 에러 + 재발송 버튼 유도(멤버는 목록에 PENDING으로 존재) |
 | 목록 행(PENDING) | 상태 뱃지 "초대 대기" + `inviteExpiresAt` 표시(경과 시 "만료 — 재발송 필요"), [재발송] 버튼(즉시 실행 — 파괴적 조작 아님), **[삭제]** 버튼(인라인 확인 패널 — PendingAction에 `'DELETE'` 추가). 비활성 버튼은 비표시(§4.2 400과 정합) |
 | 목록 행(ACTIVE/DISABLED) | 기존 조작 유지 + [삭제] 추가(자기 자신 행은 비표시 — 기존 self 가드 패턴) |
-| W007 TenantsScreen | 초기 비밀번호 패널 삭제 → "관리자 초대 메일 발송됨(영어 — 소재국 등록 후 재발송 가능)" 안내 + 테넌트 행에 [관리자 초대 재발송] 버튼(admin-invite API) |
+| W007 TenantsScreen | 초기 비밀번호 패널 삭제 → "관리자 초대 메일 발송됨"(소재국 언어로 발송 — CR3-1) 안내 + `mailSent=false`면 에러 표시, 테넌트 행에 [관리자 초대 재발송] 버튼(admin-invite API). 생성 폼의 소재국 셀렉트·`holidaysSynced=false` 안내는 공휴일 문서 몫(holiday-plan §4-3)과 같은 화면에서 합성 |
 
 ---
 
@@ -471,7 +498,7 @@ ID 체계: INV 초대 / RST 재설정 / TOK 토큰 / DEL 삭제 / SES 세션 / T
 | TPL-01 | S | 템플릿 목록/수정/미리보기 — SA / TA·MEMBER | 200 / 403(**RULES `/api/v1/admin/**` 일반화 검증**) |
 | TPL-02 | S | 미지 변수 `{foo}` 저장 / `{actionUrl}` 누락 | 400 `MAIL_TEMPLATE_UNKNOWN_VAR`(변수명 포함) / 400 `MAIL_TEMPLATE_ACTION_URL_REQUIRED` |
 | TPL-03 | U | 렌더 치환(5변수) + 잔존 플레이스홀더 시 발송 중단 | MailTemplateService |
-| TPL-04 | S | country=KR/JP/미등록 테넌트의 초대 메일 언어 | KOR/JPN/ENG 제목 분기(메일 로그 단언) |
+| TPL-04 | S | country=KR/JP 테넌트의 초대 메일 언어(tenant.country — CR3-1. "미등록"은 NOT NULL DEFAULT로 실측 불가, ENG 폴백은 U에서 미지원 값으로 방어 검증) | KOR/JPN 제목 분기(메일 로그 단언) + U: 미지원 값→ENG |
 | E2E | E | 기존 16스텝의 "초기 비밀번호 로그인" 스텝을 → 로그에서 actionUrl 추출 → `/?token=` 진입 → W010 설정 → 로그인으로 교체 + 오송신 시나리오(등록→삭제→재등록) 1스텝 추가 | 그린 |
 
 단위 테스트 신규: `UserTokenServiceTest`/`PasswordServiceTest`/`MailTemplateServiceTest`/`MailLanguageResolverTest`/
@@ -490,11 +517,12 @@ ID 체계: INV 초대 / RST 재설정 / TOK 토큰 / DEL 삭제 / SES 세션 / T
 
 ## 13. 타 계획 문서와의 접점 (교차 리뷰 확인 대상)
 
-| # | 접점 | 이 문서의 전제 |
+| # | 접점 | 확정 결과(교차 리뷰 cross-review-phase3.md 반영 완료) |
 |---|---|---|
-| 1 | **V7 단일 파일 합류** — 스케줄/공휴일 DDL과 한 파일 | 블록 접두사 [E*] 사용. 파일명·블록 순서는 통합 시 확정(재실행 내성은 각자 보장) |
-| 2 | **화면 코드** W010/W011/W012 선점(정본) | 스케줄/공휴일 계획은 W013부터 사용 |
-| 3 | **MemberResponse 확장**(inviteExpiresAt) | 같은 DTO를 확장하는 다른 계획과 필드 병합 필요 |
-| 4 | **RoleInterceptor RULES 일반화**(`/api/v1/admin/**`→SYSTEM_ADMIN) | admin 하위에 다른 role 경로를 두려는 계획과 충돌 시 이 일반화가 정본 |
-| 5 | **소프트 삭제 유저의 잔존 데이터** — work_schedule/holiday 화면의 삭제 유저 표시/제외 정책 | 본 문서는 데이터 보존만 확정(표시 정책은 스케줄 문서 몫) |
+| 1 | **V7 단일 파일 합류** — 스케줄/공휴일 DDL과 한 파일 | **확정(CR3-4)**: 파일명 `V7__phase3.sql`, 순서 [H]→[S]→[E]→언어 시드. users ALTER는 도메인 구획별 3문 유지(§2) |
+| 2 | **화면 코드** W010/W011/W012 선점(정본) | 확정 — 스케줄은 신규 화면 없음, 공휴일은 W013(상호 무모순 확인 — CR3 확인 항목) |
+| 3 | **MemberResponse/MemberCreateRequest·Response 병합** | **확정(CR3-3)**: 통합 필드 집합은 §4.2 코드 블록 = work-schedule.md §5-1과 동일. 등록 요청에 workStart/End 선택 필드 포함 |
+| 4 | **RoleInterceptor RULES 일반화**(`/api/v1/admin/**`→SYSTEM_ADMIN) | **채택 확정(CR3-10)**: 현행 admin 하위 실경로는 i18n뿐, WebConfig는 이미 `/api/v1/admin/**` 등록 — 스케줄/공휴일 경로(`/api/v1/tenant/**`)와 무간섭 검증 완료 |
+| 5 | **소프트 삭제 유저의 잔존 데이터** — work_schedule 표시/제외 정책 | **확정(CR3-9)**: work-schedule.md §3-4 — 잔존 보존 + Phase 3 표시 경로 없음(전 조회가 셀프서비스, 목록은 deleted 제외) |
 | 6 | 동시 수정 파일: Screen.java/WebConfig/App.tsx/types.ts/V7/언어 시드 | 워크트리 병렬 구현 시 충돌 예상 지점(D17 프로세스의 통합 단계에서 조정) |
+| 7 | **TenantCreateRequest/Response** — country(공휴일)×초대 전환(본 문서) | **확정(CR3-1/5)**: §4.3 통합 계약·플로우 = holiday-plan §4-1/§2-5와 동일 |

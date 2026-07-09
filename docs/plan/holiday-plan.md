@@ -25,6 +25,11 @@
 아래는 공휴일 도메인 몫만이며, V4와 같은 재실행 내성 규약(전 구문 IF EXISTS/IF NOT EXISTS 또는
 조건부 실행 — 부분 실패 시 `flyway repair` 후 동일 파일 재실행 가능)을 지킨다.
 
+**블록 순서(3문서 합의 — 교차 리뷰 CR3-4 확정)**: `[H-1]~[H-4]`(본 문서 — tenant.country 승격이 전
+도메인의 전제라 최선두) → `[S-1]`(스케줄 — users 근무 기본값) → `[E1]~[E4]`(이메일 온보딩) →
+언어 마스터 시드(H→S→E 순, 도메인 구획 주석 유지). users ALTER는 [S-1]/[E3]/[E4] 3문으로 나뉘어도
+병합하지 않는다(도메인 구획 소유 + IF NOT EXISTS 멱등 — 상세는 email-onboarding §2).
+
 ### 1-1. tenant.country 승격 (V6 tenant_profile.country → tenant)
 
 국가는 "기업 정보의 속성"이 아니라 **테넌트 자체의 속성**이다(공휴일 동기화·식별번호 체계·Phase 4
@@ -148,6 +153,11 @@ ALTER TABLE holiday
   try-catch로 호출한다. **실패해도 생성은 이미 성공**(예외 삼킴 + WARN 로그).
   결과는 `TenantCreateResponse.holidaysSynced`(boolean)로 동봉 — false면 W007이 "공휴일 자동 등록
   실패, 관리자에게 W013 수동 동기화 안내" 문구를 표시한다(§5-2).
+- **이메일 온보딩 계획과의 플로우 합성(교차 리뷰 CR3-5 확정)**: 생성 커밋 후 후처리 순서는
+  ① 최초 관리자 INVITE 메일 발송(`mailSent` — email-onboarding §4.3) → ② 당해·익년 sync(`holidaysSynced`).
+  메일이 먼저인 이유: 외부 API 대기(타임아웃 최악 수 초×호출 4회)가 초대 발송을 지연시키지 않게.
+  두 후처리는 **상호 독립**(각자 예외 삼킴 + 플래그 분리 + 수습 경로 분리: 메일=`admin-invite` 재발송,
+  공휴일=W013 수동 동기화)이라 실패 정책이 서로 간섭하지 않는다.
 - 비동기(@Async) 대신 동기+실패 허용을 택한 근거: 현 코드베이스에 비동기 인프라가 없고(스레드풀
   설정·실패 관측 수단 추가 비용), 외부 호출 2회 × 최대 (3+5)초×2는 테넌트 생성(운영자 수동 조작,
   드묾)에서 수용 가능한 지연이다. 성공/실패가 응답에 즉시 실려 운영자가 그 자리에서 인지한다.
@@ -240,6 +250,12 @@ String country,   //ProfileCountry.of()로 검증 — 미지원이면 400 COUNTR
   `400 COUNTRY_UNSUPPORTED`(기존 코드·키 재사용). `TenantCreate`/`TenantMapper.insert`에 country 전달.
 - `Tenant`/`TenantResponse`/`TenantCreateResponse`에 `country` 필드 추가(W007 목록·생성 결과 표시),
   `TenantCreateResponse`에 `holidaysSynced`(boolean, §2-5) 추가.
+- **`TenantCreateRequest/Response` 통합 최종 계약(이메일 온보딩과 병합 — CR3-1/5 확정)**:
+  - Request = `tenantCode, name, country(본 문서 몫·필수), adminEmail, adminName`.
+  - Response = `tenantId, tenantCode, name, country, status, adminUserId, adminEmail,
+    adminStatus(=PENDING), mailSent, holidaysSynced` — **initialPassword는 폐지**(이메일 계획의 초대
+    전환, email-onboarding §4.3). 생성 시점에 country가 확정되므로 최초 관리자 초대 메일은 처음부터
+    소재국 언어로 발송된다(이메일 계획의 "영어 폴백 후 재발송" 시나리오 폐기 — CR3-1).
 - 생성 후 당해·익년 자동 동기화(§2-5).
 - **country 수정 API는 두지 않는다**(Phase 3). 소재국 변경은 법인 이전급 이벤트로, 기존 NATIONAL
   공휴일 전량 교체가 얽힌다 — 필요 시 운영 절차(수동 SQL + 재동기화)로 처리하고 후속 과제로 기재.
@@ -257,6 +273,9 @@ String country,   //ProfileCountry.of()로 검증 — 미지원이면 400 COUNTR
 - `TenantsScreen.tsx` 생성 폼에 **소재국 셀렉트**(KR/JP) 추가 — 키 `COUNTRY`/`COUNTRY_KR`/`COUNTRY_JP`를
   W007 window로 신규 시드(언어 키는 window 단위 — W008 기존 키를 가로쓰지 않는 현행 관례, §7-2).
 - 생성 결과 패널에 `holidaysSynced=false`면 `HOLIDAY_SYNC_FAILED_NOTICE` 문구 표시.
+  결과 패널 자체는 이메일 계획이 초기 비밀번호 패널을 "관리자 초대 메일 발송됨" 안내로 교체한
+  것(email-onboarding §8.3 W007 행)과 같은 패널 — 초대 안내 + `mailSent`/`holidaysSynced` 두 플래그의
+  실패 안내가 한 패널에 공존한다(CR3-5).
 - W008(`TenantDetailScreen.tsx`) 기업 정보 폼에서 **country 입력 제거, 표시 전용으로 전환**
   (응답의 country로 `BIZ_REG_NO_KR/JP` 라벨 분기는 현행 그대로).
 
@@ -286,8 +305,12 @@ String country,   //ProfileCountry.of()로 검증 — 미지원이면 400 COUNTR
 ### 5-2. W006 월별 상세 — 공휴일 이름 표시 (기존 구조 활용)
 
 - `DailyAttendance`에 `holidayName`(nullable String) 추가 — **추가 필드라 프론트 하위호환**.
+  통합 최종 record는 현행 6필드 + holidayName + 스케줄 계획의 3필드(breakMinutes/statutoryBreakMinutes/
+  workMinutes) = 10필드(work-schedule §5-2와 병합 — CR3-7).
 - `DetailsScreen.tsx`의 휴일 셀을 `{day.holidayName ?? t('HOLIDAY')}`로 — 공휴일이면 명칭
   ("삼일절"/"創立記念日"), 개인 휴가(work_schedule.holiday)면 명칭이 없어 기존 `HOLIDAY` 라벨 폴백.
+  **레이아웃 합의(CR3-7)**: 스케줄 계획이 데이터 열을 4→7로 늘리므로(work-schedule §7-2) 휴일 행의
+  통합 셀은 `colSpan=7`. 휴일 행은 신규 3필드도 null이라 이 폴백 규칙과 충돌하지 않는다.
 - W005는 W006 임베드 표시이므로 자동 반영(별도 변경 없음).
 
 ---
@@ -296,11 +319,11 @@ String country,   //ProfileCountry.of()로 검증 — 미지원이면 400 COUNTR
 
 | 지점 | 영향 | 내용 |
 |------|------|------|
-| `MonthlyAttendanceAssembler` | **경미** | 현재 공휴일을 `Set<LocalDate>`(날짜만)로 소비 — 휴일 판정 로직은 불변. 명칭 표시를 위해 파라미터를 `Map<LocalDate, String> holidays`로 바꾸고(판정은 `containsKey`), 휴일 행 생성 시 `holidays.get(day)`를 `DailyAttendance.holidayName`에 싣는다(개인 휴일은 null). 단위 테스트 시그니처만 동반 수정 |
+| `MonthlyAttendanceAssembler` | **경미** | 현재 공휴일을 `Set<LocalDate>`(날짜만)로 소비 — 휴일 판정 로직은 불변. 명칭 표시를 위해 파라미터를 `Map<LocalDate, String> holidays`로 바꾸고(판정은 `containsKey`), 휴일 행 생성 시 `holidays.get(day)`를 `DailyAttendance.holidayName`에 싣는다(개인 휴일은 null). 단위 테스트 시그니처만 동반 수정. **이 Map 파라미터가 정본** — 스케줄 계획의 assemble 확장 시그니처(work-schedule §6-1)에 반영 완료(CR3-2). 통합 최종 시그니처는 work-schedule §6-1 |
 | `ScheduleMapper.findHolidayDates` | 대체 | `findHolidaysBetween`(date+name 조회)로 교체 — holiday 매퍼 로직이 커지므로 신설 `HolidayMapper`로 이동, ScheduleMapper는 work_schedule 전용으로 정리. 호출부는 `AttendanceService.monthly` 1개소 |
 | `ProfileCountry` | 의미 확장·이름 유지 | 값의 출처가 tenant.country로 이동하고 "공휴일 동기화 국가 코드 공급"(enum name = Nager countryCode = ISO alpha-2) 역할이 추가된다. `TenantCountry`로의 개명은 기각 — 검증·마스킹 전략과 기존 테스트가 걸려 있어 diff 대비 이득이 없다. javadoc만 "테넌트 소재국별 규칙(식별번호 검증·마스킹 + 공휴일 동기화 국가)"으로 갱신 |
 | `TenantProfileService` | 변경 | 검증·마스킹의 국가를 요청이 아닌 **tenant.country**에서 취득(§4-2). `COUNTRY_UNSUPPORTED` 분기는 테넌트 생성 쪽으로 이동 |
-| `RoleInterceptor`/`WebConfig` | **무변경** | `/api/v1/tenant/**` 화이트리스트가 신규 경로를 자동 포괄(D12) |
+| `RoleInterceptor`/`WebConfig` | **무변경(본 문서 몫)** | `/api/v1/tenant/**` 화이트리스트가 신규 경로를 자동 포괄(D12). ※ 이메일 계획이 admin 규칙을 `/api/v1/admin/**`로 일반화하지만(email-onboarding §4.4) `/tenant/**` 규칙과 무간섭 — 본 계획 영향 없음(CR3-10) |
 | 격리 규약 | 준수 | holiday 전 쿼리 tenantId 2중 조건 + 세션 tenantId만 사용. 테넌트 A의 동기화·CRUD는 B에 0건 영향(HOL-S3) |
 | V4와의 관계 | 없음 | V4 [7]의 PK 교체는 완료 전제. V7은 컬럼 확장만 |
 
@@ -401,10 +424,10 @@ NATIONAL 뱃지 확인 → COMPANY "창립기념일" 등록 → 동기화 실행
 
 ## 9. 다른 도메인과의 합류 지점 (조정 필요 목록)
 
-| 지점 | 내용 |
+| 지점 | 내용(교차 리뷰 cross-review-phase3.md 반영 완료) |
 |------|------|
-| `V7__phase3.sql` | 단일 파일에 이메일 온보딩·스케줄 몫과 합류. 본 문서 몫은 §1의 [H-1]~[H-4] + §7-2 시드. **구획 주석으로 분리, 타 도메인이 tenant/holiday를 만지면 순서 조정 필요** |
-| `TenantCreateRequest/Response` | country·holidaysSynced 추가. 이메일 온보딩이 초대 링크로 `initialPassword` 반환을 대체하면 같은 DTO를 양쪽이 수정 — 필드 병합 조정 |
-| `Screen.java` / App.tsx 헤더 | W013 추가. W010~W012(이메일 온보딩)와 enum·메뉴 병합 |
-| W999 시드 | `HOLIDAYS` 키 추가 — 타 계획의 W999 추가 키와 INSERT IGNORE로 공존(충돌 없음, 파일 병합만) |
-| work_schedule(개인 휴일) | 스케줄 도메인이 W006/W005 표시를 바꾸면 §5-2의 휴일 셀 폴백(`t('HOLIDAY')`)과 표시 규칙 합의 필요 |
+| `V7__phase3.sql` | 단일 파일에 이메일 온보딩·스케줄 몫과 합류. 본 문서 몫은 §1의 [H-1]~[H-4] + §7-2 시드. **순서 확정: [H]→[S]→[E]→언어 시드**(§1, CR3-4) — 타 도메인은 tenant/holiday 테이블을 만지지 않음(확인됨) |
+| `TenantCreateRequest/Response` | **통합 계약 확정(CR3-1/5)** — §4-1의 최종 필드 집합·§2-5의 플로우 합성이 정본. 이메일 문서 §4.3과 동일 내용으로 정렬 완료(initialPassword 폐지 + country·holidaysSynced·adminStatus·mailSent) |
+| `Screen.java` / App.tsx 헤더 | W013 추가. W010~W012(이메일 온보딩)와 enum·메뉴 병합 — 코드 선점 상호 존중 확인 완료(충돌 없음) |
+| W999 시드 | `HOLIDAYS` 키 추가 — 이메일 계획의 `MAIL_TEMPLATES` 키와 키 충돌 없음(INSERT IGNORE 공존, 파일 병합만) |
+| work_schedule(개인 휴일) | **표시 규칙 합의 완료(CR3-7)**: W006 데이터 열 7열, 휴일 행 colSpan=7 + `holidayName ?? t('HOLIDAY')` 폴백(§5-2 ↔ work-schedule §7-2). 소프트 삭제 유저의 잔존 데이터 정책은 work-schedule §3-4(공휴일 데이터는 테넌트 소유라 유저 삭제와 무관 — 영향 없음) |
