@@ -12,6 +12,10 @@ import org.apache.ibatis.annotations.Select;
 
 /**
  * attendance / attendance_check 테이블 매퍼.
+ *
+ * 테넌트 전파 규약: 모든 메소드는 {@code @Param("tenantId")}를 첫 파라미터로 받고
+ * user_id 조건에도 {@code AND tenant_id = #{tenantId}}를 병기한다(2중 조건).
+ * 예외: {@link #deleteExpiredChecks()} — 시간 조건만의 전 테넌트 청소(데이터 반환 없음).
  */
 @Mapper
 public interface AttendanceMapper {
@@ -22,12 +26,13 @@ public interface AttendanceMapper {
     @Select("""
             SELECT attendance_id, user_id, type AS type_code, status, stamped_at
             FROM attendance
-            WHERE user_id = #{userId}
+            WHERE tenant_id = #{tenantId}
+              AND user_id = #{userId}
               AND stamped_at > NOW() - INTERVAL 48 HOUR
             ORDER BY stamped_at DESC, attendance_id DESC
             LIMIT 1
             """)
-    AttendanceStamp findLatest(@Param("userId") long userId);
+    AttendanceStamp findLatest(@Param("tenantId") long tenantId, @Param("userId") long userId);
 
     /**
      * 최근 30일 이내의 가장 최신 출근 스탬프.
@@ -35,14 +40,15 @@ public interface AttendanceMapper {
     @Select("""
             SELECT attendance_id, user_id, type AS type_code, status, stamped_at
             FROM attendance
-            WHERE user_id = #{userId}
+            WHERE tenant_id = #{tenantId}
+              AND user_id = #{userId}
               AND type = 1
               AND status = 0
               AND stamped_at > NOW() - INTERVAL 30 DAY
             ORDER BY stamped_at DESC, attendance_id DESC
             LIMIT 1
             """)
-    AttendanceStamp findLatestGoToWork(@Param("userId") long userId);
+    AttendanceStamp findLatestGoToWork(@Param("tenantId") long tenantId, @Param("userId") long userId);
 
     /**
      * 기간 내 출근/퇴근/조퇴 스탬프(월별 상세용, 시각 오름차순).
@@ -50,23 +56,27 @@ public interface AttendanceMapper {
     @Select("""
             SELECT attendance_id, user_id, type AS type_code, status, stamped_at
             FROM attendance
-            WHERE user_id = #{userId}
+            WHERE tenant_id = #{tenantId}
+              AND user_id = #{userId}
               AND type IN (1, 2, 3)
               AND status = 0
               AND stamped_at >= #{from}
               AND stamped_at < #{to}
             ORDER BY stamped_at ASC, attendance_id ASC
             """)
-    List<AttendanceStamp> findBetween(@Param("userId") long userId,
+    List<AttendanceStamp> findBetween(@Param("tenantId") long tenantId,
+            @Param("userId") long userId,
             @Param("from") LocalDate from,
             @Param("to") LocalDate to);
 
     @Insert("""
-            INSERT INTO attendance (user_id, type, status, stamped_at, latitude, longitude, place_info, terminal)
-            VALUES (#{userId}, #{typeCode}, #{status}, #{stampedAt},
+            INSERT INTO attendance (tenant_id, user_id, type, status, stamped_at,
+                                    latitude, longitude, place_info, terminal)
+            VALUES (#{tenantId}, #{userId}, #{typeCode}, #{status}, #{stampedAt},
                     #{latitude}, #{longitude}, #{placeInfo}, #{terminal})
             """)
-    int insert(@Param("userId") long userId,
+    int insert(@Param("tenantId") long tenantId,
+            @Param("userId") long userId,
             @Param("typeCode") int typeCode,
             @Param("status") int status,
             @Param("stampedAt") LocalDateTime stampedAt,
@@ -78,28 +88,43 @@ public interface AttendanceMapper {
     // ---- attendance_check (변조 방지 토큰) ----
 
     @Insert("""
-            INSERT INTO attendance_check (token, user_id, payload_hash, confirm_code)
-            VALUES (#{token}, #{userId}, #{payloadHash}, #{confirmCode})
+            INSERT INTO attendance_check (token, tenant_id, user_id, payload_hash, confirm_code)
+            VALUES (#{token}, #{tenantId}, #{userId}, #{payloadHash}, #{confirmCode})
             """)
-    int insertCheck(@Param("token") String token,
+    int insertCheck(@Param("tenantId") long tenantId,
+            @Param("token") String token,
             @Param("userId") long userId,
             @Param("payloadHash") String payloadHash,
             @Param("confirmCode") Integer confirmCode);
 
+    /**
+     * 크로스 테넌트 토큰 방어 지점 — 세션의 tenantId와 불일치하면 "존재하지 않는" 토큰으로 처리된다.
+     */
     @Select("""
             SELECT payload_hash
             FROM attendance_check
-            WHERE token = #{token} AND user_id = #{userId}
+            WHERE token = #{token} AND user_id = #{userId} AND tenant_id = #{tenantId}
             """)
-    String findCheckHash(@Param("token") String token, @Param("userId") long userId);
-
-    @Delete("DELETE FROM attendance_check WHERE token = #{token}")
-    int deleteCheck(@Param("token") String token);
+    String findCheckHash(@Param("tenantId") long tenantId,
+            @Param("token") String token,
+            @Param("userId") long userId);
 
     /**
-     * 하루가 지난 체크 토큰 정리(체크시마다 호출하는 지연 청소).
+     * 3중 조건 — 같은 테넌트 내 타 유저 토큰 무효화 허점까지 봉쇄.
      */
-    @Delete("DELETE FROM attendance_check WHERE created_at < NOW() - INTERVAL 1 DAY")
+    @Delete("""
+            DELETE FROM attendance_check
+            WHERE token = #{token} AND user_id = #{userId} AND tenant_id = #{tenantId}
+            """)
+    int deleteCheck(@Param("tenantId") long tenantId,
+            @Param("token") String token,
+            @Param("userId") long userId);
+
+    /**
+     * TTL(30분)이 지난 체크 토큰 정리(체크시마다 호출하는 지연 청소).
+     * 전 테넌트 대상 시스템 청소가 올바른 동작이므로 tenantId를 받지 않는다.
+     */
+    @Delete("DELETE FROM attendance_check WHERE created_at < NOW() - INTERVAL 30 MINUTE")
     int deleteExpiredChecks();
 
 }

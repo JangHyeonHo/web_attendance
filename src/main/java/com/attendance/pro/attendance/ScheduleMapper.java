@@ -9,6 +9,7 @@ import org.apache.ibatis.annotations.Select;
 
 /**
  * work_schedule / holiday 테이블 매퍼.
+ * 테넌트 전파 규약(tenantId 첫 파라미터 + 2중 조건) 적용. holiday는 테넌트별 공휴일이다.
  */
 @Mapper
 public interface ScheduleMapper {
@@ -16,21 +17,26 @@ public interface ScheduleMapper {
     @Select("""
             SELECT schedule_id, user_id, work_date, start_time, end_time, holiday
             FROM work_schedule
-            WHERE user_id = #{userId}
+            WHERE tenant_id = #{tenantId}
+              AND user_id = #{userId}
               AND work_date >= #{from}
               AND work_date < #{to}
             ORDER BY work_date ASC
             """)
-    List<WorkSchedule> findBetween(@Param("userId") long userId,
+    List<WorkSchedule> findBetween(@Param("tenantId") long tenantId,
+            @Param("userId") long userId,
             @Param("from") LocalDate from,
             @Param("to") LocalDate to);
 
     @Select("""
             SELECT holiday_date
             FROM holiday
-            WHERE holiday_date >= #{from}
+            WHERE tenant_id = #{tenantId}
+              AND holiday_date >= #{from}
               AND holiday_date < #{to}
             """)
-    List<LocalDate> findHolidayDates(@Param("from") LocalDate from, @Param("to") LocalDate to);
+    List<LocalDate> findHolidayDates(@Param("tenantId") long tenantId,
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to);
 
 }
