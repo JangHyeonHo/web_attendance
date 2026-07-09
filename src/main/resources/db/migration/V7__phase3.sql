@@ -155,8 +155,9 @@ If you did not request this, please ignore this email. Your password will not ch
 -- ---------------------------------------------------------
 -- [E3] users.password_changed_at: 재로그인 강제의 기준 시각
 -- ---------------------------------------------------------
+-- DATETIME(6): 초 단위 절삭이면 같은 초에 발급된 세션이 무효화를 비껴가는 레이스가 생긴다(실측)
 ALTER TABLE users
-    ADD COLUMN IF NOT EXISTS password_changed_at DATETIME NULL
+    ADD COLUMN IF NOT EXISTS password_changed_at DATETIME(6) NULL
         COMMENT '비밀번호 최종 변경 시각 — 이전 발급 세션은 무효(NULL=이력 없음, 기존 유저)' AFTER password_hash;
 
 -- ---------------------------------------------------------

@@ -79,7 +79,7 @@ public interface UserMapper {
      * 이 시각 이전 발급 세션은 SessionRevalidationInterceptor가 회수한다.
      */
     @Update("""
-            UPDATE users SET password_hash = #{passwordHash}, password_changed_at = NOW()
+            UPDATE users SET password_hash = #{passwordHash}, password_changed_at = NOW(6)
             WHERE tenant_id = #{tenantId} AND user_id = #{userId} AND deleted = FALSE
             """)
     int updatePassword(@Param("tenantId") long tenantId, @Param("userId") long userId,
