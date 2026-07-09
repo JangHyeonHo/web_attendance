@@ -47,8 +47,9 @@ public class AuthService {
                 || !passwordEncoder.matches(rawPassword, user.passwordHash())) {
             throw ApiException.unauthorized("auth.login.failed");
         }
+        //issuedAt = 세션 발급 시각 — password_changed_at과의 비교로 재로그인 강제의 기준이 된다
         return new SessionUser(user.userId(), tenant.tenantId(), tenant.tenantCode(), tenant.name(),
-                user.email(), user.name(), user.role());
+                user.email(), user.name(), user.role(), java.time.LocalDateTime.now());
     }
 
 }
