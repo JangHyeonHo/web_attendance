@@ -10,6 +10,7 @@ import { PasswordSetupScreen } from './screens/PasswordSetupScreen'
 import { PasswordResetRequestScreen } from './screens/PasswordResetRequestScreen'
 import { MailTemplatesScreen } from './screens/MailTemplatesScreen'
 import { HolidaysScreen } from './screens/HolidaysScreen'
+import { TenantMailTemplatesScreen } from './screens/TenantMailTemplatesScreen'
 import type { Lang, ScreenCode } from './api/types'
 
 const LANGS: Lang[] = ['KOR', 'ENG', 'JPN']
@@ -43,6 +44,8 @@ function ScreenBody({ screen }: { screen: ScreenCode }) {
       return <MailTemplatesScreen />
     case 'W013':
       return <HolidaysScreen />
+    case 'W014':
+      return <TenantMailTemplatesScreen />
     case 'W000':
     default:
       return <LandingScreen />
@@ -82,6 +85,7 @@ export default function App() {
             <>
               <button onClick={() => void navigate('W009')}>{t('MEMBERS')}</button>
               <button onClick={() => void navigate('W013')}>{t('HOLIDAYS')}</button>
+              <button onClick={() => void navigate('W014')}>{t('MAIL_TEMPLATES')}</button>
             </>
           )}
           {role === 'SYSTEM_ADMIN' && (

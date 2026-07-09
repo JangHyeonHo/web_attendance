@@ -27,6 +27,14 @@ public final class MailTemplateDtos {
         }
     }
 
+    @Schema(description = "schema.tenant-mail-template-response")
+    public record TenantMailTemplateResponse(
+            TokenPurpose purpose, String lang, String subject, String body,
+            @Schema(description = "schema.field.overridden")
+            boolean overridden,           //true=회사 설정, false=기본 템플릿(전역) 사용 중
+            LocalDateTime updatedAt) {
+    }
+
     @Schema(description = "schema.mail-template-update-request")
     public record MailTemplateUpdateRequest(
             @NotBlank(message = "{validation.mail-template.subject.required}")

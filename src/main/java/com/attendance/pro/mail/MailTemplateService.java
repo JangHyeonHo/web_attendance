@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.attendance.pro.common.ApiException;
 import com.attendance.pro.mail.MailTemplateDtos.MailTemplatePreviewResponse;
 import com.attendance.pro.mail.MailTemplateDtos.MailTemplateResponse;
+import com.attendance.pro.mail.MailTemplateDtos.TenantMailTemplateResponse;
 import com.attendance.pro.user.TokenPurpose;
 
 /**
@@ -41,9 +42,12 @@ public class MailTemplateService {
     private static final DateTimeFormatter EXPIRES_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     private final MailTemplateMapper mailTemplateMapper;
+    private final TenantMailTemplateMapper tenantMailTemplateMapper;
 
-    public MailTemplateService(MailTemplateMapper mailTemplateMapper) {
+    public MailTemplateService(MailTemplateMapper mailTemplateMapper,
+            TenantMailTemplateMapper tenantMailTemplateMapper) {
         this.mailTemplateMapper = mailTemplateMapper;
+        this.tenantMailTemplateMapper = tenantMailTemplateMapper;
     }
 
     public List<MailTemplateResponse> list() {
@@ -76,20 +80,84 @@ public class MailTemplateService {
         return new MailTemplatePreviewResponse(substitute(subject, samples), substitute(body, samples));
     }
 
+    // ---------------------------------------------------------
+    // 회사(테넌트)별 오버라이드 — 기본 템플릿(전역)은 그대로 두고 자기 회사 문구만 교체
+    // ---------------------------------------------------------
+
+    /**
+     * 테넌트의 유효 템플릿 목록 — 전역 6행을 기준으로 오버라이드가 있으면 그 내용으로 대체해 돌려준다.
+     */
+    public List<TenantMailTemplateResponse> listEffective(long tenantId) {
+        Map<String, TenantMailTemplate> overrides = new LinkedHashMap<>();
+        for (TenantMailTemplate override : tenantMailTemplateMapper.findByTenant(tenantId)) {
+            overrides.put(override.purpose() + ":" + override.lang(), override);
+        }
+        return mailTemplateMapper.findAll().stream().map(base -> {
+            TenantMailTemplate override = overrides.get(base.purpose() + ":" + base.lang());
+            if (override == null) {
+                return new TenantMailTemplateResponse(base.purpose(), base.lang(),
+                        base.subject(), base.body(), false, base.updatedAt());
+            }
+            return new TenantMailTemplateResponse(override.purpose(), override.lang(),
+                    override.subject(), override.body(), true, override.updatedAt());
+        }).toList();
+    }
+
+    /**
+     * 회사별 오버라이드 저장(create-or-replace). 전역과 동일 검증 규칙, 대상 행은 전역 6행 집합으로 한정.
+     */
+    @Transactional
+    public TenantMailTemplateResponse updateOverride(long tenantId, String purpose, String lang,
+            String subject, String body) {
+        TokenPurpose resolved = resolvePurpose(purpose);
+        String resolvedLang = resolveLang(lang);
+        if (mailTemplateMapper.find(resolved, resolvedLang) == null) {
+            throw templateNotFound(); //전역 기본이 없는 조합은 오버라이드도 불가
+        }
+        validate(resolved, subject, body);
+        tenantMailTemplateMapper.upsert(tenantId, resolved, resolvedLang, subject, body);
+        TenantMailTemplate saved = tenantMailTemplateMapper.find(tenantId, resolved, resolvedLang);
+        return new TenantMailTemplateResponse(saved.purpose(), saved.lang(),
+                saved.subject(), saved.body(), true, saved.updatedAt());
+    }
+
+    /**
+     * 기본값으로 되돌리기 — 오버라이드 행 삭제. 오버라이드가 없으면 404.
+     */
+    @Transactional
+    public void revertOverride(long tenantId, String purpose, String lang) {
+        TokenPurpose resolved = resolvePurpose(purpose);
+        String resolvedLang = resolveLang(lang);
+        if (tenantMailTemplateMapper.delete(tenantId, resolved, resolvedLang) == 0) {
+            throw templateNotFound();
+        }
+    }
+
     /** 발송 렌더 결과. */
     public record RenderedMail(String subject, String body) {
     }
 
     /**
-     * 발송용 렌더. 치환 후 잔존 플레이스홀더가 있으면 발송 중단(예외 — 호출부가 mailSent=false 처리).
+     * 발송용 렌더 — 해석 순서: 테넌트 오버라이드 → 전역 기본.
+     * 치환 후 잔존 플레이스홀더가 있으면 발송 중단(예외 — 호출부가 mailSent=false 처리).
      */
-    public RenderedMail render(TokenPurpose purpose, String lang, Map<String, String> variables) {
-        MailTemplate template = mailTemplateMapper.find(purpose, lang);
-        if (template == null) {
-            throw templateNotFound();
+    public RenderedMail render(long tenantId, TokenPurpose purpose, String lang, Map<String, String> variables) {
+        String subjectTemplate;
+        String bodyTemplate;
+        TenantMailTemplate override = tenantMailTemplateMapper.find(tenantId, purpose, lang);
+        if (override != null) {
+            subjectTemplate = override.subject();
+            bodyTemplate = override.body();
+        } else {
+            MailTemplate template = mailTemplateMapper.find(purpose, lang);
+            if (template == null) {
+                throw templateNotFound();
+            }
+            subjectTemplate = template.subject();
+            bodyTemplate = template.body();
         }
-        String subject = substitute(template.subject(), variables);
-        String body = substitute(template.body(), variables);
+        String subject = substitute(subjectTemplate, variables);
+        String body = substitute(bodyTemplate, variables);
         String leftover = firstPlaceholder(subject + "\n" + body);
         if (leftover != null) {
             //DB 직수정 등으로 허용 외 변수가 들어온 방어 — 미치환 본문을 발송하지 않는다

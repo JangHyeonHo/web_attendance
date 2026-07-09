@@ -101,7 +101,8 @@ public class MemberInviteService {
                 variables.put("inviterName", inviterName == null ? "" : inviterName);
             }
             String lang = mailLanguageResolver.resolve(tenant.country());
-            RenderedMail mail = mailTemplateService.render(purpose, lang, variables);
+            //해석 순서: 회사(테넌트) 오버라이드 → 전역 기본 템플릿
+            RenderedMail mail = mailTemplateService.render(tenantId, purpose, lang, variables);
             mailSender.send(email, mail.subject(), mail.body());
             return new InviteOutcome(true, token.expiresAt());
         } catch (RuntimeException e) {

@@ -2,6 +2,7 @@ package com.attendance.pro.user;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -65,16 +66,16 @@ class MemberInviteServiceTest {
     @DisplayName("TPL-04(U): 초대 메일 언어는 tenant.country가 결정(KR→KOR, JP→JPN)")
     void mailLanguageFollowsTenantCountry() {
         stubToken(TokenPurpose.INVITE);
-        when(mailTemplateService.render(eq(TokenPurpose.INVITE), anyString(), anyMap()))
+        when(mailTemplateService.render(anyLong(), eq(TokenPurpose.INVITE), anyString(), anyMap()))
                 .thenReturn(new RenderedMail("제목", "본문"));
         //KR → KOR
         when(tenantMapper.findById(TENANT_ID)).thenReturn(tenant("KR"));
         service(null).sendInvite(TENANT_ID, USER_ID, "hong@acme.co.kr", "홍길동", "김관리");
-        verify(mailTemplateService).render(eq(TokenPurpose.INVITE), eq("KOR"), anyMap());
+        verify(mailTemplateService).render(anyLong(), eq(TokenPurpose.INVITE), eq("KOR"), anyMap());
         //JP → JPN
         when(tenantMapper.findById(TENANT_ID)).thenReturn(tenant("JP"));
         service(null).sendInvite(TENANT_ID, USER_ID, "hong@acme.co.kr", "홍길동", "김관리");
-        verify(mailTemplateService).render(eq(TokenPurpose.INVITE), eq("JPN"), anyMap());
+        verify(mailTemplateService).render(anyLong(), eq(TokenPurpose.INVITE), eq("JPN"), anyMap());
     }
 
     @Test
@@ -84,7 +85,7 @@ class MemberInviteServiceTest {
         when(tenantMapper.findById(TENANT_ID)).thenReturn(tenant("KR"));
         @SuppressWarnings("unchecked")
         ArgumentCaptor<Map<String, String>> varsCaptor = ArgumentCaptor.forClass(Map.class);
-        when(mailTemplateService.render(eq(TokenPurpose.INVITE), eq("KOR"), varsCaptor.capture()))
+        when(mailTemplateService.render(anyLong(), eq(TokenPurpose.INVITE), eq("KOR"), varsCaptor.capture()))
                 .thenReturn(new RenderedMail("제목", "본문"));
 
         InviteOutcome outcome = service(null).sendInvite(TENANT_ID, USER_ID, "hong@acme.co.kr", "홍길동", "김관리");
@@ -107,7 +108,7 @@ class MemberInviteServiceTest {
         when(tenantMapper.findById(TENANT_ID)).thenReturn(tenant("KR"));
         @SuppressWarnings("unchecked")
         ArgumentCaptor<Map<String, String>> varsCaptor = ArgumentCaptor.forClass(Map.class);
-        when(mailTemplateService.render(eq(TokenPurpose.INVITE), eq("KOR"), varsCaptor.capture()))
+        when(mailTemplateService.render(anyLong(), eq(TokenPurpose.INVITE), eq("KOR"), varsCaptor.capture()))
                 .thenReturn(new RenderedMail("제목", "본문"));
 
         service("webatt.example").sendInvite(TENANT_ID, USER_ID, "hong@acme.co.kr", "홍길동", "김관리");
@@ -123,7 +124,7 @@ class MemberInviteServiceTest {
         when(tenantMapper.findById(TENANT_ID)).thenReturn(tenant("KR"));
         @SuppressWarnings("unchecked")
         ArgumentCaptor<Map<String, String>> varsCaptor = ArgumentCaptor.forClass(Map.class);
-        when(mailTemplateService.render(eq(TokenPurpose.RESET), eq("KOR"), varsCaptor.capture()))
+        when(mailTemplateService.render(anyLong(), eq(TokenPurpose.RESET), eq("KOR"), varsCaptor.capture()))
                 .thenReturn(new RenderedMail("제목", "본문"));
 
         service(null).sendReset(TENANT_ID, USER_ID, "hong@acme.co.kr", "홍길동");
@@ -136,7 +137,7 @@ class MemberInviteServiceTest {
     void mailFailureSwallowed() {
         stubToken(TokenPurpose.INVITE);
         when(tenantMapper.findById(TENANT_ID)).thenReturn(tenant("KR"));
-        when(mailTemplateService.render(eq(TokenPurpose.INVITE), anyString(), anyMap()))
+        when(mailTemplateService.render(anyLong(), eq(TokenPurpose.INVITE), anyString(), anyMap()))
                 .thenReturn(new RenderedMail("제목", "본문"));
         doThrow(new RuntimeException("SMTP down")).when(mailSender).send(anyString(), anyString(), anyString());
 

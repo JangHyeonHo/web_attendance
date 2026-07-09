@@ -16,6 +16,7 @@ import type {
   MailTemplatePreviewRequest,
   MailTemplatePreviewResponse,
   MailTemplateResponse,
+  TenantMailTemplateResponse,
   MailTemplateUpdateRequest,
   MemberCreateRequest,
   MemberCreateResponse,
@@ -93,6 +94,17 @@ export const mailTemplateApi = {
     put<MailTemplateResponse>(`/api/v1/admin/mail-templates/${purpose}/${lang}`, request),
   preview: (request: MailTemplatePreviewRequest) =>
     post<MailTemplatePreviewResponse>('/api/v1/admin/mail-templates/preview', request),
+}
+
+/** TENANT_ADMIN 전용 — 회사별 메일 템플릿 오버라이드(W014, 없으면 기본 템플릿 폴백) */
+export const tenantMailTemplateApi = {
+  list: () => get<TenantMailTemplateResponse[]>('/api/v1/tenant/mail-templates'),
+  update: (purpose: TokenPurpose, lang: Lang, request: MailTemplateUpdateRequest) =>
+    put<TenantMailTemplateResponse>(`/api/v1/tenant/mail-templates/${purpose}/${lang}`, request),
+  revert: (purpose: TokenPurpose, lang: Lang) =>
+    del(`/api/v1/tenant/mail-templates/${purpose}/${lang}`),
+  preview: (request: MailTemplatePreviewRequest) =>
+    post<MailTemplatePreviewResponse>('/api/v1/tenant/mail-templates/preview', request),
 }
 
 /** TENANT_ADMIN 전용 — 멤버 (tenantId는 항상 서버 세션에서 — 파라미터로 보내지 않는다) */

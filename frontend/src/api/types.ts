@@ -18,6 +18,7 @@ export type ScreenCode =
   | 'W011' // 비밀번호 재설정 요청 (공개)
   | 'W012' // 메일 템플릿 관리 (SYSTEM_ADMIN)
   | 'W013' // 공휴일 관리 (TENANT_ADMIN)
+  | 'W014' // 회사 메일 템플릿 (TENANT_ADMIN — 오버라이드, 기본은 전역)
   | 'W999' // 공통(헤더)
 
 export type Lang = 'KOR' | 'ENG' | 'JPN'
@@ -407,6 +408,18 @@ export interface MailTemplatePreviewRequest {
 export interface MailTemplatePreviewResponse {
   subject: string
   body: string
+}
+
+// ---- tenant: 회사별 메일 템플릿 오버라이드 (W014 — TENANT_ADMIN) ----
+
+/** 유효 템플릿(전역 6행 기준) — overridden=true면 회사 설정이 발송에 쓰인다 */
+export interface TenantMailTemplateResponse {
+  purpose: TokenPurpose
+  lang: Lang
+  subject: string
+  body: string
+  overridden: boolean
+  updatedAt: string
 }
 
 // ---- tenant: 공휴일 (W013 — TENANT_ADMIN 전용) ----

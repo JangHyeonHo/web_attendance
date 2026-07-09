@@ -40,6 +40,8 @@ public enum Screen {
     MAIL_TEMPLATES("W012", Set.of(Role.SYSTEM_ADMIN)),
     /** 공휴일 관리 — TENANT_ADMIN 전용 */
     HOLIDAYS("W013", Set.of(Role.TENANT_ADMIN)),
+    /** 회사 메일 템플릿(오버라이드) 관리 — TENANT_ADMIN 전용 */
+    TENANT_MAIL_TEMPLATES("W014", Set.of(Role.TENANT_ADMIN)),
     /** 공통(헤더) - 직접 전개하지 않고 공통 텍스트 취득용 */
     COMMON("W999", null);
 
