@@ -2,7 +2,7 @@
 
 이번 현대화 패치(v1.1.0 → v2.0.0 → i18n)에서 내린 **주요 결정들의 배경 · 선택지 · 결정 이유 · 기대값 · 리스크**를 기록한다.
 "무엇이 바뀌었는가"는 [migration-v1-to-v2.md](./migration-v1-to-v2.md)를, 프론트 점검은
-`claude/frontend-review-09t933` 브랜치의 `docs/frontend-review.md`를 참조.
+[frontend-review.md](./frontend-review.md)(이력 문서 — 라우팅 권고는 D7로 뒤집힘)를 참조.
 
 ---
 
