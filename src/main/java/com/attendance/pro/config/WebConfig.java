@@ -45,13 +45,14 @@ public class WebConfig implements WebMvcConfigurer {
         //navigation 등 공개 API도 포함해 전 /api에 최우선 적용한다.
         registry.addInterceptor(sessionRevalidationInterceptor)
                 .addPathPatterns("/api/**");
-        //로그인 필수 API (공개 3종: 로그인/화면 텍스트 조회/화면 전개만 제외)
+        //로그인 필수 API (공개 4종: 로그인/화면 텍스트 조회/화면 전개/비밀번호 설정·재설정만 제외)
         registry.addInterceptor(authInterceptor)
                 .addPathPatterns("/api/**")
                 .excludePathPatterns(
                         "/api/v1/auth/login",
                         "/api/v1/i18n/**",
-                        "/api/v1/navigation");
+                        "/api/v1/navigation",
+                        "/api/v1/auth/password/**");
         //인가(경로별 허용 role 화이트리스트) — attendance 경로 등록 필수(SYSTEM_ADMIN 403)
         registry.addInterceptor(roleInterceptor)
                 .addPathPatterns(

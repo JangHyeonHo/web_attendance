@@ -32,6 +32,14 @@ public enum Screen {
     TENANT_DETAIL("W008", Set.of(Role.SYSTEM_ADMIN)),
     /** 멤버 관리 — 헤더 MEMBERS 메뉴로 진입 */
     MEMBERS("W009", Set.of(Role.TENANT_ADMIN)),
+    /** 비밀번호 설정 — 공개(토큰 유효성은 API가 판정, 화면 전개는 무조건) */
+    PASSWORD_SETUP("W010", null),
+    /** 비밀번호 재설정 요청 — 공개 */
+    PASSWORD_RESET("W011", null),
+    /** 메일 템플릿 관리(글로벌 제품 자산 — SYSTEM_ADMIN) */
+    MAIL_TEMPLATES("W012", Set.of(Role.SYSTEM_ADMIN)),
+    /** 공휴일 관리 — TENANT_ADMIN 전용 */
+    HOLIDAYS("W013", Set.of(Role.TENANT_ADMIN)),
     /** 공통(헤더) - 직접 전개하지 않고 공통 텍스트 취득용 */
     COMMON("W999", null);
 

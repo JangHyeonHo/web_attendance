@@ -24,7 +24,7 @@ import com.attendance.pro.tenant.TenantHostResolver.HostTenant.Kind;
 class TenantHostResolverTest {
 
     private static final Tenant ACME =
-            new Tenant(10L, "ACME", "에이크미(주)", TenantStatus.ACTIVE, LocalDateTime.now());
+            new Tenant(10L, "ACME", "에이크미(주)", "KR", TenantStatus.ACTIVE, LocalDateTime.now());
 
     @Mock
     private TenantMapper tenantMapper;

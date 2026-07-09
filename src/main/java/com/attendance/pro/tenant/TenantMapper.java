@@ -20,21 +20,21 @@ import com.attendance.pro.tenant.TenantDtos.TenantResponse;
 public interface TenantMapper {
 
     @Select("""
-            SELECT tenant_id, tenant_code, name, status, created_at
+            SELECT tenant_id, tenant_code, name, country, status, created_at
             FROM tenant
             WHERE tenant_code = #{tenantCode}
             """)
     Tenant findByCode(@Param("tenantCode") String tenantCode);
 
     @Select("""
-            SELECT tenant_id, tenant_code, name, status, created_at
+            SELECT tenant_id, tenant_code, name, country, status, created_at
             FROM tenant
             WHERE tenant_id = #{tenantId}
             """)
     Tenant findById(@Param("tenantId") long tenantId);
 
     @Select("""
-            SELECT t.tenant_id, t.tenant_code, t.name, t.status,
+            SELECT t.tenant_id, t.tenant_code, t.name, t.country, t.status,
                    (SELECT COUNT(*) FROM users u
                      WHERE u.tenant_id = t.tenant_id AND u.deleted = FALSE) AS member_count,
                    t.created_at
@@ -44,7 +44,7 @@ public interface TenantMapper {
     List<TenantResponse> findAllWithMemberCount();
 
     @Select("""
-            SELECT t.tenant_id, t.tenant_code, t.name, t.status,
+            SELECT t.tenant_id, t.tenant_code, t.name, t.country, t.status,
                    (SELECT COUNT(*) FROM users u
                      WHERE u.tenant_id = t.tenant_id AND u.deleted = FALSE) AS member_count,
                    t.created_at
@@ -54,8 +54,8 @@ public interface TenantMapper {
     TenantResponse findByIdWithMemberCount(@Param("tenantId") long tenantId);
 
     @Insert("""
-            INSERT INTO tenant (tenant_code, name, status)
-            VALUES (#{tenantCode}, #{name}, 'ACTIVE')
+            INSERT INTO tenant (tenant_code, name, country, status)
+            VALUES (#{tenantCode}, #{name}, #{country}, 'ACTIVE')
             """)
     @Options(useGeneratedKeys = true, keyProperty = "tenantId", keyColumn = "tenant_id")
     int insert(TenantCreate tenant);

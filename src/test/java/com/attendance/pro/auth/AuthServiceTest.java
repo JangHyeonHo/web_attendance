@@ -47,12 +47,13 @@ class AuthServiceTest {
     }
 
     private static Tenant tenant(long id, String code, TenantStatus status) {
-        return new Tenant(id, code, code + "(주)", status, LocalDateTime.now());
+        return new Tenant(id, code, code + "(주)", "KR", status, LocalDateTime.now());
     }
 
     private static User user(long tenantId, String email, String rawPassword, Role role, UserStatus status) {
-        return new User(1L, tenantId, email, new BCryptPasswordEncoder().encode(rawPassword),
-                "홍길동", null, role, status, false, LocalDateTime.now(), LocalDateTime.now());
+        return new User(1L, tenantId, email, new BCryptPasswordEncoder().encode(rawPassword), null,
+                "홍길동", null, java.time.LocalTime.of(9, 0), java.time.LocalTime.of(18, 0),
+                role, status, false, LocalDateTime.now(), LocalDateTime.now());
     }
 
     private void expectLoginFailed(Runnable call) {
@@ -125,6 +126,29 @@ class AuthServiceTest {
                 .thenReturn(user(TENANT_A, "hong@example.com", PW_A, Role.MEMBER, UserStatus.DISABLED));
 
         expectLoginFailed(() -> service().authenticate("ACME", "hong@example.com", PW_A));
+    }
+
+    @Test
+    @DisplayName("INV-02(U): PENDING(초대 대기) 멤버의 유효 크리덴셜도 동일한 401 — ACTIVE만 로그인 허용")
+    void pendingUserRejected() {
+        when(tenantMapper.findByCode("ACME")).thenReturn(tenant(TENANT_A, "ACME", TenantStatus.ACTIVE));
+        when(userMapper.findByEmail(TENANT_A, "hong@example.com"))
+                .thenReturn(user(TENANT_A, "hong@example.com", PW_A, Role.MEMBER, UserStatus.PENDING));
+
+        expectLoginFailed(() -> service().authenticate("ACME", "hong@example.com", PW_A));
+    }
+
+    @Test
+    @DisplayName("세션 스냅샷에 발급 시각(issuedAt)이 실린다 — 재로그인 강제의 기준")
+    void sessionCarriesIssuedAt() {
+        when(tenantMapper.findByCode("ACME")).thenReturn(tenant(TENANT_A, "ACME", TenantStatus.ACTIVE));
+        when(userMapper.findByEmail(TENANT_A, "hong@example.com"))
+                .thenReturn(user(TENANT_A, "hong@example.com", PW_A, Role.MEMBER, UserStatus.ACTIVE));
+        LocalDateTime before = LocalDateTime.now();
+
+        SessionUser session = service().authenticate("ACME", "hong@example.com", PW_A);
+
+        assertThat(session.issuedAt()).isNotNull().isBetween(before, LocalDateTime.now());
     }
 
     @Test

@@ -5,8 +5,10 @@ import java.util.regex.Pattern;
 import com.attendance.pro.common.Masking;
 
 /**
- * 테넌트 소재국별 사업자 식별번호 규칙(검증 + 마스킹).
+ * 테넌트 소재국별 규칙(사업자 식별번호 검증·마스킹 + 공휴일 동기화 국가).
  *
+ * 값의 출처는 <b>tenant.country</b>(V7 승격 — 구 tenant_profile.country에서 이동).
+ * enum name = Nager.Date countryCode = ISO 3166-1 alpha-2 — 공휴일 동기화 국가 코드 공급을 겸한다.
  * 사업자 식별번호 체계는 화면 언어가 아니라 "고객사 소재국"의 속성이다:
  *  - KR: 사업자등록번호 10자리(###-##-#####)
  *  - JP: 法人番号 13자리(하이픈 없음) — 일본은 공개 정보지만 보수적 일관 보호(암호화+마스킹) 유지

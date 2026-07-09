@@ -32,8 +32,9 @@ class SessionRevalidationInterceptorTest {
 
     private static final long TENANT_ID = 10L;
     private static final long USER_ID = 5L;
+    private static final LocalDateTime ISSUED_AT = LocalDateTime.of(2026, 7, 9, 9, 0);
     private static final SessionUser SNAPSHOT = new SessionUser(
-            USER_ID, TENANT_ID, "ACME", "에이크미", "ta@acme.co.kr", "김관리", Role.TENANT_ADMIN);
+            USER_ID, TENANT_ID, "ACME", "에이크미", "ta@acme.co.kr", "김관리", Role.TENANT_ADMIN, ISSUED_AT);
 
     @Mock
     private UserMapper userMapper;
@@ -47,12 +48,17 @@ class SessionRevalidationInterceptorTest {
     }
 
     private static User dbUser(Role role, UserStatus status) {
-        return new User(USER_ID, TENANT_ID, "ta@acme.co.kr", "hash", "김관리", null,
+        return dbUser(role, status, null);
+    }
+
+    private static User dbUser(Role role, UserStatus status, LocalDateTime passwordChangedAt) {
+        return new User(USER_ID, TENANT_ID, "ta@acme.co.kr", "hash", passwordChangedAt, "김관리", null,
+                java.time.LocalTime.of(9, 0), java.time.LocalTime.of(18, 0),
                 role, status, false, LocalDateTime.now(), LocalDateTime.now());
     }
 
     private static Tenant dbTenant(TenantStatus status) {
-        return new Tenant(TENANT_ID, "ACME", "에이크미", status, LocalDateTime.now());
+        return new Tenant(TENANT_ID, "ACME", "에이크미", "KR", status, LocalDateTime.now());
     }
 
     private MockHttpServletRequest loggedInRequest() {
@@ -126,11 +132,66 @@ class SessionRevalidationInterceptorTest {
     }
 
     @Test
+    @DisplayName("SES-01(U): 비밀번호 변경 이전 발급 세션은 즉시 무효화(언어 설정만 이월)")
+    void passwordChangeInvalidatesOlderSession() {
+        //세션 발급(ISSUED_AT) 이후에 비밀번호가 변경된 상황
+        when(userMapper.findById(TENANT_ID, USER_ID))
+                .thenReturn(dbUser(Role.TENANT_ADMIN, UserStatus.ACTIVE, ISSUED_AT.plusMinutes(10)));
+        when(tenantMapper.findById(TENANT_ID)).thenReturn(dbTenant(TenantStatus.ACTIVE));
+        MockHttpServletRequest request = loggedInRequest();
+
+        interceptor().preHandle(request, new MockHttpServletResponse(), new Object());
+
+        assertThat(request.getSession(false).getAttribute(SessionUser.SESSION_KEY)).isNull();
+        assertThat(request.getSession(false).getAttribute(LocaleConfig.SESSION_LANG_KEY)).isEqualTo("JPN");
+    }
+
+    @Test
+    @DisplayName("비밀번호 변경 이후 발급된 세션은 유지된다(변경 직후 본인 재로그인)")
+    void sessionIssuedAfterPasswordChangeSurvives() {
+        when(userMapper.findById(TENANT_ID, USER_ID))
+                .thenReturn(dbUser(Role.TENANT_ADMIN, UserStatus.ACTIVE, ISSUED_AT.minusMinutes(10)));
+        when(tenantMapper.findById(TENANT_ID)).thenReturn(dbTenant(TenantStatus.ACTIVE));
+        MockHttpServletRequest request = loggedInRequest();
+
+        interceptor().preHandle(request, new MockHttpServletResponse(), new Object());
+
+        assertThat(request.getSession(false).getAttribute(SessionUser.SESSION_KEY)).isEqualTo(SNAPSHOT);
+    }
+
+    @Test
+    @DisplayName("password_changed_at이 NULL(이력 없음 — 기존 유저)이면 세션 유지")
+    void nullPasswordChangedAtKeepsSession() {
+        when(userMapper.findById(TENANT_ID, USER_ID))
+                .thenReturn(dbUser(Role.TENANT_ADMIN, UserStatus.ACTIVE, null));
+        when(tenantMapper.findById(TENANT_ID)).thenReturn(dbTenant(TenantStatus.ACTIVE));
+        MockHttpServletRequest request = loggedInRequest();
+
+        interceptor().preHandle(request, new MockHttpServletResponse(), new Object());
+
+        assertThat(request.getSession(false).getAttribute(SessionUser.SESSION_KEY)).isEqualTo(SNAPSHOT);
+    }
+
+    @Test
+    @DisplayName("SES-02: 재검증의 role 갱신 경로는 원래 issuedAt을 보존한다(세션 연장 없음)")
+    void roleRefreshPreservesIssuedAt() {
+        when(userMapper.findById(TENANT_ID, USER_ID)).thenReturn(dbUser(Role.MEMBER, UserStatus.ACTIVE));
+        when(tenantMapper.findById(TENANT_ID)).thenReturn(dbTenant(TenantStatus.ACTIVE));
+        MockHttpServletRequest request = loggedInRequest();
+
+        interceptor().preHandle(request, new MockHttpServletResponse(), new Object());
+
+        SessionUser refreshed =
+                (SessionUser) request.getSession(false).getAttribute(SessionUser.SESSION_KEY);
+        assertThat(refreshed.issuedAt()).isEqualTo(ISSUED_AT);
+    }
+
+    @Test
     @DisplayName("REV-05: 다른 테넌트의 서브도메인으로 온 세션은 즉시 무효화(쿠키 이식 차단)")
     void crossTenantHostInvalidatesSession() {
         //세션은 ACME(tenantId=10)인데 요청 호스트는 BETA 서브도메인
         when(tenantMapper.findByCode("BETA")).thenReturn(
-                new Tenant(20L, "BETA", "베타(주)", TenantStatus.ACTIVE, LocalDateTime.now()));
+                new Tenant(20L, "BETA", "베타(주)", "KR", TenantStatus.ACTIVE, LocalDateTime.now()));
         MockHttpServletRequest request = loggedInRequest();
         request.setServerName("beta.webatt.example");
 

@@ -45,6 +45,11 @@
 			<groupId>org.flywaydb</groupId>
 			<artifactId>flyway-mysql</artifactId>
 		</dependency>
+		<!-- 메일 발송(SMTP) - dev는 LoggingMailSender, 운영(prod)만 SmtpMailSender가 사용 -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-mail</artifactId>
+		</dependency>
 		<!-- 비밀번호 해시(BCrypt) 전용 - 전체 Spring Security는 사용하지 않음 -->
 		<dependency>
 			<groupId>org.springframework.security</groupId>

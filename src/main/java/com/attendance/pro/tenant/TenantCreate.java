@@ -9,10 +9,12 @@ public class TenantCreate {
     private Long tenantId;
     private final String tenantCode;
     private final String name;
+    private final String country;
 
-    public TenantCreate(String tenantCode, String name) {
+    public TenantCreate(String tenantCode, String name, String country) {
         this.tenantCode = tenantCode;
         this.name = name;
+        this.country = country;
     }
 
     public Long getTenantId() {
@@ -29,6 +31,10 @@ public class TenantCreate {
 
     public String getName() {
         return name;
+    }
+
+    public String getCountry() {
+        return country;
     }
 
 }

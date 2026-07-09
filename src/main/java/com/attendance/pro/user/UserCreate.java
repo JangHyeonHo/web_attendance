@@ -1,8 +1,11 @@
 package com.attendance.pro.user;
 
+import java.time.LocalTime;
+
 /**
  * 회원 등록용 파라미터.
  * MyBatis가 자동 생성 키(userId)를 되돌려 넣을 수 있도록 record가 아닌 가변 클래스로 둔다.
+ * 기본 근무 시각은 서비스에서 09:00/18:00을 채운다(DB DEFAULT에 맡기지 않고 응답 조립에 즉시 사용).
  */
 public class UserCreate {
 
@@ -12,16 +15,20 @@ public class UserCreate {
     private final String passwordHash;
     private final String name;
     private final String departCd;
+    private final LocalTime defaultWorkStart;
+    private final LocalTime defaultWorkEnd;
     private final Role role;
     private final UserStatus status;
 
     public UserCreate(long tenantId, String email, String passwordHash, String name, String departCd,
-            Role role, UserStatus status) {
+            LocalTime defaultWorkStart, LocalTime defaultWorkEnd, Role role, UserStatus status) {
         this.tenantId = tenantId;
         this.email = email;
         this.passwordHash = passwordHash;
         this.name = name;
         this.departCd = departCd;
+        this.defaultWorkStart = defaultWorkStart;
+        this.defaultWorkEnd = defaultWorkEnd;
         this.role = role;
         this.status = status;
     }
@@ -52,6 +59,14 @@ public class UserCreate {
 
     public String getDepartCd() {
         return departCd;
+    }
+
+    public LocalTime getDefaultWorkStart() {
+        return defaultWorkStart;
+    }
+
+    public LocalTime getDefaultWorkEnd() {
+        return defaultWorkEnd;
     }
 
     public Role getRole() {

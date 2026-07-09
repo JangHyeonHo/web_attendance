@@ -47,13 +47,27 @@ class AttendanceServiceTest {
     @Mock
     private ScheduleMapper scheduleMapper;
 
+    @Mock
+    private com.attendance.pro.holiday.HolidayMapper holidayMapper;
+
+    @Mock
+    private com.attendance.pro.tenant.TenantMapper tenantMapper;
+
     private AttendanceService service;
 
     @BeforeEach
     void setUp() {
         //메시지는 실제 번들로 해석하고, 한국어 기준으로 검증한다
         LocaleContextHolder.setLocale(Locale.KOREAN);
-        service = new AttendanceService(attendanceMapper, scheduleMapper, realMessages());
+        service = new AttendanceService(attendanceMapper, scheduleMapper, holidayMapper, tenantMapper,
+                realMessages());
+    }
+
+    /** status()의 오늘 스케줄 해석 경로 스텁(오버라이드/공휴일 없음 + 개인 기본값 없음 → 09:00/18:00). */
+    private void stubTodaySchedule() {
+        when(scheduleMapper.findBetween(eq(TENANT_ID), eq(USER_ID), any(), any())).thenReturn(java.util.List.of());
+        when(holidayMapper.findHolidaysBetween(eq(TENANT_ID), any(), any())).thenReturn(java.util.List.of());
+        when(scheduleMapper.findWorkDefaults(TENANT_ID, USER_ID)).thenReturn(null);
     }
 
     static Messages realMessages() {
@@ -264,17 +278,55 @@ class AttendanceServiceTest {
     class StatusQuery {
 
         @Test
-        @DisplayName("기록 없음 -> 출근 대기")
+        @DisplayName("기록 없음 -> 출근 대기(오늘 근무 09:00~18:00 동봉 — WSC-S-05 U)")
         void waiting() {
+            stubTodaySchedule();
             when(attendanceMapper.findLatest(TENANT_ID, USER_ID)).thenReturn(null);
             StatusResponse response = service.status(TENANT_ID, USER_ID);
             assertThat(response.status()).isEqualTo(WorkStatus.WAITING);
             assertThat(response.stampedAt()).isNull();
+            assertThat(response.todayScheduleStart()).isEqualTo("09:00");
+            assertThat(response.todayScheduleEnd()).isEqualTo("18:00");
+        }
+
+        @Test
+        @DisplayName("개인 기본값(10:00~19:00)이 있으면 오늘 근무에 반영된다")
+        void personalDefaultsInStatus() {
+            when(scheduleMapper.findBetween(eq(TENANT_ID), eq(USER_ID), any(), any()))
+                    .thenReturn(java.util.List.of());
+            when(holidayMapper.findHolidaysBetween(eq(TENANT_ID), any(), any())).thenReturn(java.util.List.of());
+            when(scheduleMapper.findWorkDefaults(TENANT_ID, USER_ID))
+                    .thenReturn(new WorkDefaults(java.time.LocalTime.of(10, 0), java.time.LocalTime.of(19, 0)));
+            when(attendanceMapper.findLatest(TENANT_ID, USER_ID)).thenReturn(null);
+
+            StatusResponse response = service.status(TENANT_ID, USER_ID);
+
+            assertThat(response.todayScheduleStart()).isEqualTo("10:00");
+            assertThat(response.todayScheduleEnd()).isEqualTo("19:00");
+        }
+
+        @Test
+        @DisplayName("오늘이 공휴일이면 오늘 근무는 null/null(비표시)")
+        void holidayTodayHidesSchedule() {
+            when(scheduleMapper.findBetween(eq(TENANT_ID), eq(USER_ID), any(), any()))
+                    .thenReturn(java.util.List.of());
+            java.time.LocalDate today = java.time.LocalDate.now();
+            when(holidayMapper.findHolidaysBetween(eq(TENANT_ID), any(), any())).thenReturn(java.util.List.of(
+                    new com.attendance.pro.holiday.Holiday(TENANT_ID, today, "삼일절",
+                            com.attendance.pro.holiday.HolidayType.NATIONAL,
+                            LocalDateTime.now(), LocalDateTime.now())));
+            when(attendanceMapper.findLatest(TENANT_ID, USER_ID)).thenReturn(null);
+
+            StatusResponse response = service.status(TENANT_ID, USER_ID);
+
+            assertThat(response.todayScheduleStart()).isNull();
+            assertThat(response.todayScheduleEnd()).isNull();
         }
 
         @Test
         @DisplayName("출근 -> 출근 중, 24시간 경과시 퇴근 알림")
         void working() {
+            stubTodaySchedule();
             when(attendanceMapper.findLatest(TENANT_ID, USER_ID))
                     .thenReturn(stamp(AttendanceType.GO_TO_WORK, 0, LocalDateTime.now().minusHours(2)));
             assertThat(service.status(TENANT_ID, USER_ID).status()).isEqualTo(WorkStatus.WORKING);
@@ -290,6 +342,7 @@ class AttendanceServiceTest {
         @Test
         @DisplayName("어제 퇴근 기록만 있으면 출근 대기")
         void offWorkYesterday() {
+            stubTodaySchedule();
             when(attendanceMapper.findLatest(TENANT_ID, USER_ID))
                     .thenReturn(stamp(AttendanceType.OFF_WORK, 0, LocalDateTime.now().minusHours(26)));
             assertThat(service.status(TENANT_ID, USER_ID).status()).isEqualTo(WorkStatus.WAITING);
@@ -298,6 +351,7 @@ class AttendanceServiceTest {
         @Test
         @DisplayName("오늘 퇴근 -> 퇴근 완료")
         void offWorkToday() {
+            stubTodaySchedule();
             LocalDateTime today = LocalDateTime.now().withHour(0).withMinute(30);
             when(attendanceMapper.findLatest(TENANT_ID, USER_ID))
                     .thenReturn(stamp(AttendanceType.OFF_WORK, 0, today));
@@ -309,6 +363,7 @@ class AttendanceServiceTest {
         @Test
         @DisplayName("휴식 중 / 휴식 종료 상태 매핑")
         void breakStatus() {
+            stubTodaySchedule();
             when(attendanceMapper.findLatest(TENANT_ID, USER_ID))
                     .thenReturn(stamp(AttendanceType.BREAK, 0, LocalDateTime.now().minusMinutes(10)));
             assertThat(service.status(TENANT_ID, USER_ID).status()).isEqualTo(WorkStatus.ON_BREAK);
@@ -321,6 +376,91 @@ class AttendanceServiceTest {
             StatusResponse response = service.status(TENANT_ID, USER_ID);
             assertThat(response.status()).isEqualTo(WorkStatus.BREAK_ENDED);
             assertThat(response.stampedAt()).isEqualTo(goTime);
+        }
+    }
+
+    @Nested
+    @DisplayName("월별 상세(monthly) — 스케줄/공휴일/정책 합성")
+    class MonthlyQuery {
+
+        private void stubMonthly() {
+            //일부 테스트가 개별 스텁으로 덮어쓰므로 기본값은 lenient
+            org.mockito.Mockito.lenient().when(scheduleMapper.findBetween(eq(TENANT_ID), eq(USER_ID), any(), any()))
+                    .thenReturn(java.util.List.of());
+            org.mockito.Mockito.lenient().when(holidayMapper.findHolidaysBetween(eq(TENANT_ID), any(), any()))
+                    .thenReturn(java.util.List.of());
+            org.mockito.Mockito.lenient().when(attendanceMapper.findBetween(eq(TENANT_ID), eq(USER_ID), any(), any()))
+                    .thenReturn(java.util.List.of());
+            org.mockito.Mockito.lenient().when(scheduleMapper.findWorkDefaults(TENANT_ID, USER_ID)).thenReturn(null);
+            org.mockito.Mockito.lenient().when(tenantMapper.findById(TENANT_ID))
+                    .thenReturn(new com.attendance.pro.tenant.Tenant(
+                            TENANT_ID, "ACME", "에이크미(주)", "KR",
+                            com.attendance.pro.tenant.TenantStatus.ACTIVE, LocalDateTime.now()));
+        }
+
+        @Test
+        @DisplayName("ISO-15: monthly가 defaults/공휴일/테넌트 조회에 세션 tenantId를 전달한다")
+        void monthlyPropagatesTenantId() {
+            stubMonthly();
+
+            service.monthly(TENANT_ID, USER_ID, 2026, 7);
+
+            verify(scheduleMapper).findWorkDefaults(eq(TENANT_ID), eq(USER_ID));
+            verify(holidayMapper).findHolidaysBetween(eq(TENANT_ID), any(), any());
+            verify(tenantMapper).findById(eq(TENANT_ID));
+        }
+
+        @Test
+        @DisplayName("CALC-09: 월 합계는 workMinutes non-null 합산")
+        void monthlyTotalSumsNonNull() {
+            stubMonthly();
+            when(attendanceMapper.findBetween(eq(TENANT_ID), eq(USER_ID), any(), any()))
+                    .thenReturn(java.util.List.of(
+                            new AttendanceStamp(1L, USER_ID, AttendanceType.GO_TO_WORK.code(), 0,
+                                    LocalDateTime.of(2026, 7, 1, 9, 0)),
+                            new AttendanceStamp(2L, USER_ID, AttendanceType.OFF_WORK.code(), 0,
+                                    LocalDateTime.of(2026, 7, 1, 18, 0)),
+                            new AttendanceStamp(3L, USER_ID, AttendanceType.GO_TO_WORK.code(), 0,
+                                    LocalDateTime.of(2026, 7, 2, 9, 0)),
+                            new AttendanceStamp(4L, USER_ID, AttendanceType.OFF_WORK.code(), 0,
+                                    LocalDateTime.of(2026, 7, 2, 13, 0))));
+
+            var response = service.monthly(TENANT_ID, USER_ID, 2026, 7);
+
+            //7/1: 540-60=480, 7/2: 240-60=180(휴식 미기록·KR 9h 스케줄), 그 외 null
+            assertThat(response.totalWorkMinutes()).isEqualTo(660);
+        }
+
+        @Test
+        @DisplayName("HOL-06(연계): 공휴일 날짜는 days에 holidayName 동봉")
+        void monthlyCarriesHolidayName() {
+            stubMonthly();
+            when(holidayMapper.findHolidaysBetween(eq(TENANT_ID), any(), any()))
+                    .thenReturn(java.util.List.of(new com.attendance.pro.holiday.Holiday(
+                            TENANT_ID, java.time.LocalDate.of(2026, 7, 17), "제헌절",
+                            com.attendance.pro.holiday.HolidayType.NATIONAL,
+                            LocalDateTime.now(), LocalDateTime.now())));
+
+            var response = service.monthly(TENANT_ID, USER_ID, 2026, 7);
+
+            var day17 = response.days().get(16);
+            assertThat(day17.holiday()).isTrue();
+            assertThat(day17.holidayName()).isEqualTo("제헌절");
+        }
+
+        @Test
+        @DisplayName("JP 테넌트는 JP 정책으로 산출(6h 스케줄 → 법정휴게 0 — WSC-S-04 U)")
+        void jpTenantUsesJpPolicy() {
+            stubMonthly();
+            when(tenantMapper.findById(TENANT_ID)).thenReturn(new com.attendance.pro.tenant.Tenant(
+                    TENANT_ID, "ACME", "에이크미(주)", "JP",
+                    com.attendance.pro.tenant.TenantStatus.ACTIVE, LocalDateTime.now()));
+            when(scheduleMapper.findWorkDefaults(TENANT_ID, USER_ID))
+                    .thenReturn(new WorkDefaults(java.time.LocalTime.of(9, 0), java.time.LocalTime.of(15, 0)));
+
+            var response = service.monthly(TENANT_ID, USER_ID, 2026, 7);
+
+            assertThat(response.days().get(0).statutoryBreakMinutes()).isEqualTo(0);
         }
     }
 

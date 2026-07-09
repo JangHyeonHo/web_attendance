@@ -7,39 +7,55 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import com.attendance.pro.attendance.AttendanceDtos.DailyAttendance;
 
 /**
  * 월별 출결 상세 조립기.
- * 한 달치 스케쥴(달력)과 출결 스탬프(출근/퇴근/조퇴)를 대조하여 일자별 출근/퇴근 시각을 만든다.
+ * 한 달치 스케쥴(달력)과 출결 스탬프(출근/퇴근/조퇴/휴식)를 대조하여 일자별 출근/퇴근 시각과
+ * 실휴식·법정휴게·총 근무시간을 만든다.
  *
- * 규칙(기존 시스템의 동작을 계승):
+ * 기존 규칙(전부 불변 — work-schedule §6-1):
  * <ul>
  *   <li>같은 날 출근이 여러 번이면 마지막 출근, 퇴근이 여러 번이면 마지막 퇴근을 채용</li>
  *   <li>출근 후 다음날 48시간 이내의 퇴근/조퇴는 야근으로 보고 24를 더한 시각(예: 25:10)으로 표시</li>
  *   <li>출근 후 48시간 넘게 퇴근이 없으면 미퇴근(퇴근 공란) 처리</li>
  *   <li>출근이 연달아 찍히면 앞의 출근은 미퇴근 처리</li>
- *   <li>휴일은 스케쥴/스탬프 모두 공란</li>
+ *   <li>휴일은 스케쥴/스탬프 모두 공란(공휴일은 holidayName 동봉)</li>
+ * </ul>
+ * 신규 계산(정본 공식 — work-schedule §1-1):
+ * <ul>
+ *   <li>법정휴게 = BreakPolicy(스케줄 근무구간 길이) — 근무일은 항상 산출(스케줄 기반)</li>
+ *   <li>실휴식 = 창(inAt~outAt 실시각) 안의 BREAK 시작→종료 짝 합산(§4 페어링).
+ *       미종료 휴식은 퇴근까지 간주(부풀리기 방지), 시작 없는 종료·창 밖은 무시</li>
+ *   <li>총 근무시간 = max(0, 체류 − max(법정휴게, 실휴식)). 출근·퇴근 미확정이면 null</li>
  * </ul>
  */
 public class MonthlyAttendanceAssembler {
 
-    /** 스케쥴 미등록 일자의 기본 시업/종업 시각 */
+    /** 스케쥴 미등록 일자의 기본 시업/종업 시각(유저 행 결손 등 이론적 방어선) */
     public static final LocalTime DEFAULT_START = LocalTime.of(9, 0);
     public static final LocalTime DEFAULT_END = LocalTime.of(18, 0);
 
     /**
      * @param monthDays    대상 월의 모든 날짜(오름차순)
      * @param schedules    일자별 스케쥴 오버라이드(work_date -> WorkSchedule)
-     * @param holidayDates 공휴일 집합
-     * @param stamps       출근/퇴근/조퇴 스탬프(시각 오름차순, 다음달 1일치 야근 포함)
+     * @param holidays     공휴일(날짜 -> 명칭) — 판정은 containsKey(정본: holiday-plan §6, CR3-2)
+     * @param stamps       전 타입 스탬프(시각 오름차순, 다음달 1일치 야근 포함 — BREAK 포함)
+     * @param defaultStart 개인 기본 시업(users.default_work_start — null이면 상수 폴백)
+     * @param defaultEnd   개인 기본 종업
+     * @param breakPolicy  테넌트 소재국 법정 휴게 정책
      */
     public List<DailyAttendance> assemble(List<LocalDate> monthDays,
             Map<LocalDate, WorkSchedule> schedules,
-            Set<LocalDate> holidayDates,
-            List<AttendanceStamp> stamps) {
+            Map<LocalDate, String> holidays,
+            List<AttendanceStamp> stamps,
+            LocalTime defaultStart,
+            LocalTime defaultEnd,
+            BreakPolicy breakPolicy) {
+
+        LocalTime baseStart = defaultStart != null ? defaultStart : DEFAULT_START;
+        LocalTime baseEnd = defaultEnd != null ? defaultEnd : DEFAULT_END;
 
         List<DailyAttendance> result = new ArrayList<>(monthDays.size());
         boolean attending = false;
@@ -47,16 +63,24 @@ public class MonthlyAttendanceAssembler {
 
         for (LocalDate day : monthDays) {
             WorkSchedule schedule = schedules.get(day);
-            boolean holiday = holidayDates.contains(day) || (schedule != null && schedule.holiday());
+            boolean holiday = holidays.containsKey(day) || (schedule != null && schedule.holiday());
             if (holiday) {
-                result.add(new DailyAttendance(day, true, null, null, null, null));
+                //휴일은 전부 공란(신규 3필드도 null — X8). 공휴일이면 명칭 동봉(개인 휴일은 null)
+                result.add(new DailyAttendance(day, true, null, null, null, null,
+                        holidays.get(day), null, null, null));
                 continue;
             }
-            String scheduleStart = format(schedule != null && schedule.startTime() != null ? schedule.startTime() : DEFAULT_START);
-            String scheduleEnd = format(schedule != null && schedule.endTime() != null ? schedule.endTime() : DEFAULT_END);
+            //우선순위: work_schedule(필드 단위) > 개인 기본값 > 상수 — §3-1
+            LocalTime resolvedStart =
+                    schedule != null && schedule.startTime() != null ? schedule.startTime() : baseStart;
+            LocalTime resolvedEnd =
+                    schedule != null && schedule.endTime() != null ? schedule.endTime() : baseEnd;
 
             String stampIn = null;
             String stampOut = null;
+            //표기 문자열 경로와 계산 경로 분리 — 표기 25:10 ↔ 계산은 실 LocalDateTime(창 구성용)
+            LocalDateTime inAt = null;
+            LocalDateTime outAt = null;
 
             stampLoop:
             for (int i = cursor; i < stamps.size(); i++) {
@@ -71,19 +95,26 @@ public class MonthlyAttendanceAssembler {
                     if (type == AttendanceType.GO_TO_WORK) {
                         attending = true;
                         stampIn = format(stamp.stampedAt().toLocalTime());
+                        inAt = stamp.stampedAt();
                         cursor = i + 1;
                     } else if (type == AttendanceType.OFF_WORK || type == AttendanceType.EARLY_DEPARTURE) {
                         //출근 여부와 상관없이 같은 날 퇴근/조퇴는 퇴근 시각으로 채용(마지막 값이 남음)
                         attending = false;
                         stampOut = format(stamp.stampedAt().toLocalTime());
+                        outAt = stamp.stampedAt();
                         cursor = i + 1;
                     }
+                    //BREAK는 페어링 단계에서 별도 합산 — 채용 로직에는 불참여
                 } else {
                     //다음날 이후의 스탬프
                     long diffHours = Duration.between(day.atStartOfDay(), stamp.stampedAt()).toHours();
                     if (!attending) {
                         //출근 상태가 아니면 이 날의 처리는 종료
                         break stampLoop;
+                    }
+                    if (type == AttendanceType.BREAK) {
+                        //야근 중 자정 넘긴 휴식 — 퇴근 채용에는 불참여(창 기준 합산이 처리)
+                        continue;
                     }
                     if (type == AttendanceType.GO_TO_WORK) {
                         //다음날 출근이 연달아 찍힘 -> 전날은 미퇴근 처리하고 다음날 처리로 넘어감
@@ -99,14 +130,62 @@ public class MonthlyAttendanceAssembler {
                     //야근(자정 넘긴 퇴근): 24를 더한 시각으로 표시
                     LocalDateTime out = stamp.stampedAt();
                     stampOut = String.format("%02d:%02d", out.getHour() + 24, out.getMinute());
+                    outAt = out;
                     attending = false;
                     cursor = i + 1;
                 }
             }
 
-            result.add(new DailyAttendance(day, false, scheduleStart, scheduleEnd, stampIn, stampOut));
+            //법정휴게는 스케줄 구간 기반이라 근무일은 항상 산출(X2 — 미퇴근이어도 표시)
+            int statutory = (int) breakPolicy
+                    .requiredBreak(Duration.between(resolvedStart, resolvedEnd)).toMinutes();
+            Integer breakMinutes = null;
+            Integer workMinutes = null;
+            if (inAt != null && outAt != null && !outAt.isBefore(inAt)) {
+                long stay = Duration.between(inAt, outAt).toMinutes();
+                long actualBreak = sumBreaks(stamps, inAt, outAt);
+                breakMinutes = (int) actualBreak;
+                workMinutes = (int) Math.max(0L, stay - Math.max(statutory, actualBreak));
+            }
+            result.add(new DailyAttendance(day, false, format(resolvedStart), format(resolvedEnd),
+                    stampIn, stampOut, null, breakMinutes, statutory, workMinutes));
         }
         return result;
+    }
+
+    /**
+     * 창(inAt~outAt) 안의 BREAK 페어링 합산(분) — work-schedule §4.
+     * 시작(0)이 열고 다음 종료(1)가 닫는다. 미종료 휴식은 outAt까지, 시작 없는 종료·창 밖은 무시.
+     */
+    private long sumBreaks(List<AttendanceStamp> stamps, LocalDateTime inAt, LocalDateTime outAt) {
+        long total = 0;
+        LocalDateTime open = null;
+        for (AttendanceStamp stamp : stamps) {
+            if (stamp.type() != AttendanceType.BREAK) {
+                continue;
+            }
+            LocalDateTime at = stamp.stampedAt();
+            if (at.isBefore(inAt) || at.isAfter(outAt)) {
+                //창 밖(재출근 덮어쓰기로 버려진 구간 포함)은 무시 — 마지막 값 채용 규칙과 동일 귀결
+                continue;
+            }
+            if (stamp.status() == AttendanceStamp.STATUS_ACTIVE) {
+                if (open == null) {
+                    open = at;
+                }
+            } else if (stamp.status() == AttendanceStamp.STATUS_BREAK_ENDED) {
+                if (open != null) {
+                    total += Duration.between(open, at).toMinutes();
+                    open = null;
+                }
+                //시작 없는 종료는 무시(상태머신상 도달 불가 — 방어 규칙)
+            }
+        }
+        if (open != null) {
+            //미종료 휴식: 퇴근까지 휴식 간주(차감 극대화 — 근무시간 부풀리기 방지)
+            total += Duration.between(open, outAt).toMinutes();
+        }
+        return total;
     }
 
     private String format(LocalTime time) {

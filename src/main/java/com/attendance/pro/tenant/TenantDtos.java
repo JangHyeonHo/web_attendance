@@ -35,6 +35,10 @@ public final class TenantDtos {
             @Size(max = 100, message = "{validation.tenant-name.size}")
             String name,
 
+            @Schema(description = "schema.field.country", example = "KR")
+            @NotBlank(message = "{validation.country.required}")
+            String country,   //ProfileCountry.of()로 검증 — 미지원이면 400 COUNTRY_UNSUPPORTED
+
             @Schema(description = "schema.tenant-create-request.admin-email", example = "admin@acme.co.kr")
             @NotBlank(message = "{validation.email.required}")
             @Email(message = "{validation.email.format}")
@@ -47,17 +51,23 @@ public final class TenantDtos {
             String adminName) {
     }
 
+    //통합 최종 계약(이메일 초대 전환 × 공휴일 동기 — CR3-1/5). initialPassword 폐지.
     @Schema(description = "schema.tenant-create-response")
     public record TenantCreateResponse(
-            long tenantId, String tenantCode, String name, TenantStatus status,
+            long tenantId, String tenantCode, String name,
+            @Schema(description = "schema.field.country") String country,
+            TenantStatus status,
             long adminUserId, String adminEmail,
-            @Schema(description = "schema.field.initial-password") String initialPassword) {
+            @Schema(description = "schema.field.member-status") com.attendance.pro.user.UserStatus adminStatus, //항상 PENDING
+            @Schema(description = "schema.field.mail-sent") boolean mailSent,           //false면 admin-invite 재발송
+            @Schema(description = "schema.field.holidays-synced") boolean holidaysSynced) { //false면 W013 수동 동기화
     }
-    //initialPassword는 이 응답에서 단 한 번만 평문 반환(저장은 BCrypt). 초대 링크는 Phase 3.
 
     @Schema(description = "schema.tenant-response")
     public record TenantResponse(
-            long tenantId, String tenantCode, String name, TenantStatus status,
+            long tenantId, String tenantCode, String name,
+            @Schema(description = "schema.field.country") String country,
+            TenantStatus status,
             @Schema(description = "schema.field.member-count") int memberCount,
             LocalDateTime createdAt) {
     }
@@ -67,13 +77,9 @@ public final class TenantDtos {
             @NotNull(message = "{validation.tenant-status.required}") TenantStatus status) {
     }
 
+    //country 필드 없음 — 소재국의 정본은 tenant.country(V7 승격), 검증·마스킹 국가도 거기서 취득(§4-2)
     @Schema(description = "schema.tenant-profile-request")
     public record TenantProfileRequest(
-            @Schema(description = "schema.field.country", example = "KR")
-            @NotBlank(message = "{validation.country.required}")
-            @Pattern(regexp = "KR|JP", message = "{validation.country.supported}")
-            String country,                                           //사업자 식별번호 체계를 결정(KR/JP)
-
             //형식은 국가별(KR ###-##-#####, JP 13자리)이라 어노테이션이 아닌 서비스에서 검증
             @NotBlank(message = "{validation.biz-reg-no.required}")
             @Size(max = 20, message = "{validation.biz-reg-no.size}")
