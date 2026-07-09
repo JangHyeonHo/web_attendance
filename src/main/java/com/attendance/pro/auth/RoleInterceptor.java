@@ -27,7 +27,7 @@ public class RoleInterceptor implements HandlerInterceptor {
     /** 선언 순서대로 첫 매칭 규칙 적용 */
     private static final List<RouteRule> RULES = List.of(
             new RouteRule("/api/v1/system/**", Set.of(Role.SYSTEM_ADMIN)),
-            new RouteRule("/api/v1/admin/i18n/**", Set.of(Role.SYSTEM_ADMIN)),            //언어 마스터는 글로벌 제품 자산
+            new RouteRule("/api/v1/admin/**", Set.of(Role.SYSTEM_ADMIN)),                 //admin 하위는 전부 글로벌 제품 자산(i18n·메일 템플릿)
             new RouteRule("/api/v1/tenant/**", Set.of(Role.TENANT_ADMIN)),                //SYSTEM_ADMIN도 403
             new RouteRule("/api/v1/attendance/**", Set.of(Role.TENANT_ADMIN, Role.MEMBER)) //SYSTEM_ADMIN 명시 배제
     );
