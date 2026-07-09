@@ -33,11 +33,14 @@ class NavigationServiceTest {
     }
 
     private static final SessionUser MEMBER =
-            new SessionUser(1L, 10L, "ACME", "에이크미(주)", "hong@example.com", "홍길동", Role.MEMBER);
+            new SessionUser(1L, 10L, "ACME", "에이크미(주)", "hong@example.com", "홍길동", Role.MEMBER,
+                    java.time.LocalDateTime.now());
     private static final SessionUser TENANT_ADMIN =
-            new SessionUser(2L, 10L, "ACME", "에이크미(주)", "ta@acme.co.kr", "김관리", Role.TENANT_ADMIN);
+            new SessionUser(2L, 10L, "ACME", "에이크미(주)", "ta@acme.co.kr", "김관리", Role.TENANT_ADMIN,
+                    java.time.LocalDateTime.now());
     private static final SessionUser SYSTEM_ADMIN =
-            new SessionUser(3L, 1L, "DEFAULT", "기본 테넌트", "admin@attendance.local", "관리자", Role.SYSTEM_ADMIN);
+            new SessionUser(3L, 1L, "DEFAULT", "기본 테넌트", "admin@attendance.local", "관리자", Role.SYSTEM_ADMIN,
+                    java.time.LocalDateTime.now());
 
     @Test
     @DisplayName("미로그인: 공개 화면은 그대로, 보호 화면은 로그인으로")
@@ -147,6 +150,43 @@ class NavigationServiceTest {
         assertThat(service.decide("W006", SYSTEM_ADMIN, false))
                 .isEqualTo(new Decision(Screen.SYSTEM_TENANTS, NavigationReason.ROLE_DENIED, false));
         assertThat(service.decide("W009", SYSTEM_ADMIN, false))
+                .isEqualTo(new Decision(Screen.SYSTEM_TENANTS, NavigationReason.ROLE_DENIED, false));
+    }
+
+    @Test
+    @DisplayName("W010/W011(공개): 미로그인은 물론 로그인 중에도 전개 허용(메일 링크는 기존 세션과 무관)")
+    void passwordScreensArePublicEvenWhenLoggedIn() {
+        NavigationService service = service();
+        assertThat(service.decide("W010", null, false)).isEqualTo(new Decision(Screen.PASSWORD_SETUP, null, false));
+        assertThat(service.decide("W011", null, false)).isEqualTo(new Decision(Screen.PASSWORD_RESET, null, false));
+        //로그인 상태의 공개 화면 홈 리다이렉트는 LOGIN/INDEX만 — W010/W011은 그대로 전개
+        assertThat(service.decide("W010", MEMBER, false)).isEqualTo(new Decision(Screen.PASSWORD_SETUP, null, false));
+        assertThat(service.decide("W011", SYSTEM_ADMIN, false)).isEqualTo(new Decision(Screen.PASSWORD_RESET, null, false));
+        //테넌트 서브도메인에서도 전개 허용
+        assertThat(service.decide("W010", null, true)).isEqualTo(new Decision(Screen.PASSWORD_SETUP, null, false));
+    }
+
+    @Test
+    @DisplayName("W012(메일 템플릿): SYSTEM_ADMIN만 — 그 외는 홈 + ROLE_DENIED")
+    void mailTemplatesScreenRoleGate() {
+        NavigationService service = service();
+        assertThat(service.decide("W012", SYSTEM_ADMIN, false)).isEqualTo(new Decision(Screen.MAIL_TEMPLATES, null, false));
+        assertThat(service.decide("W012", TENANT_ADMIN, false))
+                .isEqualTo(new Decision(Screen.ATTENDANCE, NavigationReason.ROLE_DENIED, false));
+        assertThat(service.decide("W012", MEMBER, false))
+                .isEqualTo(new Decision(Screen.ATTENDANCE, NavigationReason.ROLE_DENIED, false));
+        assertThat(service.decide("W012", null, false))
+                .isEqualTo(new Decision(Screen.LOGIN, NavigationReason.LOGIN_REQUIRED, false));
+    }
+
+    @Test
+    @DisplayName("W013(공휴일): TENANT_ADMIN만 — MEMBER/SYSTEM_ADMIN은 홈 + ROLE_DENIED")
+    void holidaysScreenRoleGate() {
+        NavigationService service = service();
+        assertThat(service.decide("W013", TENANT_ADMIN, false)).isEqualTo(new Decision(Screen.HOLIDAYS, null, false));
+        assertThat(service.decide("W013", MEMBER, false))
+                .isEqualTo(new Decision(Screen.ATTENDANCE, NavigationReason.ROLE_DENIED, false));
+        assertThat(service.decide("W013", SYSTEM_ADMIN, false))
                 .isEqualTo(new Decision(Screen.SYSTEM_TENANTS, NavigationReason.ROLE_DENIED, false));
     }
 
