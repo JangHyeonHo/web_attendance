@@ -8,6 +8,7 @@ import java.util.Objects;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,6 +44,8 @@ public class HolidayService {
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
 
+    //생성자가 2개(테스트용 Clock 주입)이므로 스프링이 쓸 쪽을 명시한다
+    @Autowired
     public HolidayService(HolidayMapper holidayMapper, TenantMapper tenantMapper,
             NagerDateClient nagerDateClient, TransactionTemplate transactionTemplate) {
         this(holidayMapper, tenantMapper, nagerDateClient, transactionTemplate, Clock.systemDefaultZone());
