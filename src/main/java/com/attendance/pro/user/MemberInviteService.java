@@ -8,6 +8,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import com.attendance.pro.mail.MailLanguageResolver;
@@ -75,6 +76,19 @@ public class MemberInviteService {
      */
     public InviteOutcome sendReset(long tenantId, long userId, String email, String memberName) {
         return send(tenantId, userId, email, memberName, null, TokenPurpose.RESET);
+    }
+
+    /**
+     * 재설정 발송의 비동기 판 — 공개 재설정 요청(202 통일 응답) 전용.
+     * 동기 발송이면 계정이 실존할 때만 SMTP 왕복이 응답 시간에 실려 존재 오라클이 된다(리뷰 P3-1).
+     * 실패는 여기서 로그만(응답은 이미 떠났다 — 오류를 되돌릴 곳이 없음).
+     */
+    @Async
+    public void sendResetAsync(long tenantId, long userId, String email, String memberName) {
+        InviteOutcome outcome = sendReset(tenantId, userId, email, memberName);
+        if (!outcome.mailSent()) {
+            log.error("password reset mail send failed: tenantId={}, userId={}", tenantId, userId);
+        }
     }
 
     private InviteOutcome send(long tenantId, long userId, String email, String memberName,

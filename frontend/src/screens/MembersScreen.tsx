@@ -219,9 +219,12 @@ export function MembersScreen() {
     return t('DELETE')
   }
 
-  /** PENDING 행의 초대 만료 표시 — 유효하면 만료 시각, null/경과면 "만료 — 재발송 필요" */
+  /**
+   * PENDING 행의 초대 만료 표시 — 서버가 유효 토큰만 내려준다(expires_at > NOW 필터).
+   * 값이 있으면 그대로 표시, null이면 만료(클라이언트 시계로 재판정하지 않는다 — 시계 오차 오표시 방지).
+   */
   function inviteExpiryLabel(member: MemberSummary): string {
-    if (member.inviteExpiresAt && new Date(member.inviteExpiresAt).getTime() > Date.now()) {
+    if (member.inviteExpiresAt) {
       return member.inviteExpiresAt.replace('T', ' ').slice(0, 16)
     }
     return t('INVITE_EXPIRED')

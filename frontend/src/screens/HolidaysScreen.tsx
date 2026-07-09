@@ -55,10 +55,14 @@ export function HolidaysScreen() {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
   const [rowError, setRowError] = useState<{ date: string; message: string } | null>(null)
 
-  //요일 명칭은 사전 없이 Intl 표준 API로 생성(W006 방식)
+  //요일 명칭은 사전 없이 Intl 표준 API로 생성(W006 방식).
+  //'YYYY-MM-DD'를 new Date(문자열)로 넘기면 UTC 자정 해석 — 음수 오프셋 시간대에서 전날 요일이 되므로 로컬 성분 생성
   const weekdayOf = useMemo(() => {
     const format = new Intl.DateTimeFormat(localeOf(lang), { weekday: 'short' })
-    return (date: string) => format.format(new Date(date))
+    return (date: string) => {
+      const [y, m, d] = date.split('-').map(Number)
+      return format.format(new Date(y, m - 1, d))
+    }
   }, [lang])
 
   const reload = useCallback(async () => {

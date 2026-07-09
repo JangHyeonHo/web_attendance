@@ -53,7 +53,8 @@ function ScreenBody({ screen }: { screen: ScreenCode }) {
 }
 
 export default function App() {
-  const { screen, userName, role, tenantName, lang, t, navigate, ready, navError } = useApp()
+  const { screen, userName, role, tenantName, lang, t, navigate, ready, navError, getPasswordToken } =
+    useApp()
 
   if (!ready) {
     //첫 navigation 응답 전에는 서버 텍스트가 없다 — 실패시에만 언어 중립(3개국어 병기) 재시도 화면
@@ -63,7 +64,8 @@ export default function App() {
           <p className="error" role="alert">
             서버에 연결할 수 없습니다 / Cannot reach the server / サーバーに接続できません
           </p>
-          <button className="primary" onClick={() => void navigate()}>
+          {/* 토큰 진입(메일 링크) 실패 재시도는 W010 의도를 유지한다 — 기본 화면으로 새지 않게 */}
+          <button className="primary" onClick={() => void navigate(getPasswordToken() ? 'W010' : undefined)}>
             재시도 / Retry / 再試行
           </button>
         </div>

@@ -130,6 +130,21 @@ class MailTemplateServiceTest {
     }
 
     @Test
+    @DisplayName("TPL-03d: 변수 값에 든 중괄호/변수 표기는 재해석되지 않는다(단일 패스 치환 — 리뷰 P3-2)")
+    void renderToleratesBracesInVariableValues() {
+        when(mailTemplateMapper.find(TokenPurpose.RESET, "KOR")).thenReturn(template(TokenPurpose.RESET,
+                "{memberName}님", "재설정: {actionUrl}"));
+
+        //이름에 변수 표기가 그대로 들어간 극단 케이스 — 순차 replace라면 발송 불능/오치환이 된다
+        RenderedMail mail = service().render(10L, TokenPurpose.RESET, "KOR", Map.of(
+                "memberName", "홍{actionUrl}동", "tenantName", "T",
+                "actionUrl", "http://x/?token=T", "expiresAt", "2026-07-12 09:00"));
+
+        assertThat(mail.subject()).isEqualTo("홍{actionUrl}동님");
+        assertThat(mail.body()).isEqualTo("재설정: http://x/?token=T");
+    }
+
+    @Test
     @DisplayName("TPL-04a: 회사 오버라이드가 있으면 렌더는 오버라이드를 쓴다(전역 미조회)")
     void renderPrefersTenantOverride() {
         when(tenantMailTemplateMapper.find(10L, TokenPurpose.INVITE, "KOR")).thenReturn(

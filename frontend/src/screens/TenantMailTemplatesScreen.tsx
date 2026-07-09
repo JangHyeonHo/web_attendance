@@ -203,7 +203,7 @@ export function TenantMailTemplatesScreen() {
               />
             </label>
             {formError && <p className="error" role="alert">{formError}</p>}
-            {saved && <p className="success" role="status">OK</p>}
+            {saved && <p className="success" role="status">{t('SAVED')}</p>}
             <div className="btn-row">
               <button type="button" onClick={() => void onPreview()} disabled={busy}>
                 {t('PREVIEW')}

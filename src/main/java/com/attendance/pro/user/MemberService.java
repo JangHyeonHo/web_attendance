@@ -7,11 +7,13 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.attendance.pro.auth.PasswordResetRateLimiter;
 import com.attendance.pro.common.ApiException;
 import com.attendance.pro.user.MemberDtos.InviteResponse;
 import com.attendance.pro.user.MemberDtos.MemberCreateRequest;
@@ -38,14 +40,16 @@ public class MemberService {
     private final UserMapper userMapper;
     private final UserTokenService userTokenService;
     private final MemberInviteService memberInviteService;
+    private final PasswordResetRateLimiter rateLimiter;
     private final PasswordEncoder passwordEncoder;
     private final SecureRandom random = new SecureRandom();
 
     public MemberService(UserMapper userMapper, UserTokenService userTokenService,
-            MemberInviteService memberInviteService) {
+            MemberInviteService memberInviteService, PasswordResetRateLimiter rateLimiter) {
         this.userMapper = userMapper;
         this.userTokenService = userTokenService;
         this.memberInviteService = memberInviteService;
+        this.rateLimiter = rateLimiter;
         this.passwordEncoder = new BCryptPasswordEncoder();
     }
 
@@ -73,7 +77,12 @@ public class MemberService {
         UserCreate create = new UserCreate(tenantId, request.email(),
                 unusablePasswordHash(), request.name(), request.departCd(),
                 workStart, workEnd, Role.MEMBER, UserStatus.PENDING);
-        userMapper.insert(create);
+        try {
+            userMapper.insert(create);
+        } catch (DuplicateKeyException e) {
+            //existsByEmail 검사와 INSERT 사이의 동시 등록 레이스 — UNIQUE(email_key) 위반을 같은 409로
+            throw ApiException.conflict("EMAIL_DUPLICATED", "member.email.duplicated");
+        }
         //메일 발송은 등록 트랜잭션과 분리 — 실패해도 멤버·토큰은 존재(mailSent=false → 재발송 유도)
         InviteOutcome mail = memberInviteService.sendInvite(tenantId, create.getUserId(),
                 create.getEmail(), create.getName(), inviterName);
@@ -92,6 +101,7 @@ public class MemberService {
         if (target.status() != UserStatus.PENDING) {
             throw ApiException.conflict("MEMBER_NOT_PENDING", "member.invite.not-pending");
         }
+        rateLimiter.checkInviteResend(tenantId, target.email());
         InviteOutcome mail = memberInviteService.sendInvite(tenantId, userId,
                 target.email(), target.name(), inviterName);
         return new InviteResponse(userId, target.email(), mail.mailSent(), mail.expiresAt());

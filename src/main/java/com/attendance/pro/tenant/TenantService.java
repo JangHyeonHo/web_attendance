@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.attendance.pro.auth.PasswordResetRateLimiter;
 import com.attendance.pro.auth.SessionUser;
 import com.attendance.pro.common.ApiException;
 import com.attendance.pro.holiday.HolidayService;
@@ -38,16 +39,18 @@ public class TenantService {
     private final MemberService memberService;
     private final MemberInviteService memberInviteService;
     private final HolidayService holidayService;
+    private final PasswordResetRateLimiter rateLimiter;
     private final TransactionTemplate transactionTemplate;
 
     public TenantService(TenantMapper tenantMapper, UserMapper userMapper, MemberService memberService,
             MemberInviteService memberInviteService, HolidayService holidayService,
-            TransactionTemplate transactionTemplate) {
+            PasswordResetRateLimiter rateLimiter, TransactionTemplate transactionTemplate) {
         this.tenantMapper = tenantMapper;
         this.userMapper = userMapper;
         this.memberService = memberService;
         this.memberInviteService = memberInviteService;
         this.holidayService = holidayService;
+        this.rateLimiter = rateLimiter;
         this.transactionTemplate = transactionTemplate;
     }
 
@@ -104,6 +107,7 @@ public class TenantService {
             throw ApiException.conflict("TENANT_ADMIN_INVITE_INVALID", "tenant.admin-invite.invalid");
         }
         User admin = pendingAdmins.get(0);
+        rateLimiter.checkInviteResend(tenantId, admin.email());
         InviteOutcome mail = memberInviteService.sendInvite(tenantId, admin.userId(),
                 admin.email(), admin.name(), actor.name());
         return new InviteResponse(admin.userId(), admin.email(), mail.mailSent(), mail.expiresAt());

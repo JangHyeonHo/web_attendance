@@ -160,14 +160,14 @@ public class MailTemplateService {
             //DB 직수정으로 링크 변수가 지워진 방어 — 링크 없는 초대/재설정 메일은 기능 불능이므로 발송 중단
             throw new IllegalStateException("mail template body lost {actionUrl}: " + purpose + "/" + lang);
         }
-        String subject = substitute(subjectTemplate, variables);
-        String body = substitute(bodyTemplate, variables);
-        String leftover = firstPlaceholder(subject + "\n" + body);
-        if (leftover != null) {
+        //잔존 검출은 치환 "전" 템플릿을 스캔한다 — 치환 결과 스캔이면 변수 값에 든 중괄호
+        //(예: 이름 "{길동}")가 오검출돼 그 대상만 영구 발송 불능이 된다(리뷰 P3-2)
+        String unknown = firstUnknownPlaceholder(subjectTemplate + "\n" + bodyTemplate, variables);
+        if (unknown != null) {
             //DB 직수정 등으로 허용 외 변수가 들어온 방어 — 미치환 본문을 발송하지 않는다
-            throw new IllegalStateException("unresolved mail placeholder: {" + leftover + "}");
+            throw new IllegalStateException("unresolved mail placeholder: {" + unknown + "}");
         }
-        return new RenderedMail(subject, body);
+        return new RenderedMail(substitute(subjectTemplate, variables), substitute(bodyTemplate, variables));
     }
 
     /** 미리보기 샘플 값(email-onboarding §6.1). */
@@ -203,17 +203,31 @@ public class MailTemplateService {
         }
     }
 
+    /**
+     * 단일 패스 치환 — 순차 replace와 달리 변수 "값"에 든 중괄호/변수 표기가 재해석되지 않는다.
+     * 맵에 없는 플레이스홀더는 원문 유지(잔존 검출은 render의 사전 템플릿 스캔이 담당).
+     */
     private String substitute(String text, Map<String, String> variables) {
-        String result = text;
-        for (Map.Entry<String, String> entry : variables.entrySet()) {
-            result = result.replace("{" + entry.getKey() + "}", entry.getValue());
+        Matcher matcher = PLACEHOLDER.matcher(text);
+        StringBuilder result = new StringBuilder();
+        while (matcher.find()) {
+            String value = variables.get(matcher.group(1));
+            matcher.appendReplacement(result,
+                    Matcher.quoteReplacement(value != null ? value : matcher.group()));
         }
-        return result;
+        matcher.appendTail(result);
+        return result.toString();
     }
 
-    private String firstPlaceholder(String text) {
-        Matcher matcher = PLACEHOLDER.matcher(text);
-        return matcher.find() ? matcher.group(1) : null;
+    /** 치환 전 템플릿에서 변수 맵에 없는 첫 플레이스홀더 이름(없으면 null). */
+    private String firstUnknownPlaceholder(String template, Map<String, String> variables) {
+        Matcher matcher = PLACEHOLDER.matcher(template);
+        while (matcher.find()) {
+            if (!variables.containsKey(matcher.group(1))) {
+                return matcher.group(1);
+            }
+        }
+        return null;
     }
 
     private TokenPurpose resolvePurpose(String purpose) {

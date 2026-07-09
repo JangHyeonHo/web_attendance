@@ -296,7 +296,7 @@ export function TenantsScreen() {
               {openDetailId === tenant.tenantId && (
                 <tr>
                   <td colSpan={7} className="embed-cell">
-                    <TenantDetailScreen tenantId={tenant.tenantId} />
+                    <TenantDetailScreen tenantId={tenant.tenantId} country={tenant.country} />
                   </td>
                 </tr>
               )}

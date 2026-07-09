@@ -32,9 +32,10 @@ class SessionRevalidationInterceptorTest {
 
     private static final long TENANT_ID = 10L;
     private static final long USER_ID = 5L;
-    private static final LocalDateTime ISSUED_AT = LocalDateTime.of(2026, 7, 9, 9, 0);
+    /** 로그인 시점의 password_changed_at 스냅샷 — DB 현재 값과 다르면(방향 무관) 세션 회수 */
+    private static final LocalDateTime PW_CHANGED_AT = LocalDateTime.of(2026, 7, 9, 9, 0);
     private static final SessionUser SNAPSHOT = new SessionUser(
-            USER_ID, TENANT_ID, "ACME", "에이크미", "ta@acme.co.kr", "김관리", Role.TENANT_ADMIN, ISSUED_AT);
+            USER_ID, TENANT_ID, "ACME", "에이크미", "ta@acme.co.kr", "김관리", Role.TENANT_ADMIN, PW_CHANGED_AT);
 
     @Mock
     private UserMapper userMapper;
@@ -48,7 +49,7 @@ class SessionRevalidationInterceptorTest {
     }
 
     private static User dbUser(Role role, UserStatus status) {
-        return dbUser(role, status, null);
+        return dbUser(role, status, PW_CHANGED_AT);
     }
 
     private static User dbUser(Role role, UserStatus status, LocalDateTime passwordChangedAt) {
@@ -132,11 +133,11 @@ class SessionRevalidationInterceptorTest {
     }
 
     @Test
-    @DisplayName("SES-01(U): 비밀번호 변경 이전 발급 세션은 즉시 무효화(언어 설정만 이월)")
+    @DisplayName("SES-01(U): 로그인 이후 비밀번호가 변경되면(스냅샷 불일치) 즉시 무효화(언어 설정만 이월)")
     void passwordChangeInvalidatesOlderSession() {
-        //세션 발급(ISSUED_AT) 이후에 비밀번호가 변경된 상황
+        //세션 스냅샷(PW_CHANGED_AT) 이후에 비밀번호가 변경된 상황
         when(userMapper.findById(TENANT_ID, USER_ID))
-                .thenReturn(dbUser(Role.TENANT_ADMIN, UserStatus.ACTIVE, ISSUED_AT.plusMinutes(10)));
+                .thenReturn(dbUser(Role.TENANT_ADMIN, UserStatus.ACTIVE, PW_CHANGED_AT.plusMinutes(10)));
         when(tenantMapper.findById(TENANT_ID)).thenReturn(dbTenant(TenantStatus.ACTIVE));
         MockHttpServletRequest request = loggedInRequest();
 
@@ -147,34 +148,37 @@ class SessionRevalidationInterceptorTest {
     }
 
     @Test
-    @DisplayName("비밀번호 변경 이후 발급된 세션은 유지된다(변경 직후 본인 재로그인)")
-    void sessionIssuedAfterPasswordChangeSurvives() {
+    @DisplayName("동등 비교라 과거 방향 불일치(백업 복원·시계 오차)도 무효화한다(리뷰 P3-6)")
+    void anyMismatchInvalidatesRegardlessOfDirection() {
         when(userMapper.findById(TENANT_ID, USER_ID))
-                .thenReturn(dbUser(Role.TENANT_ADMIN, UserStatus.ACTIVE, ISSUED_AT.minusMinutes(10)));
+                .thenReturn(dbUser(Role.TENANT_ADMIN, UserStatus.ACTIVE, PW_CHANGED_AT.minusMinutes(10)));
         when(tenantMapper.findById(TENANT_ID)).thenReturn(dbTenant(TenantStatus.ACTIVE));
         MockHttpServletRequest request = loggedInRequest();
 
         interceptor().preHandle(request, new MockHttpServletResponse(), new Object());
 
-        assertThat(request.getSession(false).getAttribute(SessionUser.SESSION_KEY)).isEqualTo(SNAPSHOT);
+        assertThat(request.getSession(false).getAttribute(SessionUser.SESSION_KEY)).isNull();
     }
 
     @Test
-    @DisplayName("password_changed_at이 NULL(이력 없음 — 기존 유저)이면 세션 유지")
+    @DisplayName("password_changed_at이 NULL(이력 없음 — 기존 유저)이고 스냅샷도 NULL이면 세션 유지")
     void nullPasswordChangedAtKeepsSession() {
+        SessionUser legacySnapshot = new SessionUser(USER_ID, TENANT_ID, "ACME", "에이크미",
+                "ta@acme.co.kr", "김관리", Role.TENANT_ADMIN, null);
         when(userMapper.findById(TENANT_ID, USER_ID))
                 .thenReturn(dbUser(Role.TENANT_ADMIN, UserStatus.ACTIVE, null));
         when(tenantMapper.findById(TENANT_ID)).thenReturn(dbTenant(TenantStatus.ACTIVE));
         MockHttpServletRequest request = loggedInRequest();
+        request.getSession(false).setAttribute(SessionUser.SESSION_KEY, legacySnapshot);
 
         interceptor().preHandle(request, new MockHttpServletResponse(), new Object());
 
-        assertThat(request.getSession(false).getAttribute(SessionUser.SESSION_KEY)).isEqualTo(SNAPSHOT);
+        assertThat(request.getSession(false).getAttribute(SessionUser.SESSION_KEY)).isEqualTo(legacySnapshot);
     }
 
     @Test
-    @DisplayName("SES-02: 재검증의 role 갱신 경로는 원래 issuedAt을 보존한다(세션 연장 없음)")
-    void roleRefreshPreservesIssuedAt() {
+    @DisplayName("SES-02: 재검증의 role 갱신 경로는 원래 passwordChangedAt 스냅샷을 보존한다")
+    void roleRefreshPreservesPasswordChangedAt() {
         when(userMapper.findById(TENANT_ID, USER_ID)).thenReturn(dbUser(Role.MEMBER, UserStatus.ACTIVE));
         when(tenantMapper.findById(TENANT_ID)).thenReturn(dbTenant(TenantStatus.ACTIVE));
         MockHttpServletRequest request = loggedInRequest();
@@ -183,7 +187,7 @@ class SessionRevalidationInterceptorTest {
 
         SessionUser refreshed =
                 (SessionUser) request.getSession(false).getAttribute(SessionUser.SESSION_KEY);
-        assertThat(refreshed.issuedAt()).isEqualTo(ISSUED_AT);
+        assertThat(refreshed.passwordChangedAt()).isEqualTo(PW_CHANGED_AT);
     }
 
     @Test

@@ -27,7 +27,6 @@ import com.attendance.pro.tenant.Tenant;
 import com.attendance.pro.tenant.TenantMapper;
 import com.attendance.pro.tenant.TenantStatus;
 import com.attendance.pro.user.MemberInviteService;
-import com.attendance.pro.user.MemberInviteService.InviteOutcome;
 import com.attendance.pro.user.Role;
 import com.attendance.pro.user.TokenPurpose;
 import com.attendance.pro.user.User;
@@ -124,6 +123,15 @@ class PasswordServiceTest {
             when(userMapper.findById(TENANT_ID, USER_ID)).thenReturn(user(UserStatus.ACTIVE));
             expectTokenInvalid(() -> service().verify(RAW_TOKEN));
         }
+
+        @Test
+        @DisplayName("정지(SUSPENDED) 테넌트의 토큰 verify는 통일 404 — 정지 회사 우회 차단(리뷰 P3-3)")
+        void verifyRejectsSuspendedTenant() {
+            when(userTokenService.verify(RAW_TOKEN)).thenReturn(token(TokenPurpose.RESET));
+            when(userMapper.findById(TENANT_ID, USER_ID)).thenReturn(user(UserStatus.ACTIVE));
+            when(tenantMapper.findById(TENANT_ID)).thenReturn(tenant(TenantStatus.SUSPENDED));
+            expectTokenInvalid(() -> service().verify(RAW_TOKEN));
+        }
     }
 
     @Nested
@@ -135,6 +143,8 @@ class PasswordServiceTest {
         void inviteSetActivates() {
             when(userTokenService.verify(RAW_TOKEN)).thenReturn(token(TokenPurpose.INVITE));
             when(userMapper.findById(TENANT_ID, USER_ID)).thenReturn(user(UserStatus.PENDING));
+            when(tenantMapper.findById(TENANT_ID)).thenReturn(tenant(TenantStatus.ACTIVE));
+            when(userTokenService.markUsed(TENANT_ID, TOKEN_HASH)).thenReturn(1);
 
             service().set(RAW_TOKEN, "NewPass1!word");
 
@@ -151,12 +161,37 @@ class PasswordServiceTest {
         void resetSetKeepsStatus() {
             when(userTokenService.verify(RAW_TOKEN)).thenReturn(token(TokenPurpose.RESET));
             when(userMapper.findById(TENANT_ID, USER_ID)).thenReturn(user(UserStatus.ACTIVE));
+            when(tenantMapper.findById(TENANT_ID)).thenReturn(tenant(TenantStatus.ACTIVE));
+            when(userTokenService.markUsed(TENANT_ID, TOKEN_HASH)).thenReturn(1);
 
             service().set(RAW_TOKEN, "NewPass1!word");
 
             verify(userMapper).updatePassword(eq(TENANT_ID), eq(USER_ID), anyString());
             verify(userMapper, never()).updateStatus(anyLong(), anyLong(), eq(UserStatus.ACTIVE));
             verify(userTokenService).markUsed(TENANT_ID, TOKEN_HASH);
+        }
+
+        @Test
+        @DisplayName("동시 2요청 중 늦은 쪽(markUsed=0)은 404 — 변경 없음(1회용의 원자 보장)")
+        void concurrentSecondSetRejected() {
+            when(userTokenService.verify(RAW_TOKEN)).thenReturn(token(TokenPurpose.RESET));
+            when(userMapper.findById(TENANT_ID, USER_ID)).thenReturn(user(UserStatus.ACTIVE));
+            when(tenantMapper.findById(TENANT_ID)).thenReturn(tenant(TenantStatus.ACTIVE));
+            when(userTokenService.markUsed(TENANT_ID, TOKEN_HASH)).thenReturn(0);
+
+            expectTokenInvalid(() -> service().set(RAW_TOKEN, "NewPass1!word"));
+            verify(userMapper, never()).updatePassword(anyLong(), anyLong(), anyString());
+        }
+
+        @Test
+        @DisplayName("정지(SUSPENDED) 테넌트의 토큰 set은 404 — 변경 없음(리뷰 P3-3)")
+        void suspendedTenantSetRejected() {
+            when(userTokenService.verify(RAW_TOKEN)).thenReturn(token(TokenPurpose.RESET));
+            when(userMapper.findById(TENANT_ID, USER_ID)).thenReturn(user(UserStatus.ACTIVE));
+            when(tenantMapper.findById(TENANT_ID)).thenReturn(tenant(TenantStatus.SUSPENDED));
+
+            expectTokenInvalid(() -> service().set(RAW_TOKEN, "NewPass1!word"));
+            verify(userMapper, never()).updatePassword(anyLong(), anyLong(), anyString());
         }
 
         @Test
@@ -182,16 +217,14 @@ class PasswordServiceTest {
     class ResetRequest {
 
         @Test
-        @DisplayName("RST-05(U): ACTIVE 계정만 RESET 발송(발급·TTL은 UserTokenService·InviteService 위임)")
+        @DisplayName("RST-05(U): ACTIVE 계정만 RESET 발송 — 비동기 위임(응답 시간 오라클 차단, 리뷰 P3-1)")
         void activeAccountSends() {
             when(tenantMapper.findByCode("ACME")).thenReturn(tenant(TenantStatus.ACTIVE));
             when(userMapper.findByEmail(TENANT_ID, "hong@acme.co.kr")).thenReturn(user(UserStatus.ACTIVE));
-            when(memberInviteService.sendReset(TENANT_ID, USER_ID, "hong@acme.co.kr", "홍길동"))
-                    .thenReturn(new InviteOutcome(true, LocalDateTime.now().plusMinutes(30)));
 
             service().requestReset("acme", "hong@acme.co.kr");
 
-            verify(memberInviteService).sendReset(TENANT_ID, USER_ID, "hong@acme.co.kr", "홍길동");
+            verify(memberInviteService).sendResetAsync(TENANT_ID, USER_ID, "hong@acme.co.kr", "홍길동");
         }
 
         @Test
@@ -216,19 +249,7 @@ class PasswordServiceTest {
             service.requestReset("ACME", "hong@acme.co.kr");
             service.requestReset("ACME", "hong@acme.co.kr");
 
-            verify(memberInviteService, never()).sendReset(anyLong(), anyLong(), anyString(), anyString());
-        }
-
-        @Test
-        @DisplayName("발송 실패도 조용히 무시(202 통일 — 오류 응답 자체가 오라클이 된다)")
-        void mailFailureSilent() {
-            when(tenantMapper.findByCode("ACME")).thenReturn(tenant(TenantStatus.ACTIVE));
-            when(userMapper.findByEmail(TENANT_ID, "hong@acme.co.kr")).thenReturn(user(UserStatus.ACTIVE));
-            when(memberInviteService.sendReset(anyLong(), anyLong(), anyString(), anyString()))
-                    .thenReturn(new InviteOutcome(false, null));
-
-            service().requestReset("ACME", "hong@acme.co.kr");
-            //예외가 나지 않으면 컨트롤러는 202를 돌려준다
+            verify(memberInviteService, never()).sendResetAsync(anyLong(), anyLong(), anyString(), anyString());
         }
     }
 

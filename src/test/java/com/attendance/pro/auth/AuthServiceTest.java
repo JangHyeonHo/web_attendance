@@ -139,16 +139,18 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("세션 스냅샷에 발급 시각(issuedAt)이 실린다 — 재로그인 강제의 기준")
-    void sessionCarriesIssuedAt() {
+    @DisplayName("세션 스냅샷에 유저의 password_changed_at이 그대로 실린다 — 재로그인 강제의 동등 비교 기준")
+    void sessionCarriesPasswordChangedAt() {
+        LocalDateTime changedAt = LocalDateTime.of(2026, 7, 9, 9, 0, 0, 123_000_000);
         when(tenantMapper.findByCode("ACME")).thenReturn(tenant(TENANT_A, "ACME", TenantStatus.ACTIVE));
-        when(userMapper.findByEmail(TENANT_A, "hong@example.com"))
-                .thenReturn(user(TENANT_A, "hong@example.com", PW_A, Role.MEMBER, UserStatus.ACTIVE));
-        LocalDateTime before = LocalDateTime.now();
+        when(userMapper.findByEmail(TENANT_A, "hong@example.com")).thenReturn(
+                new User(1L, TENANT_A, "hong@example.com", new BCryptPasswordEncoder().encode(PW_A),
+                        changedAt, "홍길동", null, java.time.LocalTime.of(9, 0), java.time.LocalTime.of(18, 0),
+                        Role.MEMBER, UserStatus.ACTIVE, false, LocalDateTime.now(), LocalDateTime.now()));
 
         SessionUser session = service().authenticate("ACME", "hong@example.com", PW_A);
 
-        assertThat(session.issuedAt()).isNotNull().isBetween(before, LocalDateTime.now());
+        assertThat(session.passwordChangedAt()).isEqualTo(changedAt);
     }
 
     @Test

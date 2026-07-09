@@ -71,9 +71,12 @@ public class UserTokenService {
         return token;
     }
 
-    /** 사용 처리(1회용 확정 + 성공 감사 흔적) — 설정 트랜잭션 안에서 호출한다. */
-    public void markUsed(long tenantId, String tokenHash) {
-        userTokenMapper.markUsed(tenantId, tokenHash);
+    /**
+     * 사용 처리(1회용 확정 + 성공 감사 흔적) — 설정 트랜잭션 안에서 호출한다.
+     * UPDATE 조건에 {@code used_at IS NULL}이 있어 반환 0 = 이미 다른 요청이 선점(동시 사용 방지의 원자 지점).
+     */
+    public int markUsed(long tenantId, String tokenHash) {
+        return userTokenMapper.markUsed(tenantId, tokenHash);
     }
 
     /** 유저의 유효 토큰 전멸(정지·삭제·설정 성공 시). */

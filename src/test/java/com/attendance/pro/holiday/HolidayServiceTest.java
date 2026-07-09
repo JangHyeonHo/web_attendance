@@ -127,6 +127,38 @@ class HolidayServiceTest {
         }
 
         @Test
+        @DisplayName("같은 날짜 중복 응답은 첫 건만 반영(대체공휴일 중복 행이 UNIQUE 충돌로 전체를 깨지 않게)")
+        void duplicateDatesKeepFirst() {
+            when(tenantMapper.findById(TENANT_ID)).thenReturn(tenant("KR"));
+            when(nagerDateClient.fetch(2026, "KR")).thenReturn(List.of(
+                    publicHoliday("2026-03-01", "삼일절", "KR"),
+                    publicHoliday("2026-03-01", "삼일절 대체", "KR"),
+                    publicHoliday("2026-05-05", "어린이날", "KR")));
+            when(holidayMapper.deleteNationalByYear(eq(TENANT_ID), any(), any())).thenReturn(0);
+            when(holidayMapper.insertNationalIgnore(eq(TENANT_ID), anyList())).thenReturn(2);
+
+            service().sync(TENANT_ID, 2026);
+
+            verify(holidayMapper).insertNationalIgnore(eq(TENANT_ID), eq(List.of(
+                    new HolidayMapper.NationalHoliday(LocalDate.of(2026, 3, 1), "삼일절"),
+                    new HolidayMapper.NationalHoliday(LocalDate.of(2026, 5, 5), "어린이날"))));
+        }
+
+        @Test
+        @DisplayName("연간 100건 초과 응답은 502(오염된 대량 응답 방어) — DB 무변경")
+        void oversizedResponseRejected() {
+            when(tenantMapper.findById(TENANT_ID)).thenReturn(tenant("KR"));
+            List<NagerHoliday> flood = new java.util.ArrayList<>();
+            for (int i = 0; i < 101; i++) {
+                flood.add(publicHoliday(LocalDate.of(2026, 1, 1).plusDays(i).toString(), "휴일" + i, "KR"));
+            }
+            when(nagerDateClient.fetch(2026, "KR")).thenReturn(flood);
+
+            expectUpstream(() -> service().sync(TENANT_ID, 2026));
+            verify(holidayMapper, never()).deleteNationalByYear(anyLong(), any(), any());
+        }
+
+        @Test
         @DisplayName("HOL-03: 빈 목록/연도 불일치/파싱 불가는 502 + 매퍼 delete/insert 미호출(DB 무변경)")
         void validationFailureLeavesDbUntouched() {
             when(tenantMapper.findById(TENANT_ID)).thenReturn(tenant("KR"));
@@ -302,6 +334,15 @@ class HolidayServiceTest {
 
             verify(holidayMapper).findByRange(TENANT_ID,
                     LocalDate.of(2026, 1, 1), LocalDate.of(2027, 1, 1));
+        }
+
+        @Test
+        @DisplayName("LocalDate 표현 범위 밖 연도 조회는 빈 목록(극단값 500 방지) — 매퍼 미호출")
+        void listExtremeYearReturnsEmpty() {
+            assertThat(service().list(TENANT_ID, Integer.MAX_VALUE)).isEmpty();
+            assertThat(service().list(TENANT_ID, 0)).isEmpty();
+            assertThat(service().list(TENANT_ID, 9999)).isEmpty();
+            verify(holidayMapper, never()).findByRange(anyLong(), any(), any());
         }
     }
 

@@ -39,7 +39,7 @@ function fieldErrorMap(e: ApiError): Record<string, string> {
  * - 재입력 폼: 모든 필드가 빈 값에서 시작(마스킹 값을 초기값/placeholder로도 넣지 않는다).
  *   저장은 전체 필드 재입력 후 upsert(PUT) 1회.
  */
-export function TenantDetailScreen({ tenantId }: { tenantId: number }) {
+export function TenantDetailScreen({ tenantId, country }: { tenantId: number; country: ProfileCountry }) {
   const { t: commonT, lang } = useApp()
   const [texts, setTexts] = useState<Record<string, string>>({})
 
@@ -254,14 +254,12 @@ export function TenantDetailScreen({ tenantId }: { tenantId: number }) {
           <form onSubmit={submitProfile}>
             <p className="muted reenter-note">{t('REENTER_NOTE')}</p>
             {/* 소재국은 표시 전용(tenant.country) — 입력·변경 불가(holiday-plan §4-3) */}
-            {profile && (
-              <p className="muted">
-                {t('COUNTRY')}: {t(`COUNTRY_${profile.country}`)}
-              </p>
-            )}
+            <p className="muted">
+              {t('COUNTRY')}: {t(`COUNTRY_${country}`)}
+            </p>
             <label>
-              {/* 식별번호 라벨은 테넌트 소재국을 따라간다(KR=사업자등록번호, JP=法人番号) */}
-              {t(BIZ_REG_NO_LABEL_KEYS[profile?.country ?? 'KR'])}
+              {/* 식별번호 라벨은 테넌트 소재국(prop — 프로필 미등록이어도 정확)을 따라간다 */}
+              {t(BIZ_REG_NO_LABEL_KEYS[country])}
               <input
                 value={businessRegNo}
                 onChange={(e) => setBusinessRegNo(e.target.value)}

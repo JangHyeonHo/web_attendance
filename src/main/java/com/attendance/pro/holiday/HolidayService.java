@@ -3,7 +3,9 @@ package com.attendance.pro.holiday;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.Year;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 import org.slf4j.Logger;
@@ -37,6 +39,8 @@ public class HolidayService {
 
     /** 명칭 컬럼 한계(실데이터에 없는 방어) */
     private static final int NAME_MAX_LENGTH = 100;
+    /** 연간 국가 공휴일 상한(오염된 대량 응답 방어 — KR/JP 실측 15~20건) */
+    private static final int MAX_HOLIDAYS_PER_YEAR = 100;
 
     private final HolidayMapper holidayMapper;
     private final TenantMapper tenantMapper;
@@ -100,6 +104,10 @@ public class HolidayService {
 
     @Transactional(readOnly = true)
     public List<HolidayResponse> list(long tenantId, int year) {
+        if (year < 1 || year > 9998) {
+            //LocalDate 표현 범위(1~9999, +1 경계 포함) 밖 — 표시용 조회라 빈 목록(극단값 500 방지)
+            return List.of();
+        }
         return holidayMapper.findByRange(tenantId, LocalDate.of(year, 1, 1), LocalDate.of(year + 1, 1, 1))
                 .stream().map(HolidayResponse::from).toList();
     }
@@ -138,7 +146,9 @@ public class HolidayService {
 
     /**
      * §2-3 응답 검증 — 필터(global=true && Public && 국가 일치 && 지역 한정 제외) 후
-     * ①1건 이상(빈 응답이 한 해를 지우는 사고 방지) ②전 date가 요청 연도(불일치 1건이라도 전체 중단).
+     * ①1건 이상(빈 응답이 한 해를 지우는 사고 방지) ②전 date가 요청 연도(불일치 1건이라도 전체 중단)
+     * ③상한 100건(오염된 대량 응답이 DB를 채우는 사고 방지 — KR/JP 실측 15~20건)
+     * ④같은 날짜 중복은 첫 건만(대체 공휴일 등 API의 중복 행 — UNIQUE 충돌로 전체 실패하지 않게).
      */
     private List<NationalHoliday> filterAndValidate(List<NagerHoliday> raw, int year, String countryCode) {
         List<NagerHoliday> filtered = raw.stream()
@@ -152,7 +162,11 @@ public class HolidayService {
             //KR/JP에 공휴일 0인 해는 없다 — 빈 응답은 데이터 이상(성공 처리 금지)
             throw RestNagerDateClient.upstreamFailure();
         }
-        return filtered.stream().map(h -> {
+        if (filtered.size() > MAX_HOLIDAYS_PER_YEAR) {
+            throw RestNagerDateClient.upstreamFailure();
+        }
+        Map<LocalDate, NationalHoliday> byDate = new LinkedHashMap<>();
+        for (NagerHoliday h : filtered) {
             LocalDate date;
             try {
                 date = LocalDate.parse(h.date());
@@ -169,8 +183,9 @@ public class HolidayService {
             if (name.length() > NAME_MAX_LENGTH) {
                 name = name.substring(0, NAME_MAX_LENGTH);
             }
-            return new NationalHoliday(date, name);
-        }).toList();
+            byDate.putIfAbsent(date, new NationalHoliday(date, name));
+        }
+        return List.copyOf(byDate.values());
     }
 
     /** 허용 연도 = 현재 −1 ~ +2 — 원거리 연도 남발로 외부 API를 두드리는 것을 막는 안전핀. */

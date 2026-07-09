@@ -46,7 +46,9 @@ class MemberServiceTest {
     private MemberInviteService memberInviteService;
 
     private MemberService service() {
-        return new MemberService(userMapper, userTokenService, memberInviteService);
+        //레이트 리미터는 실물(테스트별 새 인스턴스 — 임계 3회/5분에 도달하지 않는다)
+        return new MemberService(userMapper, userTokenService, memberInviteService,
+                new com.attendance.pro.auth.PasswordResetRateLimiter());
     }
 
     private static User user(long userId, Role role, UserStatus status) {

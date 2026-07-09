@@ -62,8 +62,9 @@ class TenantServiceTest {
     private HolidayService holidayService;
 
     private TenantService service() {
+        //레이트 리미터는 실물(테스트별 새 인스턴스 — 임계 3회/5분에 도달하지 않는다)
         return new TenantService(tenantMapper, userMapper, memberService, memberInviteService,
-                holidayService, immediateTx());
+                holidayService, new com.attendance.pro.auth.PasswordResetRateLimiter(), immediateTx());
     }
 
     /** 콜백을 그 자리에서 실행하는 트랜잭션 템플릿(단위 테스트용 — 실 커밋 없음). */

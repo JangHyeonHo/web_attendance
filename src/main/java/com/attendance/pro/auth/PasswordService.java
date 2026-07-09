@@ -2,8 +2,6 @@ package com.attendance.pro.auth;
 
 import java.util.Locale;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -30,8 +28,6 @@ import com.attendance.pro.user.UserTokenService;
 @Service
 public class PasswordService {
 
-    private static final Logger log = LoggerFactory.getLogger(PasswordService.class);
-
     private final UserTokenService userTokenService;
     private final UserMapper userMapper;
     private final TenantMapper tenantMapper;
@@ -53,28 +49,30 @@ public class PasswordService {
     public TokenVerifyResponse verify(String rawToken) {
         UserToken token = userTokenService.verify(rawToken);
         User user = requireEligibleUser(token);
-        Tenant tenant = tenantMapper.findById(token.tenantId());
-        if (tenant == null) {
-            throw UserTokenService.invalidToken();
-        }
+        Tenant tenant = requireActiveTenant(token.tenantId());
         return new TokenVerifyResponse(token.purpose(), user.name(), Masking.email(user.email()),
                 tenant.name(), token.expiresAt());
     }
 
     /**
      * 비밀번호 설정(초대 완료/재설정 공용).
-     * [Tx] hash 교체 + INVITE는 PENDING→ACTIVE + password_changed_at=NOW(SQL 동시 세팅)
-     * + 토큰 used_at=NOW + 잔여 유효 토큰 전부 DELETE.
+     * [Tx] 토큰 선점(used_at=NOW — 0행이면 동시 요청이 선점한 것, 통일 404)
+     * → hash 교체 + INVITE는 PENDING→ACTIVE + password_changed_at=NOW(SQL 동시 세팅)
+     * → 잔여 유효 토큰 전부 DELETE.
      */
     @Transactional
     public void set(String rawToken, String rawPassword) {
         UserToken token = userTokenService.verify(rawToken);
         User user = requireEligibleUser(token);
+        requireActiveTenant(token.tenantId());
+        //선점 먼저 — used_at IS NULL 조건부 UPDATE가 1회용의 원자 지점(동시 2요청 중 1건만 통과)
+        if (userTokenService.markUsed(token.tenantId(), token.tokenHash()) == 0) {
+            throw UserTokenService.invalidToken();
+        }
         userMapper.updatePassword(token.tenantId(), user.userId(), passwordEncoder.encode(rawPassword));
         if (token.purpose() == TokenPurpose.INVITE) {
             userMapper.updateStatus(token.tenantId(), user.userId(), UserStatus.ACTIVE);
         }
-        userTokenService.markUsed(token.tenantId(), token.tokenHash());
         userTokenService.invalidateAll(token.tenantId(), user.userId());
     }
 
@@ -93,11 +91,8 @@ public class PasswordService {
         if (user == null || user.status() != UserStatus.ACTIVE) {
             return;
         }
-        MemberInviteService.InviteOutcome outcome =
-                memberInviteService.sendReset(tenant.tenantId(), user.userId(), user.email(), user.name());
-        if (!outcome.mailSent()) {
-            log.error("password reset mail send failed: tenantId={}, userId={}", tenant.tenantId(), user.userId());
-        }
+        //비동기 발송 — SMTP 왕복이 응답 시간에 실리면 그 자체가 계정 존재 오라클(리뷰 P3-1)
+        memberInviteService.sendResetAsync(tenant.tenantId(), user.userId(), user.email(), user.name());
     }
 
     /**
@@ -111,6 +106,18 @@ public class PasswordService {
             throw UserTokenService.invalidToken();
         }
         return user;
+    }
+
+    /**
+     * 테넌트 부존재/SUSPENDED면 통일 404 — 정지 회사의 잔존 토큰으로 비밀번호를 바꿔
+     * 정지 해제 순간 바로 로그인하는 우회를 차단한다(리뷰 P3-3).
+     */
+    private Tenant requireActiveTenant(long tenantId) {
+        Tenant tenant = tenantMapper.findById(tenantId);
+        if (tenant == null || tenant.status() == TenantStatus.SUSPENDED) {
+            throw UserTokenService.invalidToken();
+        }
+        return tenant;
     }
 
 }

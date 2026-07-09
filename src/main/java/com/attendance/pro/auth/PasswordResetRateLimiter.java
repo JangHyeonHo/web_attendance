@@ -18,6 +18,7 @@ import com.attendance.pro.common.ApiException;
  * <ul>
  *   <li>reset-request: 계정 키({@code racct:테넌트코드:이메일}) 5분 3회 + IP 키 5분 30회</li>
  *   <li>verify/set: IP 키 5분 30회</li>
+ *   <li>초대 재발송(TA/SA): 수신자 키({@code inv:테넌트ID:이메일}) 5분 3회 — 메일 폭탄 방지</li>
  * </ul>
  * 카운팅은 계정 실존 여부와 무관하게 동일하다(존재 오라클 방지 — 메일 폭탄/토큰 브루트포스 차단).
  * 초과 시 429 {@code RATE_LIMITED}. 수평 확장 시 세션 외부화(Redis)와 함께 이동한다.
@@ -55,6 +56,11 @@ public class PasswordResetRateLimiter {
     /** verify/set 시도 기록 + 검사(IP 30회 — 초과 429). */
     public void checkTokenAttempt(String ip) {
         hit("tip:" + (ip == null ? "" : ip), clock.millis(), IP_THRESHOLD);
+    }
+
+    /** 초대 재발송 기록 + 검사(수신자 키 3회 — 초과 429. 관리자 조작 실수/남용의 메일 폭탄 방지). */
+    public void checkInviteResend(long tenantId, String email) {
+        hit("inv:" + tenantId + ":" + lower(email), clock.millis(), RESET_ACCOUNT_THRESHOLD);
     }
 
     private void hit(String key, long now, int threshold) {
