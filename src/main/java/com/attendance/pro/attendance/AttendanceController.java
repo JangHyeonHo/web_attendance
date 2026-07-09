@@ -42,13 +42,13 @@ public class AttendanceController {
     @Operation(summary = "api.attendance.status.summary", description = "api.attendance.status.description")
     @GetMapping("/status")
     public StatusResponse status(@LoginUser SessionUser user) {
-        return attendanceService.status(user.userId());
+        return attendanceService.status(user.tenantId(), user.userId());
     }
 
     @Operation(summary = "api.attendance.check.summary", description = "api.attendance.check.description")
     @PostMapping("/check")
     public CheckResponse check(@LoginUser SessionUser user, @Valid @RequestBody CheckRequest request) {
-        return attendanceService.check(user.userId(), request);
+        return attendanceService.check(user.tenantId(), user.userId(), request);
     }
 
     @Operation(summary = "api.attendance.confirm.summary", description = "api.attendance.confirm.description")
@@ -59,7 +59,7 @@ public class AttendanceController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public StampResponse confirm(@LoginUser SessionUser user, @Valid @RequestBody ConfirmRequest request) {
-        return attendanceService.confirm(user.userId(), request);
+        return attendanceService.confirm(user.tenantId(), user.userId(), request);
     }
 
     @Operation(summary = "api.attendance.monthly.summary", description = "api.attendance.monthly.description")
@@ -67,7 +67,7 @@ public class AttendanceController {
     public MonthlyResponse monthly(@LoginUser SessionUser user,
             @Parameter(description = "schema.field.year", example = "2026") @RequestParam("year") int year,
             @Parameter(description = "schema.field.month", example = "7") @RequestParam("month") int month) {
-        return attendanceService.monthly(user.userId(), year, month);
+        return attendanceService.monthly(user.tenantId(), user.userId(), year, month);
     }
 
 }
