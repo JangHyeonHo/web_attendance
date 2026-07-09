@@ -318,7 +318,7 @@ test('E2E-MT-01', async ({ page }) => {
 
 | 레벨 | 건수 | 내역 |
 |------|------|------|
-| 단위(U) | **74** | 기존 35(무변경 12 + 수정 18 + 재설계 5) + 신규 39 = ISO-14×3, LGN 5 + 레이트리밋 3(LGN-08~10), ROLE 인터셉터 매트릭스 15셀분 1식(15케이스 상당→집계는 8메소드), NAV 7, ADM 5, CRY 6, MSK 6 |
+| 단위(U) | **78** | 기존 35(무변경 12 + 수정 18 + 재설계 5) + 신규 43 = ISO-14×3, LGN 5 + 레이트리밋 3(LGN-08~10), ROLE 인터셉터 매트릭스 15셀분 1식(15케이스 상당→집계는 8메소드), NAV 7, ADM 5, CRY 6, MSK 6 |
 | 스모크(S) | **약 50 항목** | ISO 12(ISO-08 이연) + TTL-01 + LGN 7 + 레이트리밋 2(LGN-08, 11) + ROLE 15 + ADM 3 + SEC 3 + CRY-06 + MSK 4 + REG-04 (전 API 재실행 1식) |
 | E2E(E) | **2 시나리오 / 28단계** | E2E-MT-01(16단계 신규) + E2E-REG-01(12단계 수정 재실행) |
 
@@ -344,4 +344,4 @@ test('E2E-MT-01', async ({ page }) => {
 - D-A/D-B: NAV-01~07을 확정 코드(W007/W008/W009)·`ROLE_DENIED`·홈(TA→W005) 기준으로 정정, E2E-MT-01 #7을 "W005 전개 후 헤더로 W009 진입"으로 수정. ROLE-15는 `/status`·`/role` 경로로, ISO-07은 Phase 2 계약 기준으로 정정.
 - D-C/D-E: §3 서두를 JCA 직접 구현으로, CRY-02/07을 `v1:` 텍스트 포맷으로, CRY-06을 `APP_CRYPTO_KEY`·prod 프로파일 기준으로 수정. E2E #1 타이틀 단언을 `LANDING_HERO_TITLE` 기준으로 변경.
 - D-D/D-F: 에러 코드 `LAST_ADMIN` → `LAST_TENANT_ADMIN`(§0-1, ADM-01/02), MSK-05 대상을 요청 DTO 2종으로 교체, ROLE-12 경로 라벨 정정.
-- 발견 8~10·13~15: LGN-08~11(레이트리밋 429)·TTL-01(토큰 30분)·SEC-01~03(보안 헤더/prod) 추가, ISO-08 Phase 3 이연, SA 픽스처를 DEFAULT 소속·`{tenantCode:'DEFAULT'}` 고정으로, DEFAULT의 TENANT_ADMIN(`TA-D`)을 픽스처·E2E-REG-01/REG-04 사전 조건으로 명시. 건수 집계 갱신(U 74 / S 약 50).
+- 발견 8~10·13~15: LGN-08~11(레이트리밋 429)·TTL-01(토큰 30분)·SEC-01~03(보안 헤더/prod) 추가, ISO-08 Phase 3 이연, SA 픽스처를 DEFAULT 소속·`{tenantCode:'DEFAULT'}` 고정으로, DEFAULT의 TENANT_ADMIN(`TA-D`)을 픽스처·E2E-REG-01/REG-04 사전 조건으로 명시. 건수 집계 갱신(U 78 / S 약 50).

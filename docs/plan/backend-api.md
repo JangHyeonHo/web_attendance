@@ -307,7 +307,7 @@ public final class MemberDtos {
 
 ## 2. 패키지 배치
 
-### 2.1 신규 패키지 `tenant/` (파일 11)
+### 2.1 신규 패키지 `tenant/` (파일 12)
 
 | 파일 | 내용 |
 |---|---|
@@ -322,7 +322,7 @@ public final class MemberDtos {
 | `TenantBillingMapper.java` | tenant_billing: `findById(tenantId)`, `upsert(...)` |
 | `TenantService.java` | 테넌트 CRUD/정지 + **최초 TENANT_ADMIN 발급**(`@Transactional`로 tenant INSERT + `MemberService.registerInitialAdmin()` 호출 — user 패키지에 위임해 UserMapper 접근을 user 패키지에 유지) |
 | `TenantProfileService.java` | profile/billing 암·복호화 + 마스킹 조립(§6), `SystemTenantController`가 사용 |
-| `SystemTenantController.java` | §1.3 엔드포인트 9개 |
+| `SystemTenantController.java` | §1.3 엔드포인트 8개 |
 
 ### 2.2 기존 파일별 변경 요약표
 
@@ -363,7 +363,7 @@ public final class MemberDtos {
 | `resources/db/migration/V5__seed_saas_texts.sql` | **신규**: 멤버/테넌트 관리 화면(W007/W008/W009/W999/W001) + 랜딩(W000 `LANDING_*`) 텍스트 시드 통합 단일 파일(§7.4, D-E) |
 | `resources/messages/messages*.properties` | §7의 키 추가(3언어) |
 
-신규 자바 파일 합계: tenant 11 + user 5(Role, UserStatus, MemberController, MemberService, MemberDtos) + auth 2(RoleInterceptor, LoginRateLimiter) + common 3(FieldCipher, Masking, SecurityHeadersFilter) = **21** (+ SQL 2 + properties 2).
+신규 자바 파일 합계: tenant 12 + user 5(Role, UserStatus, MemberController, MemberService, MemberDtos) + auth 2(RoleInterceptor, LoginRateLimiter) + common 3(FieldCipher, Masking, SecurityHeadersFilter) = **22** (+ SQL 2 + properties 2).
 삭제: UserController, UserService, UserDtos, AdminInterceptor = 4.
 
 ---
