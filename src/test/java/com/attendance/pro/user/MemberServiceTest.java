@@ -166,6 +166,27 @@ class MemberServiceTest {
         }
 
         @Test
+        @DisplayName("SYSTEM_ADMIN 계정을 대상으로 한 비활성/강등은 404(존재 비노출 — 운영사 계정 잠금 차단)")
+        void systemAdminTargetHidden() {
+            //V4 이관으로 DEFAULT 테넌트에 운영사 계정이 공존하는 상황
+            when(userMapper.findById(TENANT_ID, TARGET_ID))
+                    .thenReturn(user(TARGET_ID, Role.SYSTEM_ADMIN, UserStatus.ACTIVE));
+
+            assertThatThrownBy(() -> service().updateStatus(TENANT_ID, TARGET_ID, UserStatus.DISABLED))
+                    .isInstanceOf(ApiException.class)
+                    .satisfies(e -> {
+                        ApiException apiException = (ApiException) e;
+                        assertThat(apiException.getStatus().value()).isEqualTo(404);
+                        assertThat(apiException.getCode()).isEqualTo("MEMBER_NOT_FOUND");
+                    });
+            assertThatThrownBy(() -> service().updateRole(TENANT_ID, TARGET_ID, Role.MEMBER))
+                    .isInstanceOf(ApiException.class)
+                    .satisfies(e -> assertThat(((ApiException) e).getCode()).isEqualTo("MEMBER_NOT_FOUND"));
+            verify(userMapper, never()).updateStatus(anyLong(), anyLong(), any());
+            verify(userMapper, never()).updateRole(anyLong(), anyLong(), any());
+        }
+
+        @Test
         @DisplayName("비활성 → 활성 복귀는 카운트 검사 없이 허용")
         void enableDisabledMember() {
             when(userMapper.findById(TENANT_ID, TARGET_ID))

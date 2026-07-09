@@ -38,10 +38,22 @@ function ScreenBody({ screen }: { screen: ScreenCode }) {
 }
 
 export default function App() {
-  const { screen, userName, role, tenantName, lang, t, navigate, ready } = useApp()
+  const { screen, userName, role, tenantName, lang, t, navigate, ready, navError } = useApp()
 
   if (!ready) {
-    //첫 navigation 응답 전에는 텍스트가 없으므로 언어 중립 표시
+    //첫 navigation 응답 전에는 서버 텍스트가 없다 — 실패시에만 언어 중립(3개국어 병기) 재시도 화면
+    if (navError) {
+      return (
+        <div className="panel center">
+          <p className="error" role="alert">
+            서버에 연결할 수 없습니다 / Cannot reach the server / サーバーに接続できません
+          </p>
+          <button className="primary" onClick={() => void navigate()}>
+            재시도 / Retry / 再試行
+          </button>
+        </div>
+      )
+    }
     return <div className="panel center muted">...</div>
   }
 
@@ -84,6 +96,12 @@ export default function App() {
         </div>
       </header>
       <main>
+        {navError && (
+          //화면 전환 실패(네트워크/5xx) — 현재 화면은 유지하고 배너로만 알린다
+          <p className="error" role="alert">
+            {navError}
+          </p>
+        )}
         <ScreenBody screen={screen} />
       </main>
     </div>

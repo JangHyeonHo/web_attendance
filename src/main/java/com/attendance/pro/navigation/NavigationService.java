@@ -104,6 +104,7 @@ public class NavigationService {
         Object data = loadScreenData(target, user);
         return new NavigateResponse(
                 target.code(),
+                lang,
                 decision.reason(),
                 user == null ? null : user.name(),
                 user == null ? null : user.role(),

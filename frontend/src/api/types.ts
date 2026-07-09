@@ -63,6 +63,8 @@ export interface NavigateRequest {
 
 export interface NavigateResponse {
   screen: ScreenCode
+  /** 서버가 확정한 언어(요청값 > 세션 저장값 > KOR) — 프론트 lang 상태는 이 값으로 동기화 */
+  lang: Lang
   reason: NavigationReason | null
   userName: string | null
   /** 로그인 세션의 role (비로그인은 null) — 헤더 메뉴 분기용 */

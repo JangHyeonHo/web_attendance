@@ -39,11 +39,16 @@ public interface UserMapper {
             """)
     User findById(@Param("tenantId") long tenantId, @Param("userId") long userId);
 
+    /**
+     * 멤버 관리 화면용 목록. SYSTEM_ADMIN은 테넌트 멤버가 아니므로 제외한다
+     * (V4 이관으로 DEFAULT 테넌트에 공존해도 TENANT_ADMIN에게 노출/조작 대상이 아님).
+     */
     @Select("""
             SELECT user_id, tenant_id, email, password_hash, name, depart_cd,
                    role, status, deleted, created_at, updated_at
             FROM users
             WHERE tenant_id = #{tenantId} AND deleted = FALSE
+              AND role <> 'SYSTEM_ADMIN'
             ORDER BY name ASC, user_id ASC
             """)
     List<User> findByTenant(@Param("tenantId") long tenantId);

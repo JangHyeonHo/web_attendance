@@ -10,6 +10,8 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -24,9 +26,14 @@ import org.springframework.stereotype.Component;
 @Component
 public class FieldCipher {
 
+    private static final Logger log = LoggerFactory.getLogger(FieldCipher.class);
+
     private static final String VERSION = "v1";
     private static final int IV_LENGTH = 12;
     private static final int TAG_BITS = 128;
+
+    /** application.properties의 개발 기본 키(공개 값) — 이 키 사용 중임을 기동시 경고하기 위한 대조용 */
+    private static final String DEV_DEFAULT_KEY = "d2ViLWF0dGVuZGFuY2UtZGV2LWNyeXB0by1rZXktMzI=";
 
     private final SecretKey key;
     private final SecureRandom random = new SecureRandom();
@@ -40,6 +47,13 @@ public class FieldCipher {
         }
         if (raw.length != 32) {
             throw new IllegalStateException("APP_CRYPTO_KEY must be base64 of 32 bytes");
+        }
+        if (DEV_DEFAULT_KEY.equals(base64Key.trim())) {
+            //저장소에 커밋된 공개 키 — prod 프로파일은 APP_CRYPTO_KEY 미설정시 기동 실패하지만,
+            //프로파일 미지정 기동은 조용히 이 키를 쓰게 되므로 명시적으로 경고한다.
+            log.warn("개발 기본 암호화 키(APP_CRYPTO_KEY 미설정)를 사용 중입니다. "
+                    + "이 키로 암호화된 데이터는 운영 반입 금지 — 운영 기동은 반드시 prod 프로파일"
+                    + "(SPRING_PROFILES_ACTIVE=prod) + APP_CRYPTO_KEY 주입으로 하세요.");
         }
         this.key = new SecretKeySpec(raw, "AES");
     }

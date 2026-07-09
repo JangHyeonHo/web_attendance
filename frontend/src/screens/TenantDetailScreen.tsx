@@ -150,6 +150,19 @@ export function TenantDetailScreen({ tenantId }: { tenantId: number }) {
     }
   }
 
+  function cancelProfileEdit() {
+    //취소 경로에서도 암호화 대상 입력값을 state에 남기지 않는다(제출 경로와 동일 정책)
+    setBusinessRegNo('')
+    setContactPhone('')
+    setProfileEdit(false)
+  }
+
+  function cancelBillingEdit() {
+    //빌링키 평문은 취소 즉시 폐기
+    setPgCustomerKey('')
+    setBillingEdit(false)
+  }
+
   function openBillingEdit() {
     setBillingMethod('INVOICE')
     setBillingEmail('')
@@ -290,7 +303,7 @@ export function TenantDetailScreen({ tenantId }: { tenantId: number }) {
               <button type="submit" className="primary">
                 {t('SUBMIT')}
               </button>
-              <button type="button" onClick={() => setProfileEdit(false)}>
+              <button type="button" onClick={cancelProfileEdit}>
                 {t('CANCEL')}
               </button>
             </div>
@@ -423,7 +436,7 @@ export function TenantDetailScreen({ tenantId }: { tenantId: number }) {
               <button type="submit" className="primary">
                 {t('SUBMIT')}
               </button>
-              <button type="button" onClick={() => setBillingEdit(false)}>
+              <button type="button" onClick={cancelBillingEdit}>
                 {t('CANCEL')}
               </button>
             </div>

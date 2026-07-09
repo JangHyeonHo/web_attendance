@@ -74,10 +74,7 @@ public class MemberService {
         if (status == UserStatus.PENDING) {
             throw ApiException.badRequest("MEMBER_STATUS_INVALID", "member.status.invalid");
         }
-        User target = userMapper.findById(tenantId, userId);
-        if (target == null) {
-            throw ApiException.notFound("MEMBER_NOT_FOUND", "member.not-found");
-        }
+        User target = requireManageableMember(tenantId, userId);
         if (status == UserStatus.DISABLED && target.role() == Role.TENANT_ADMIN
                 && target.status() == UserStatus.ACTIVE) {
             guardLastTenantAdmin(tenantId);
@@ -95,10 +92,7 @@ public class MemberService {
         if (role == Role.SYSTEM_ADMIN) {
             throw ApiException.badRequest("MEMBER_ROLE_INVALID", "member.role.invalid");
         }
-        User target = userMapper.findById(tenantId, userId);
-        if (target == null) {
-            throw ApiException.notFound("MEMBER_NOT_FOUND", "member.not-found");
-        }
+        User target = requireManageableMember(tenantId, userId);
         if (role == Role.MEMBER && target.role() == Role.TENANT_ADMIN
                 && target.status() == UserStatus.ACTIVE) {
             guardLastTenantAdmin(tenantId);
@@ -122,6 +116,19 @@ public class MemberService {
 
     /** 최초 관리자 발급 결과(초기 비밀번호는 이 값을 응답에 1회 실은 뒤 폐기). */
     public record InitialAdmin(long userId, String initialPassword) {
+    }
+
+    /**
+     * 조작 대상 멤버 로드. 타 테넌트 userId와 마찬가지로 SYSTEM_ADMIN 계정도 404
+     * — V4 이관으로 DEFAULT 테넌트에 운영사 계정과 고객사 관리자가 공존할 수 있는데,
+     * TENANT_ADMIN이 운영사 계정을 비활성/강등해 플랫폼 관리자를 잠그는 경로를 차단한다(존재 비노출).
+     */
+    private User requireManageableMember(long tenantId, long userId) {
+        User target = userMapper.findById(tenantId, userId);
+        if (target == null || target.role() == Role.SYSTEM_ADMIN) {
+            throw ApiException.notFound("MEMBER_NOT_FOUND", "member.not-found");
+        }
+        return target;
     }
 
     /**

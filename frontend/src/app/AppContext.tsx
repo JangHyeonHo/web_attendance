@@ -26,6 +26,8 @@ interface AppState {
   t: (key: string) => string
   navigate: (screen?: ScreenCode, lang?: Lang) => Promise<void>
   ready: boolean
+  /** 직전 navigate 실패 메시지(서버 텍스트 부재 시에도 표시 가능해야 하므로 원문 그대로) */
+  navError: string | null
 }
 
 const AppContext = createContext<AppState | null>(null)
@@ -40,24 +42,40 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [headers, setHeaders] = useState<Record<string, string>>({})
   const [data, setData] = useState<unknown>(null)
   const [ready, setReady] = useState(false)
+  const [navError, setNavError] = useState<string | null>(null)
   const langRef = useRef<Lang>('KOR')
+  /** 동시 navigate 경합 방지 — 최신 요청의 응답만 상태에 반영한다 */
+  const navSeqRef = useRef(0)
 
   const navigate = useCallback(async (nextScreen?: ScreenCode, nextLang?: Lang) => {
-    const response = await navigationApi.navigate({
-      screen: nextScreen ?? null,
-      lang: nextLang ?? null,
-    })
-    if (nextLang) {
-      langRef.current = nextLang
-      setLang(nextLang)
+    const seq = ++navSeqRef.current
+    try {
+      const response = await navigationApi.navigate({
+        screen: nextScreen ?? null,
+        lang: nextLang ?? null,
+      })
+      if (seq !== navSeqRef.current) {
+        //이후에 시작된 navigate가 있음 — 이 응답은 폐기(늦은 응답이 최종 화면을 덮지 않게)
+        return
+      }
+      //언어는 서버 확정값으로 동기화(리로드 후 세션 언어와의 어긋남 방지)
+      const appliedLang = response.lang
+      langRef.current = appliedLang
+      setLang(appliedLang)
+      setScreen(response.screen)
+      setUserName(response.userName)
+      setRole(response.role)
+      setTexts(response.texts)
+      setHeaders(response.headers)
+      setData(response.data)
+      setNavError(null)
+      setReady(true)
+    } catch (e) {
+      if (seq === navSeqRef.current) {
+        //ready 전이면 App이 재시도 화면을, 이후면 배너를 렌더한다
+        setNavError(e instanceof Error ? e.message : String(e))
+      }
     }
-    setScreen(response.screen)
-    setUserName(response.userName)
-    setRole(response.role)
-    setTexts(response.texts)
-    setHeaders(response.headers)
-    setData(response.data)
-    setReady(true)
   }, [])
 
   //세션 만료(401) → 로그인 화면 전개
@@ -96,8 +114,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const t = useMemo(() => makeT({ ...headers, ...texts }), [texts, headers])
 
   const value = useMemo<AppState>(
-    () => ({ screen, userName, role, tenantName, lang, data, t, navigate, ready }),
-    [screen, userName, role, tenantName, lang, data, t, navigate, ready],
+    () => ({ screen, userName, role, tenantName, lang, data, t, navigate, ready, navError }),
+    [screen, userName, role, tenantName, lang, data, t, navigate, ready, navError],
   )
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>

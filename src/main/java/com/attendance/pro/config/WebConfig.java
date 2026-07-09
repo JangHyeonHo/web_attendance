@@ -12,23 +12,27 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import com.attendance.pro.auth.AuthInterceptor;
 import com.attendance.pro.auth.LoginUserArgumentResolver;
 import com.attendance.pro.auth.RoleInterceptor;
+import com.attendance.pro.auth.SessionRevalidationInterceptor;
 
 /**
  * MVC 설정(인증/인가 인터셉터, 로그인 유저 주입, CORS).
- * 인증은 authInterceptor 단일 책임, 인가는 roleInterceptor(경로별 허용 role 화이트리스트) 단일 책임.
+ * 세션 재검증 → 인증(authInterceptor) → 인가(roleInterceptor) 순으로 각자 단일 책임.
  */
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
+    private final SessionRevalidationInterceptor sessionRevalidationInterceptor;
     private final AuthInterceptor authInterceptor;
     private final RoleInterceptor roleInterceptor;
     private final LoginUserArgumentResolver loginUserArgumentResolver;
     private final List<String> corsAllowedOrigins;
 
-    public WebConfig(AuthInterceptor authInterceptor,
+    public WebConfig(SessionRevalidationInterceptor sessionRevalidationInterceptor,
+            AuthInterceptor authInterceptor,
             RoleInterceptor roleInterceptor,
             LoginUserArgumentResolver loginUserArgumentResolver,
             @Value("${app.cors.allowed-origins:}") List<String> corsAllowedOrigins) {
+        this.sessionRevalidationInterceptor = sessionRevalidationInterceptor;
         this.authInterceptor = authInterceptor;
         this.roleInterceptor = roleInterceptor;
         this.loginUserArgumentResolver = loginUserArgumentResolver;
@@ -37,6 +41,10 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
+        //세션 스냅샷 재검증(정지/비활성 → 세션 무효화, role 변경 → 스냅샷 갱신).
+        //navigation 등 공개 API도 포함해 전 /api에 최우선 적용한다.
+        registry.addInterceptor(sessionRevalidationInterceptor)
+                .addPathPatterns("/api/**");
         //로그인 필수 API (공개 3종: 로그인/화면 텍스트 조회/화면 전개만 제외)
         registry.addInterceptor(authInterceptor)
                 .addPathPatterns("/api/**")
