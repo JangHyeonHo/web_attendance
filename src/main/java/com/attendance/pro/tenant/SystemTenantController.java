@@ -22,6 +22,7 @@ import com.attendance.pro.tenant.TenantDtos.TenantProfileRequest;
 import com.attendance.pro.tenant.TenantDtos.TenantProfileResponse;
 import com.attendance.pro.tenant.TenantDtos.TenantResponse;
 import com.attendance.pro.tenant.TenantDtos.TenantStatusRequest;
+import com.attendance.pro.user.MemberDtos.InviteResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -54,8 +55,22 @@ public class SystemTenantController {
     })
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public TenantCreateResponse create(@Valid @RequestBody TenantCreateRequest request) {
-        return tenantService.create(request);
+    public TenantCreateResponse create(@LoginUser SessionUser user,
+            @Valid @RequestBody TenantCreateRequest request) {
+        //{inviterName} = 생성을 실행한 SYSTEM_ADMIN의 세션 name
+        return tenantService.create(user, request);
+    }
+
+    @Operation(summary = "api.system-tenant.admin-invite.summary",
+            description = "api.system-tenant.admin-invite.description")
+    @ApiResponses({
+            @ApiResponse(responseCode = "404", description = "api.system-tenant.get.404"),
+            @ApiResponse(responseCode = "409", description = "api.system-tenant.admin-invite.409")
+    })
+    @PostMapping("/{tenantId}/admin-invite")
+    public InviteResponse adminInvite(@LoginUser SessionUser user,
+            @PathVariable("tenantId") long tenantId) {
+        return tenantService.adminInvite(user, tenantId);
     }
 
     @Operation(summary = "api.system-tenant.list.summary", description = "api.system-tenant.list.description")
