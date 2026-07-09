@@ -150,6 +150,12 @@ export function AttendanceScreen() {
           </strong>{' '}
           {t('STATUS_SUFFIX')}
         </p>
+        {/* 오늘의 해석된 근무 스케줄(work_schedule > 개인 기본값) — 휴일이면 null이라 비표시 */}
+        {status?.todayScheduleStart && status?.todayScheduleEnd && (
+          <p className="muted">
+            {t('TODAY_SCHEDULE')}: {status.todayScheduleStart} ~ {status.todayScheduleEnd}
+          </p>
+        )}
         {status?.stampedAt && (
           <p className="muted">
             {t('STAMPED_AT')}: {status.stampedAt.replace('T', ' ').slice(0, 19)}

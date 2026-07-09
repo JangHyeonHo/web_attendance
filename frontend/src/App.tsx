@@ -6,6 +6,10 @@ import { DetailsScreen } from './screens/DetailsScreen'
 import { AdminScreen } from './screens/AdminScreen'
 import { TenantsScreen } from './screens/TenantsScreen'
 import { MembersScreen } from './screens/MembersScreen'
+import { PasswordSetupScreen } from './screens/PasswordSetupScreen'
+import { PasswordResetRequestScreen } from './screens/PasswordResetRequestScreen'
+import { MailTemplatesScreen } from './screens/MailTemplatesScreen'
+import { HolidaysScreen } from './screens/HolidaysScreen'
 import type { Lang, ScreenCode } from './api/types'
 
 const LANGS: Lang[] = ['KOR', 'ENG', 'JPN']
@@ -31,6 +35,14 @@ function ScreenBody({ screen }: { screen: ScreenCode }) {
       return <TenantsScreen />
     case 'W009':
       return <MembersScreen />
+    case 'W010':
+      return <PasswordSetupScreen />
+    case 'W011':
+      return <PasswordResetRequestScreen />
+    case 'W012':
+      return <MailTemplatesScreen />
+    case 'W013':
+      return <HolidaysScreen />
     case 'W000':
     default:
       return <LandingScreen />
@@ -67,11 +79,15 @@ export default function App() {
             <button onClick={() => void navigate('W005')}>{t('ATTEND')}</button>
           )}
           {role === 'TENANT_ADMIN' && (
-            <button onClick={() => void navigate('W009')}>{t('MEMBERS')}</button>
+            <>
+              <button onClick={() => void navigate('W009')}>{t('MEMBERS')}</button>
+              <button onClick={() => void navigate('W013')}>{t('HOLIDAYS')}</button>
+            </>
           )}
           {role === 'SYSTEM_ADMIN' && (
             <>
               <button onClick={() => void navigate('W007')}>{t('TENANTS')}</button>
+              <button onClick={() => void navigate('W012')}>{t('MAIL_TEMPLATES')}</button>
               <button onClick={() => void navigate('W004')}>{t('ADMIN')}</button>
             </>
           )}
