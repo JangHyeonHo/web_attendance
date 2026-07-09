@@ -50,6 +50,17 @@ body {
   font-weight: 600;
 }
 
+.tenant-badge {
+  background: rgba(232, 131, 58, 0.14);
+  color: var(--accent-dark);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 button {
   background: #fff;
   border: 1px solid var(--border);
@@ -259,4 +270,311 @@ form button.primary {
 
 .detail-table td.sat {
   color: #2e6bc0;
+}
+
+/* ---- 폼 보조 ---- */
+
+.hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.reenter-note {
+  margin-top: 0;
+  font-size: 13px;
+}
+
+/* ---- 관리 화면 공통 (W007/W008/W009) ---- */
+
+.row-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.row-actions button {
+  padding: 4px 10px;
+  font-size: 13px;
+}
+
+.embed-cell {
+  background: #faf7f2;
+  text-align: left;
+  padding: 0 12px 12px;
+}
+
+.card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-head h3 {
+  margin: 0;
+}
+
+.kv {
+  display: grid;
+  grid-template-columns: minmax(120px, max-content) 1fr;
+  gap: 6px 16px;
+  margin: 12px 0;
+  font-size: 14px;
+  text-align: left;
+}
+
+.kv dt {
+  color: var(--muted);
+}
+
+.kv dd {
+  margin: 0;
+  word-break: break-all;
+}
+
+.stamp-box.initial-pwd {
+  border-color: var(--accent);
+  background: #fff8f2;
+  max-width: 520px;
+}
+
+.stamp-box.initial-pwd code {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  user-select: all;
+}
+
+.tenant-detail .panel {
+  margin-top: 12px;
+}
+
+/* ---- 랜딩 (W000) — 외부 리소스 없이 기존 토큰만 확장 ---- */
+
+.landing section {
+  margin-top: 20px;
+}
+
+.landing h2 {
+  text-align: center;
+  margin: 0 0 16px;
+}
+
+.hero {
+  text-align: center;
+  padding: 48px 16px;
+  background: linear-gradient(135deg, #fff 55%, rgba(232, 131, 58, 0.12));
+  border: 1px solid var(--border);
+  border-bottom: 2px solid var(--accent);
+  border-radius: 10px;
+}
+
+.hero h1 {
+  font-size: clamp(1.6rem, 4vw, 2.4rem);
+  margin: 14px 0 10px;
+}
+
+.hero-sub {
+  max-width: 560px;
+  margin: 0 auto 20px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.badge {
+  display: inline-block;
+  background: rgba(232, 131, 58, 0.14);
+  color: var(--accent-dark);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  padding: 4px 14px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.hero-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* button.primary와 동일 시각(배경 --accent, 흰 글자) — a 태그용 재정의 */
+a.cta,
+button.cta {
+  display: inline-block;
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 20px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+a.cta:hover,
+button.cta:hover {
+  background: var(--accent-dark);
+  border-color: var(--accent-dark);
+}
+
+.cta-secondary {
+  border-color: var(--accent);
+  color: var(--accent-dark);
+  font-weight: 600;
+  padding: 10px 20px;
+}
+
+.features {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.feature-card {
+  /* .panel 축소판 */
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.feature-card h3 {
+  font-size: 15px;
+  margin: 8px 0 6px;
+}
+
+.feature-card p {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.feature-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 8px;
+  border-radius: 50%;
+  background: rgba(232, 131, 58, 0.14);
+  color: var(--accent-dark);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.trust {
+  background: #f0eeeb;
+  border-radius: 10px;
+  padding: 24px 16px;
+}
+
+.trust-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.trust-card h3 {
+  font-size: 15px;
+  margin: 0 0 6px;
+  border-bottom: 2px solid var(--accent);
+  display: inline-block;
+  padding-bottom: 4px;
+}
+
+.trust-card p {
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 6px 0 0;
+}
+
+.step-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.step-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
+
+.step-card h3 {
+  font-size: 15px;
+  margin: 10px 0 6px;
+}
+
+.step-card p {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.cta-band {
+  text-align: center;
+  background: #fff;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  padding: 32px 16px;
+}
+
+.cta-band p {
+  color: var(--muted);
+  margin: 0 0 18px;
+}
+
+.landing-footer {
+  margin-top: 28px;
+  padding: 20px 0 0;
+  border-top: 1px solid var(--border);
+  text-align: center;
+  font-size: 13px;
+}
+
+.landing-footer p {
+  margin: 4px 0;
+}
+
+@media (max-width: 720px) {
+  .features {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .trust-cards,
+  .step-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .features {
+    grid-template-columns: 1fr;
+  }
+
+  .hero {
+    padding: 32px 12px;
+  }
 }
