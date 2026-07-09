@@ -1,10 +1,11 @@
 import { useApp } from './app/AppContext'
-import { IndexScreen } from './screens/IndexScreen'
+import { LandingScreen } from './screens/LandingScreen'
 import { LoginScreen } from './screens/LoginScreen'
-import { SignupScreen } from './screens/SignupScreen'
 import { AttendanceScreen } from './screens/AttendanceScreen'
 import { DetailsScreen } from './screens/DetailsScreen'
 import { AdminScreen } from './screens/AdminScreen'
+import { TenantsScreen } from './screens/TenantsScreen'
+import { MembersScreen } from './screens/MembersScreen'
 import type { Lang, ScreenCode } from './api/types'
 
 const LANGS: Lang[] = ['KOR', 'ENG', 'JPN']
@@ -17,22 +18,27 @@ function ScreenBody({ screen }: { screen: ScreenCode }) {
   switch (screen) {
     case 'W001':
       return <LoginScreen />
-    case 'W003':
-      return <SignupScreen />
     case 'W004':
       return <AdminScreen />
     case 'W005':
       return <AttendanceScreen />
     case 'W006':
       return <DetailsScreen />
+    case 'W007':
+      return <TenantsScreen />
+    case 'W008':
+      //테넌트 상세는 W007에 임베드 전개된다(W005→W006 패턴). 단독 전개 요청은 목록으로.
+      return <TenantsScreen />
+    case 'W009':
+      return <MembersScreen />
     case 'W000':
     default:
-      return <IndexScreen />
+      return <LandingScreen />
   }
 }
 
 export default function App() {
-  const { screen, userName, lang, t, navigate, ready } = useApp()
+  const { screen, userName, role, tenantName, lang, t, navigate, ready } = useApp()
 
   if (!ready) {
     //첫 navigation 응답 전에는 텍스트가 없으므로 언어 중립 표시
@@ -44,21 +50,26 @@ export default function App() {
       <header className="header">
         <nav>
           <button onClick={() => void navigate('W000')}>{t('HOME')}</button>
-          {userName ? (
+          {!userName && <button onClick={() => void navigate('W001')}>{t('LOGIN')}</button>}
+          {(role === 'MEMBER' || role === 'TENANT_ADMIN') && (
+            <button onClick={() => void navigate('W005')}>{t('ATTEND')}</button>
+          )}
+          {role === 'TENANT_ADMIN' && (
+            <button onClick={() => void navigate('W009')}>{t('MEMBERS')}</button>
+          )}
+          {role === 'SYSTEM_ADMIN' && (
             <>
-              <button onClick={() => void navigate('W005')}>{t('ATTEND')}</button>
+              <button onClick={() => void navigate('W007')}>{t('TENANTS')}</button>
               <button onClick={() => void navigate('W004')}>{t('ADMIN')}</button>
-              <button onClick={() => void navigate('W002')}>{t('LOGOUT')}</button>
-            </>
-          ) : (
-            <>
-              <button onClick={() => void navigate('W001')}>{t('LOGIN')}</button>
-              <button onClick={() => void navigate('W003')}>{t('SIGNUP')}</button>
             </>
           )}
+          {userName && <button onClick={() => void navigate('W002')}>{t('LOGOUT')}</button>}
         </nav>
         <div className="header-right">
           {userName && <span className="user-name">{userName}</span>}
+          {tenantName && role !== 'SYSTEM_ADMIN' && (
+            <span className="tenant-badge">{tenantName}</span>
+          )}
           <select
             aria-label="language"
             value={lang}
