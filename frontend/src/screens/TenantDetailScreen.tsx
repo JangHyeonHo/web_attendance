@@ -67,7 +67,6 @@ export function TenantDetailScreen({ tenantId }: { tenantId: number }) {
   const [profileEdit, setProfileEdit] = useState(false)
   const [profileError, setProfileError] = useState<string | null>(null)
   const [profileFieldErrors, setProfileFieldErrors] = useState<Record<string, string>>({})
-  const [country, setCountry] = useState<ProfileCountry>('KR')
   const [businessRegNo, setBusinessRegNo] = useState('')
   const [ceoName, setCeoName] = useState('')
   const [address, setAddress] = useState('')
@@ -121,8 +120,8 @@ export function TenantDetailScreen({ tenantId }: { tenantId: number }) {
   }, [load])
 
   function openProfileEdit() {
-    //전체 재입력: 항상 빈 값에서 시작(마스킹 문자열 재제출 사고 방지). 소재국만 기존값 유지
-    setCountry(profile?.country ?? 'KR')
+    //전체 재입력: 항상 빈 값에서 시작(마스킹 문자열 재제출 사고 방지)
+    //소재국은 tenant.country 승격으로 요청에서 제거 — 서버가 tenant에서 취득(holiday-plan §4-2)
     setBusinessRegNo('')
     setCeoName('')
     setAddress('')
@@ -140,7 +139,6 @@ export function TenantDetailScreen({ tenantId }: { tenantId: number }) {
     setProfileFieldErrors({})
     try {
       const saved = await systemTenantApi.upsertProfile(tenantId, {
-        country,
         businessRegNo: businessRegNo.trim(),
         ceoName: orNull(ceoName),
         address: orNull(address),
@@ -255,22 +253,15 @@ export function TenantDetailScreen({ tenantId }: { tenantId: number }) {
         {profileEdit && (
           <form onSubmit={submitProfile}>
             <p className="muted reenter-note">{t('REENTER_NOTE')}</p>
+            {/* 소재국은 표시 전용(tenant.country) — 입력·변경 불가(holiday-plan §4-3) */}
+            {profile && (
+              <p className="muted">
+                {t('COUNTRY')}: {t(`COUNTRY_${profile.country}`)}
+              </p>
+            )}
             <label>
-              {t('COUNTRY')}
-              <select
-                value={country}
-                onChange={(e) => setCountry(e.target.value as ProfileCountry)}
-              >
-                <option value="KR">{t('COUNTRY_KR')}</option>
-                <option value="JP">{t('COUNTRY_JP')}</option>
-              </select>
-              {profileFieldErrors.country && (
-                <span className="error">{profileFieldErrors.country}</span>
-              )}
-            </label>
-            <label>
-              {/* 식별번호 라벨은 선택한 소재국을 따라간다(KR=사업자등록번호, JP=法人番号) */}
-              {t(BIZ_REG_NO_LABEL_KEYS[country])}
+              {/* 식별번호 라벨은 테넌트 소재국을 따라간다(KR=사업자등록번호, JP=法人番号) */}
+              {t(BIZ_REG_NO_LABEL_KEYS[profile?.country ?? 'KR'])}
               <input
                 value={businessRegNo}
                 onChange={(e) => setBusinessRegNo(e.target.value)}
