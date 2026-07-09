@@ -13,7 +13,7 @@ import org.apache.ibatis.annotations.Select;
 public interface TenantProfileMapper {
 
     @Select("""
-            SELECT tenant_id,
+            SELECT tenant_id, country,
                    business_reg_no AS business_reg_no_enc,
                    ceo_name, address, contact_name, contact_email,
                    contact_phone AS contact_phone_enc,
@@ -25,11 +25,12 @@ public interface TenantProfileMapper {
 
     @Insert("""
             INSERT INTO tenant_profile
-                (tenant_id, business_reg_no, ceo_name, address, contact_name, contact_email, contact_phone)
+                (tenant_id, country, business_reg_no, ceo_name, address, contact_name, contact_email, contact_phone)
             VALUES
-                (#{tenantId}, #{businessRegNoEnc}, #{ceoName}, #{address},
+                (#{tenantId}, #{country}, #{businessRegNoEnc}, #{ceoName}, #{address},
                  #{contactName}, #{contactEmail}, #{contactPhoneEnc})
             ON DUPLICATE KEY UPDATE
+                country = #{country},
                 business_reg_no = #{businessRegNoEnc},
                 ceo_name = #{ceoName},
                 address = #{address},
@@ -38,6 +39,7 @@ public interface TenantProfileMapper {
                 contact_phone = #{contactPhoneEnc}
             """)
     int upsert(@Param("tenantId") long tenantId,
+            @Param("country") String country,
             @Param("businessRegNoEnc") String businessRegNoEnc,
             @Param("ceoName") String ceoName,
             @Param("address") String address,

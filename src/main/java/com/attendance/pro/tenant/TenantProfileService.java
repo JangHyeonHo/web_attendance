@@ -51,7 +51,15 @@ public class TenantProfileService {
     @Transactional
     public TenantProfileResponse upsertProfile(long tenantId, TenantProfileRequest request) {
         requireTenant(tenantId);
-        tenantProfileMapper.upsert(tenantId,
+        //사업자 식별번호 형식은 소재국이 결정한다(KR 사업자등록번호 / JP 法人番号)
+        ProfileCountry country = ProfileCountry.of(request.country());
+        if (country == null) {
+            throw ApiException.badRequest("COUNTRY_UNSUPPORTED", "validation.country.supported");
+        }
+        if (!country.isValidBizRegNo(request.businessRegNo())) {
+            throw ApiException.badRequest("BIZ_REG_NO_FORMAT", country.formatMessageKey());
+        }
+        tenantProfileMapper.upsert(tenantId, country.name(),
                 fieldCipher.encrypt(request.businessRegNo()),
                 request.ceoName(), request.address(), request.contactName(), request.contactEmail(),
                 fieldCipher.encrypt(request.contactPhone()));
@@ -94,11 +102,13 @@ public class TenantProfileService {
     }
 
     private TenantProfileResponse toResponse(TenantProfile profile) {
-        //복호화 평문은 지역변수까지만 — DTO에는 마스킹값만
+        //복호화 평문은 지역변수까지만 — DTO에는 마스킹값만. 마스킹 규칙은 소재국이 결정
+        ProfileCountry country = ProfileCountry.of(profile.country());
         String businessRegNo = fieldCipher.decrypt(profile.businessRegNoEnc());
         String contactPhone = fieldCipher.decrypt(profile.contactPhoneEnc());
         return new TenantProfileResponse(profile.tenantId(),
-                Masking.bizRegNo(businessRegNo),
+                profile.country(),
+                country == null ? "***" : country.maskBizRegNo(businessRegNo),
                 profile.ceoName(), profile.address(), profile.contactName(), profile.contactEmail(),
                 Masking.phone(contactPhone),
                 profile.updatedAt());

@@ -5,9 +5,16 @@ import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import type {
   BillingMethod,
+  ProfileCountry,
   TenantBillingResponse,
   TenantProfileResponse,
 } from '../api/types'
+
+/** 소재국별 사업자 식별번호 라벨 키(KR=사업자등록번호, JP=法人番号) */
+const BIZ_REG_NO_LABEL_KEYS: Record<ProfileCountry, string> = {
+  KR: 'BIZ_REG_NO_KR',
+  JP: 'BIZ_REG_NO_JP',
+}
 
 /** 빈 문자열 → null (선택 필드 전송 규약) */
 function orNull(value: string): string | null {
@@ -60,6 +67,7 @@ export function TenantDetailScreen({ tenantId }: { tenantId: number }) {
   const [profileEdit, setProfileEdit] = useState(false)
   const [profileError, setProfileError] = useState<string | null>(null)
   const [profileFieldErrors, setProfileFieldErrors] = useState<Record<string, string>>({})
+  const [country, setCountry] = useState<ProfileCountry>('KR')
   const [businessRegNo, setBusinessRegNo] = useState('')
   const [ceoName, setCeoName] = useState('')
   const [address, setAddress] = useState('')
@@ -113,7 +121,8 @@ export function TenantDetailScreen({ tenantId }: { tenantId: number }) {
   }, [load])
 
   function openProfileEdit() {
-    //전체 재입력: 항상 빈 값에서 시작(마스킹 문자열 재제출 사고 방지)
+    //전체 재입력: 항상 빈 값에서 시작(마스킹 문자열 재제출 사고 방지). 소재국만 기존값 유지
+    setCountry(profile?.country ?? 'KR')
     setBusinessRegNo('')
     setCeoName('')
     setAddress('')
@@ -131,6 +140,7 @@ export function TenantDetailScreen({ tenantId }: { tenantId: number }) {
     setProfileFieldErrors({})
     try {
       const saved = await systemTenantApi.upsertProfile(tenantId, {
+        country,
         businessRegNo: businessRegNo.trim(),
         ceoName: orNull(ceoName),
         address: orNull(address),
@@ -224,7 +234,9 @@ export function TenantDetailScreen({ tenantId }: { tenantId: number }) {
         )}
         {!profileEdit && profile && (
           <dl className="kv">
-            <dt>{t('BIZ_REG_NO')}</dt>
+            <dt>{t('COUNTRY')}</dt>
+            <dd>{t(`COUNTRY_${profile.country}`)}</dd>
+            <dt>{t(BIZ_REG_NO_LABEL_KEYS[profile.country])}</dt>
             <dd>{profile.businessRegNoMasked}</dd>
             <dt>{t('CEO_NAME')}</dt>
             <dd>{profile.ceoName ?? '-'}</dd>
@@ -244,7 +256,21 @@ export function TenantDetailScreen({ tenantId }: { tenantId: number }) {
           <form onSubmit={submitProfile}>
             <p className="muted reenter-note">{t('REENTER_NOTE')}</p>
             <label>
-              {t('BIZ_REG_NO')}
+              {t('COUNTRY')}
+              <select
+                value={country}
+                onChange={(e) => setCountry(e.target.value as ProfileCountry)}
+              >
+                <option value="KR">{t('COUNTRY_KR')}</option>
+                <option value="JP">{t('COUNTRY_JP')}</option>
+              </select>
+              {profileFieldErrors.country && (
+                <span className="error">{profileFieldErrors.country}</span>
+              )}
+            </label>
+            <label>
+              {/* 식별번호 라벨은 선택한 소재국을 따라간다(KR=사업자등록번호, JP=法人番号) */}
+              {t(BIZ_REG_NO_LABEL_KEYS[country])}
               <input
                 value={businessRegNo}
                 onChange={(e) => setBusinessRegNo(e.target.value)}

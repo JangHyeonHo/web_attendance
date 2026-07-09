@@ -223,7 +223,7 @@ frontend/                           # 프론트엔드 (Vite + React 19 + TypeScr
 | 테이블 | 용도 |
 |--------|------|
 | `tenant` | 테넌트(고객사) 마스터: 코드(로그인용)/상태(ACTIVE·SUSPENDED) |
-| `tenant_profile` | 기업 정보(1:1). 사업자번호·담당자 연락처는 AES-256-GCM 암호문(`v1:iv:ct` 텍스트) |
+| `tenant_profile` | 기업 정보(1:1). 소재국(`country`: KR/JP)이 사업자 식별번호 체계를 결정(KR=사업자등록번호, JP=法人番号) — 검증·마스킹이 국가별. 식별번호·담당자 연락처는 AES-256-GCM 암호문(`v1:iv:ct` 텍스트) |
 | `tenant_billing` | 결제 정보(1:1). PG 빌링키 암호문 + 표시용 카드 4자리. **카드 원본 비저장** |
 | `users` | 회원. `UNIQUE(tenant_id, email)`, BCrypt 해시, role(3단계)/status |
 | `attendance` | 출결 스탬프(타입/상태/시각/위치/단말) + `tenant_id` |

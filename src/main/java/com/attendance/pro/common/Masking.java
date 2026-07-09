@@ -28,6 +28,20 @@ public final class Masking {
     }
 
     /**
+     * 일본 법인번호(法人番号) 13자리: {@code 1234567890123} → {@code *********0123} (말미 4자리만 노출).
+     */
+    public static String corpNo13(String value) {
+        if (value == null) {
+            return null;
+        }
+        String digits = value.replaceAll("\\D", "");
+        if (digits.length() != 13) {
+            return FULL_MASK;
+        }
+        return "*".repeat(9) + digits.substring(9);
+    }
+
+    /**
      * 전화번호: {@code 010-1234-5678} → {@code 010-****-5678} (가운데 블록 마스킹, 국번 길이 가변 안전).
      */
     public static String phone(String value) {

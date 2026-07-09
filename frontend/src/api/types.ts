@@ -142,7 +142,11 @@ export interface TenantStatusUpdateRequest {
 // ---- system: 기업/결제 정보 (W008) ----
 
 /** 전체 재입력(평문) — 부분 수정 없음 */
+/** 소재국 — 사업자 식별번호 체계 결정(KR=사업자등록번호, JP=法人番号) */
+export type ProfileCountry = 'KR' | 'JP'
+
 export interface TenantProfileUpsertRequest {
+  country: ProfileCountry
   businessRegNo: string
   ceoName: string | null
   address: string | null
@@ -154,7 +158,8 @@ export interface TenantProfileUpsertRequest {
 /** 조회는 마스킹 필드만 (마스킹은 서버 책임 — 프론트는 표시만) */
 export interface TenantProfileResponse {
   tenantId: number
-  businessRegNoMasked: string // 예: 123-**-*****
+  country: ProfileCountry
+  businessRegNoMasked: string // 예: KR 123-**-***** / JP *********0123
   ceoName: string | null
   address: string | null
   contactName: string | null

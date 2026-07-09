@@ -69,8 +69,14 @@ public final class TenantDtos {
 
     @Schema(description = "schema.tenant-profile-request")
     public record TenantProfileRequest(
+            @Schema(description = "schema.field.country", example = "KR")
+            @NotBlank(message = "{validation.country.required}")
+            @Pattern(regexp = "KR|JP", message = "{validation.country.supported}")
+            String country,                                           //사업자 식별번호 체계를 결정(KR/JP)
+
+            //형식은 국가별(KR ###-##-#####, JP 13자리)이라 어노테이션이 아닌 서비스에서 검증
             @NotBlank(message = "{validation.biz-reg-no.required}")
-            @Pattern(regexp = "^\\d{3}-\\d{2}-\\d{5}$", message = "{validation.biz-reg-no.format}")
+            @Size(max = 20, message = "{validation.biz-reg-no.size}")
             String businessRegNo,                                     //[암호화 저장]
             @Size(max = 50, message = "{validation.ceo-name.size}") String ceoName,
             @Size(max = 200, message = "{validation.address.size}") String address,
@@ -89,6 +95,8 @@ public final class TenantDtos {
     @Schema(description = "schema.tenant-profile-response")
     public record TenantProfileResponse(
             long tenantId,
+            @Schema(description = "schema.field.country", example = "KR")
+            String country,                                           //KR=사업자등록번호, JP=法人番号 — 프론트 라벨 분기
             @Schema(description = "schema.field.biz-reg-no-masked", example = "123-**-*****")
             String businessRegNoMasked,                               //마스킹값 — 필드명으로 마스킹 여부를 드러냄(오독 방지)
             String ceoName, String address, String contactName, String contactEmail,

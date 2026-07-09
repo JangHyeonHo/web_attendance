@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
  */
 public record TenantProfile(
         long tenantId,
+        String country,
         String businessRegNoEnc,
         String ceoName,
         String address,

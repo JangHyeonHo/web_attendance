@@ -68,7 +68,7 @@ class MaskingTest {
     @DisplayName("MSK-05: 민감 요청 DTO의 toString에 평문이 포함되지 않는다")
     void sensitiveRequestToString() {
         TenantProfileRequest profile = new TenantProfileRequest(
-                "123-45-67890", "김대표", "서울시 중구", "박담당", "contact@acme.co.kr", "010-1234-5678");
+                "KR", "123-45-67890", "김대표", "서울시 중구", "박담당", "contact@acme.co.kr", "010-1234-5678");
         assertThat(profile.toString())
                 .doesNotContain("123-45-67890")
                 .doesNotContain("010-1234-5678")
