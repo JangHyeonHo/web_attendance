@@ -118,6 +118,18 @@ class MailTemplateServiceTest {
     }
 
     @Test
+    @DisplayName("TPL-03c: DB 직수정으로 본문에서 {actionUrl}이 사라져도 발송 중단(링크 없는 메일 방지)")
+    void renderAbortsWhenActionUrlStripped() {
+        when(tenantMailTemplateMapper.find(10L, TokenPurpose.INVITE, "KOR")).thenReturn(null);
+        when(mailTemplateMapper.find(TokenPurpose.INVITE, "KOR")).thenReturn(
+                template(TokenPurpose.INVITE, "제목", "링크 변수가 지워진 본문"));
+
+        assertThatThrownBy(() -> service().render(10L, TokenPurpose.INVITE, "KOR", Map.of()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("actionUrl");
+    }
+
+    @Test
     @DisplayName("TPL-04a: 회사 오버라이드가 있으면 렌더는 오버라이드를 쓴다(전역 미조회)")
     void renderPrefersTenantOverride() {
         when(tenantMailTemplateMapper.find(10L, TokenPurpose.INVITE, "KOR")).thenReturn(

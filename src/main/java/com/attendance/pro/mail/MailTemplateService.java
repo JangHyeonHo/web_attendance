@@ -156,6 +156,10 @@ public class MailTemplateService {
             subjectTemplate = template.subject();
             bodyTemplate = template.body();
         }
+        if (!bodyTemplate.contains("{actionUrl}")) {
+            //DB 직수정으로 링크 변수가 지워진 방어 — 링크 없는 초대/재설정 메일은 기능 불능이므로 발송 중단
+            throw new IllegalStateException("mail template body lost {actionUrl}: " + purpose + "/" + lang);
+        }
         String subject = substitute(subjectTemplate, variables);
         String body = substitute(bodyTemplate, variables);
         String leftover = firstPlaceholder(subject + "\n" + body);
