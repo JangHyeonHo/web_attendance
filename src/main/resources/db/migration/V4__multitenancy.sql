@@ -106,8 +106,8 @@ WHERE email = 'admin@attendance.local'
 ALTER TABLE users
     MODIFY tenant_id BIGINT      NOT NULL COMMENT '테넌트 ID',
     MODIFY role      VARCHAR(20) NOT NULL COMMENT '권한(SYSTEM_ADMIN/TENANT_ADMIN/MEMBER)',
-    ADD CONSTRAINT IF NOT EXISTS fk_users_tenant
-        FOREIGN KEY (tenant_id) REFERENCES tenant (tenant_id),
+    ADD CONSTRAINT fk_users_tenant
+        FOREIGN KEY IF NOT EXISTS (tenant_id) REFERENCES tenant (tenant_id),
     ADD CONSTRAINT IF NOT EXISTS ck_users_role
         CHECK (role IN ('SYSTEM_ADMIN', 'TENANT_ADMIN', 'MEMBER')),
     ADD CONSTRAINT IF NOT EXISTS ck_users_status
@@ -130,8 +130,8 @@ WHERE a.tenant_id IS NULL;
 
 ALTER TABLE attendance
     MODIFY tenant_id BIGINT NOT NULL COMMENT '테넌트 ID',
-    ADD CONSTRAINT IF NOT EXISTS fk_attendance_tenant
-        FOREIGN KEY (tenant_id) REFERENCES tenant (tenant_id),
+    ADD CONSTRAINT fk_attendance_tenant
+        FOREIGN KEY IF NOT EXISTS (tenant_id) REFERENCES tenant (tenant_id),
     ADD KEY IF NOT EXISTS idx_attendance_tenant_user_stamped (tenant_id, user_id, stamped_at);
 -- 주의: 기존 idx_attendance_user_stamped(user_id, stamped_at)는 유지한다.
 --       fk_attendance_user(user_id)의 지지 인덱스이며, 삭제 시 InnoDB가 FK 인덱스를 요구해 실패한다.
@@ -150,8 +150,8 @@ WHERE c.tenant_id IS NULL;
 
 ALTER TABLE attendance_check
     MODIFY tenant_id BIGINT NOT NULL COMMENT '테넌트 ID',
-    ADD CONSTRAINT IF NOT EXISTS fk_attendance_check_tenant
-        FOREIGN KEY (tenant_id) REFERENCES tenant (tenant_id),
+    ADD CONSTRAINT fk_attendance_check_tenant
+        FOREIGN KEY IF NOT EXISTS (tenant_id) REFERENCES tenant (tenant_id),
     ADD KEY IF NOT EXISTS idx_attendance_check_tenant (tenant_id);
 
 -- ---------------------------------------------------------
@@ -167,8 +167,8 @@ WHERE s.tenant_id IS NULL;
 
 ALTER TABLE work_schedule
     MODIFY tenant_id BIGINT NOT NULL COMMENT '테넌트 ID',
-    ADD CONSTRAINT IF NOT EXISTS fk_work_schedule_tenant
-        FOREIGN KEY (tenant_id) REFERENCES tenant (tenant_id),
+    ADD CONSTRAINT fk_work_schedule_tenant
+        FOREIGN KEY IF NOT EXISTS (tenant_id) REFERENCES tenant (tenant_id),
     ADD KEY IF NOT EXISTS idx_work_schedule_tenant_user_date (tenant_id, user_id, work_date);
 -- 기존 uk_work_schedule_user_date(user_id, work_date)는 유지:
 --   "한 유저의 같은 날짜 스케쥴 1건" 규칙과 fk_work_schedule_user 지지 인덱스를 겸한다.
@@ -189,8 +189,8 @@ ALTER TABLE holiday
     MODIFY tenant_id BIGINT NOT NULL COMMENT '테넌트 ID',
     DROP PRIMARY KEY,
     ADD PRIMARY KEY (tenant_id, holiday_date),
-    ADD CONSTRAINT IF NOT EXISTS fk_holiday_tenant
-        FOREIGN KEY (tenant_id) REFERENCES tenant (tenant_id);
+    ADD CONSTRAINT fk_holiday_tenant
+        FOREIGN KEY IF NOT EXISTS (tenant_id) REFERENCES tenant (tenant_id);
 
 -- ---------------------------------------------------------
 -- language_master: Phase 1 변경 없음 (제품 글로벌 — 상위 계획 §3)
