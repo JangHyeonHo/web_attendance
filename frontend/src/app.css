@@ -61,6 +61,14 @@ body {
   white-space: nowrap;
 }
 
+/* 테넌트 서브도메인 접속 시 로그인 화면 상단 회사명(코드 입력란 대체) */
+.login-host-tenant {
+  display: inline-block;
+  margin: 0 0 14px;
+  font-size: 14px;
+  padding: 4px 14px;
+}
+
 button {
   background: #fff;
   border: 1px solid var(--border);

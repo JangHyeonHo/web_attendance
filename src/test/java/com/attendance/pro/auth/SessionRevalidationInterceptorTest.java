@@ -16,6 +16,7 @@ import org.springframework.mock.web.MockHttpSession;
 
 import com.attendance.pro.config.LocaleConfig;
 import com.attendance.pro.tenant.Tenant;
+import com.attendance.pro.tenant.TenantHostResolver;
 import com.attendance.pro.tenant.TenantMapper;
 import com.attendance.pro.tenant.TenantStatus;
 import com.attendance.pro.user.Role;
@@ -40,7 +41,9 @@ class SessionRevalidationInterceptorTest {
     private TenantMapper tenantMapper;
 
     private SessionRevalidationInterceptor interceptor() {
-        return new SessionRevalidationInterceptor(userMapper, tenantMapper);
+        //base-domain "webatt.example"로 호스트 일치 검증까지 활성화(기본 요청 호스트 localhost는 NONE)
+        return new SessionRevalidationInterceptor(userMapper, tenantMapper,
+                new TenantHostResolver(tenantMapper, "webatt.example"));
     }
 
     private static User dbUser(Role role, UserStatus status) {
@@ -120,6 +123,35 @@ class SessionRevalidationInterceptorTest {
                 (SessionUser) request.getSession(false).getAttribute(SessionUser.SESSION_KEY);
         assertThat(refreshed.role()).isEqualTo(Role.MEMBER);
         assertThat(refreshed.userId()).isEqualTo(USER_ID);
+    }
+
+    @Test
+    @DisplayName("REV-05: 다른 테넌트의 서브도메인으로 온 세션은 즉시 무효화(쿠키 이식 차단)")
+    void crossTenantHostInvalidatesSession() {
+        //세션은 ACME(tenantId=10)인데 요청 호스트는 BETA 서브도메인
+        when(tenantMapper.findByCode("BETA")).thenReturn(
+                new Tenant(20L, "BETA", "베타(주)", TenantStatus.ACTIVE, LocalDateTime.now()));
+        MockHttpServletRequest request = loggedInRequest();
+        request.setServerName("beta.webatt.example");
+
+        interceptor().preHandle(request, new MockHttpServletResponse(), new Object());
+
+        assertThat(request.getSession(false).getAttribute(SessionUser.SESSION_KEY)).isNull();
+        assertThat(request.getSession(false).getAttribute(LocaleConfig.SESSION_LANG_KEY)).isEqualTo("JPN");
+    }
+
+    @Test
+    @DisplayName("자기 테넌트의 서브도메인으로 온 세션은 유효(호스트 일치)")
+    void matchingTenantHostPasses() {
+        when(tenantMapper.findByCode("ACME")).thenReturn(dbTenant(TenantStatus.ACTIVE));
+        when(userMapper.findById(TENANT_ID, USER_ID)).thenReturn(dbUser(Role.TENANT_ADMIN, UserStatus.ACTIVE));
+        when(tenantMapper.findById(TENANT_ID)).thenReturn(dbTenant(TenantStatus.ACTIVE));
+        MockHttpServletRequest request = loggedInRequest();
+        request.setServerName("acme.webatt.example");
+
+        interceptor().preHandle(request, new MockHttpServletResponse(), new Object());
+
+        assertThat(request.getSession(false).getAttribute(SessionUser.SESSION_KEY)).isEqualTo(SNAPSHOT);
     }
 
     @Test

@@ -5,6 +5,8 @@ import org.springframework.web.servlet.HandlerInterceptor;
 
 import com.attendance.pro.config.LocaleConfig;
 import com.attendance.pro.tenant.Tenant;
+import com.attendance.pro.tenant.TenantHostResolver;
+import com.attendance.pro.tenant.TenantHostResolver.HostTenant;
 import com.attendance.pro.tenant.TenantMapper;
 import com.attendance.pro.tenant.TenantStatus;
 import com.attendance.pro.user.User;
@@ -24,6 +26,8 @@ import jakarta.servlet.http.HttpSession;
  *  - 유저 삭제/비활성 또는 테넌트 SUSPENDED → 세션 즉시 무효화(언어 설정만 이월). 이후
  *    AuthInterceptor가 401로 응답하고, 공개 API(navigation 등)는 비로그인으로 취급된다.
  *  - role이 바뀐 경우 → 세션 스냅샷을 현재 role로 교체(RoleInterceptor가 최신 role로 인가).
+ *  - 테넌트 서브도메인 요청인데 세션의 테넌트와 다르면 → 세션 무효화
+ *    (쿠키는 host-only가 기본이지만, 쿠키 수동 이식까지 서버측에서 차단하는 이중 방어).
  *
  * 등록은 WebConfig에서 /api/** 전체(공개 경로 포함)에, Auth/Role 인터셉터보다 앞순서로 한다.
  * 세션이 없는 요청은 통과(인증 요구는 AuthInterceptor의 책임).
@@ -33,10 +37,13 @@ public class SessionRevalidationInterceptor implements HandlerInterceptor {
 
     private final UserMapper userMapper;
     private final TenantMapper tenantMapper;
+    private final TenantHostResolver tenantHostResolver;
 
-    public SessionRevalidationInterceptor(UserMapper userMapper, TenantMapper tenantMapper) {
+    public SessionRevalidationInterceptor(UserMapper userMapper, TenantMapper tenantMapper,
+            TenantHostResolver tenantHostResolver) {
         this.userMapper = userMapper;
         this.tenantMapper = tenantMapper;
+        this.tenantHostResolver = tenantHostResolver;
     }
 
     @Override
@@ -45,6 +52,15 @@ public class SessionRevalidationInterceptor implements HandlerInterceptor {
         SessionUser sessionUser =
                 session == null ? null : (SessionUser) session.getAttribute(SessionUser.SESSION_KEY);
         if (sessionUser == null) {
+            return true;
+        }
+
+        //세션-호스트 일치: 테넌트 서브도메인에서는 그 테넌트의 세션만 유효하다
+        HostTenant hostTenant = tenantHostResolver.resolve(request);
+        if (hostTenant.claimsTenant()
+                && (hostTenant.tenant() == null
+                        || hostTenant.tenant().tenantId() != sessionUser.tenantId())) {
+            invalidateKeepingLang(request, session);
             return true;
         }
 

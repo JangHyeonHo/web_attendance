@@ -16,8 +16,9 @@ public final class AuthDtos {
 
     @Schema(description = "schema.login-request")
     public record LoginRequest(
+            //서브도메인/코드 병행: 테넌트 서브도메인으로 접속한 경우 생략 가능(호스트가 우선).
+            //루트 도메인 접속은 필수 — 조건부 검증이라 @NotBlank 대신 AuthController가 확인한다.
             @Schema(description = "schema.field.tenant-code", example = "ACME")
-            @NotBlank(message = "{validation.tenant-code.required}")
             @Size(max = 20, message = "{validation.tenant-code.size}")
             String tenantCode,
 

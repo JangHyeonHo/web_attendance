@@ -69,6 +69,8 @@ export interface NavigateResponse {
   userName: string | null
   /** 로그인 세션의 role (비로그인은 null) — 헤더 메뉴 분기용 */
   role: Role | null
+  /** 테넌트 서브도메인으로 접속한 경우 그 테넌트명(로그인 화면 브랜딩·코드 입력란 숨김), 아니면 null */
+  hostTenantName: string | null
   texts: Record<string, string>
   headers: Record<string, string>
   data: unknown
@@ -77,7 +79,8 @@ export interface NavigateResponse {
 // ---- auth / user ----
 
 export interface LoginRequest {
-  tenantCode: string
+  /** 테넌트 서브도메인으로 접속한 경우 null(호스트가 우선 확정) — 루트 도메인 접속은 필수 */
+  tenantCode: string | null
   email: string
   password: string
 }

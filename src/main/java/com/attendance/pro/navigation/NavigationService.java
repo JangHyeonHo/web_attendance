@@ -48,18 +48,23 @@ public class NavigationService {
 
     /**
      * 요청 화면과 로그인 상태/role로 실제 표시할 화면을 결정한다. (순수 로직 - 단위 테스트 대상)
+     *
+     * @param onTenantHost 테넌트 서브도메인으로 접속했는가 — 그 회사의 입구이므로
+     *                     비로그인 기본 화면이 랜딩(W000)이 아닌 로그인(W001)이 된다
      */
-    public Decision decide(String requestedCode, SessionUser user) {
+    public Decision decide(String requestedCode, SessionUser user, boolean onTenantHost) {
         Screen requested = Screen.fromCode(requestedCode);
         boolean loggedIn = user != null;
+        //비로그인 기본 화면: 루트 도메인=랜딩, 테넌트 서브도메인=로그인
+        Screen anonymousHome = onTenantHost ? Screen.LOGIN : Screen.INDEX;
 
-        //알 수 없는(또는 미지정) 화면 코드는 인덱스로
+        //알 수 없는(또는 미지정) 화면 코드는 기본 화면으로
         if (requested == null || requested == Screen.COMMON) {
-            //로그인 상태라면 인덱스 대신 각자의 홈 화면으로
+            //로그인 상태라면 각자의 홈 화면으로
             if (loggedIn) {
                 return new Decision(homeOf(user), NavigationReason.ALREADY_LOGGED_IN, false);
             }
-            return new Decision(Screen.INDEX,
+            return new Decision(anonymousHome,
                     requestedCode == null ? null : NavigationReason.UNKNOWN_SCREEN, false);
         }
 
@@ -72,6 +77,10 @@ public class NavigationService {
             //로그인 상태에서 로그인/홈을 요청하면 각자의 홈 화면으로
             if (loggedIn && (requested == Screen.LOGIN || requested == Screen.INDEX)) {
                 return new Decision(homeOf(user), NavigationReason.ALREADY_LOGGED_IN, false);
+            }
+            //테넌트 서브도메인에서 랜딩 요청은 로그인으로(랜딩은 루트 도메인 전용)
+            if (!loggedIn && onTenantHost && requested == Screen.INDEX) {
+                return new Decision(Screen.LOGIN, null, false);
             }
             return new Decision(requested, null, false);
         }
@@ -98,8 +107,10 @@ public class NavigationService {
 
     /**
      * 결정된 화면의 응답(다국어 텍스트 + 화면 초기 데이터)을 조립한다.
+     *
+     * @param hostTenantName 테넌트 서브도메인으로 접속한 경우 그 테넌트명(로그인 화면 브랜딩용), 아니면 null
      */
-    public NavigateResponse assemble(Decision decision, SessionUser user, String lang) {
+    public NavigateResponse assemble(Decision decision, SessionUser user, String lang, String hostTenantName) {
         Screen target = decision.target();
         Object data = loadScreenData(target, user);
         return new NavigateResponse(
@@ -108,6 +119,7 @@ public class NavigationService {
                 decision.reason(),
                 user == null ? null : user.name(),
                 user == null ? null : user.role(),
+                hostTenantName,
                 languageService.texts(target.code(), lang),
                 languageService.texts(Screen.COMMON.code(), lang),
                 data);

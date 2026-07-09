@@ -33,6 +33,10 @@ public class TenantService {
      */
     @Transactional
     public TenantCreateResponse create(TenantCreateRequest request) {
+        //서브도메인 예약어(www/admin/api 등)는 테넌트 코드로 선점 불가 — 서브도메인 병행 방식과의 충돌 방지
+        if (TenantHostResolver.RESERVED_LABELS.contains(request.tenantCode())) {
+            throw ApiException.badRequest("TENANT_CODE_RESERVED", "tenant.code.reserved");
+        }
         if (tenantMapper.existsByCode(request.tenantCode())) {
             throw ApiException.conflict("TENANT_CODE_DUPLICATED", "tenant.code.duplicated");
         }

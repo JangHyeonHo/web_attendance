@@ -46,6 +46,7 @@ public final class NavigationDtos {
             @Schema(description = "schema.navigate-response.reason") NavigationReason reason,
             @Schema(description = "schema.navigate-response.user-name", example = "홍길동") String userName,
             @Schema(description = "schema.navigate-response.role") Role role,
+            @Schema(description = "schema.navigate-response.host-tenant", example = "에이크미(주)") String hostTenantName,
             @Schema(description = "schema.navigate-response.texts") Map<String, String> texts,
             @Schema(description = "schema.navigate-response.headers") Map<String, String> headers,
             @Schema(description = "schema.navigate-response.data") Object data) {

@@ -17,12 +17,15 @@ function storedTenantCode(): string {
 
 /** W001 로그인 */
 export function LoginScreen() {
-  const { t, navigate } = useApp()
+  const { t, navigate, hostTenantName } = useApp()
   const [tenantCode, setTenantCode] = useState(storedTenantCode)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+
+  //테넌트 서브도메인 접속: 호스트가 테넌트를 확정하므로 코드 입력란을 숨긴다(병행 방식)
+  const onTenantHost = hostTenantName !== null
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
@@ -30,11 +33,13 @@ export function LoginScreen() {
     setSubmitting(true)
     const code = tenantCode.trim() //대문자 정규화는 서버 정책 — 프론트는 trim만
     try {
-      await authApi.login({ tenantCode: code, email, password })
-      try {
-        localStorage.setItem(TENANT_CODE_STORAGE_KEY, code)
-      } catch {
-        //저장 실패(사생활 보호 모드 등)는 무시 — 로그인 자체에는 영향 없음
+      await authApi.login({ tenantCode: onTenantHost ? null : code, email, password })
+      if (!onTenantHost) {
+        try {
+          localStorage.setItem(TENANT_CODE_STORAGE_KEY, code)
+        } catch {
+          //저장 실패(사생활 보호 모드 등)는 무시 — 로그인 자체에는 영향 없음
+        }
       }
       //로그인 성공 → 서버가 role별 홈 화면을 결정한다
       await navigate('W000')
@@ -49,20 +54,23 @@ export function LoginScreen() {
   return (
     <div className="panel narrow">
       <h2>{t('LOGIN')}</h2>
+      {onTenantHost && <p className="tenant-badge login-host-tenant">{hostTenantName}</p>}
       <form onSubmit={onSubmit}>
-        <label>
-          {t('TENANT_CODE')}
-          <input
-            type="text"
-            value={tenantCode}
-            onChange={(e) => setTenantCode(e.target.value)}
-            autoComplete="organization"
-            autoCapitalize="none"
-            spellCheck={false}
-            required
-          />
-          <span className="hint">{t('TENANT_CODE_HINT')}</span>
-        </label>
+        {!onTenantHost && (
+          <label>
+            {t('TENANT_CODE')}
+            <input
+              type="text"
+              value={tenantCode}
+              onChange={(e) => setTenantCode(e.target.value)}
+              autoComplete="organization"
+              autoCapitalize="none"
+              spellCheck={false}
+              required
+            />
+            <span className="hint">{t('TENANT_CODE_HINT')}</span>
+          </label>
+        )}
         <label>
           {t('EMAIL')}
           <input
@@ -87,7 +95,7 @@ export function LoginScreen() {
         <button
           type="submit"
           className="primary"
-          disabled={submitting || !tenantCode.trim() || !email || !password}
+          disabled={submitting || (!onTenantHost && !tenantCode.trim()) || !email || !password}
         >
           {t('LOGIN')}
         </button>

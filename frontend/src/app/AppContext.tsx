@@ -19,6 +19,8 @@ interface AppState {
   role: Role | null
   /** 헤더 뱃지용 테넌트명 (auth/me 기준, SYSTEM_ADMIN·비로그인은 null) */
   tenantName: string | null
+  /** 테넌트 서브도메인 접속 시 그 테넌트명 — 로그인 화면이 코드 입력란을 숨기고 회사명을 표시 */
+  hostTenantName: string | null
   lang: Lang
   /** 화면 초기 데이터(출결 화면이면 StatusResponse) */
   data: unknown
@@ -37,6 +39,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [userName, setUserName] = useState<string | null>(null)
   const [role, setRole] = useState<Role | null>(null)
   const [tenantName, setTenantName] = useState<string | null>(null)
+  const [hostTenantName, setHostTenantName] = useState<string | null>(null)
   const [lang, setLang] = useState<Lang>('KOR')
   const [texts, setTexts] = useState<Record<string, string>>({})
   const [headers, setHeaders] = useState<Record<string, string>>({})
@@ -65,6 +68,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setScreen(response.screen)
       setUserName(response.userName)
       setRole(response.role)
+      setHostTenantName(response.hostTenantName)
       setTexts(response.texts)
       setHeaders(response.headers)
       setData(response.data)
@@ -114,8 +118,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const t = useMemo(() => makeT({ ...headers, ...texts }), [texts, headers])
 
   const value = useMemo<AppState>(
-    () => ({ screen, userName, role, tenantName, lang, data, t, navigate, ready, navError }),
-    [screen, userName, role, tenantName, lang, data, t, navigate, ready, navError],
+    () => ({ screen, userName, role, tenantName, hostTenantName, lang, data, t, navigate, ready, navError }),
+    [screen, userName, role, tenantName, hostTenantName, lang, data, t, navigate, ready, navError],
   )
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>
