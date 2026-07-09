@@ -10,7 +10,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -31,6 +30,11 @@ import com.attendance.pro.attendance.AttendanceDtos.StatusResponse;
 import com.attendance.pro.attendance.AttendanceDtos.WorkStatus;
 import com.attendance.pro.common.ApiException;
 import com.attendance.pro.common.Messages;
+import com.attendance.pro.holiday.Holiday;
+import com.attendance.pro.holiday.HolidayMapper;
+import com.attendance.pro.tenant.ProfileCountry;
+import com.attendance.pro.tenant.Tenant;
+import com.attendance.pro.tenant.TenantMapper;
 
 /**
  * 출결 처리 서비스.
@@ -51,12 +55,17 @@ public class AttendanceService {
 
     private final AttendanceMapper attendanceMapper;
     private final ScheduleMapper scheduleMapper;
+    private final HolidayMapper holidayMapper;
+    private final TenantMapper tenantMapper;
     private final Messages messages;
     private final MonthlyAttendanceAssembler assembler = new MonthlyAttendanceAssembler();
 
-    public AttendanceService(AttendanceMapper attendanceMapper, ScheduleMapper scheduleMapper, Messages messages) {
+    public AttendanceService(AttendanceMapper attendanceMapper, ScheduleMapper scheduleMapper,
+            HolidayMapper holidayMapper, TenantMapper tenantMapper, Messages messages) {
         this.attendanceMapper = attendanceMapper;
         this.scheduleMapper = scheduleMapper;
+        this.holidayMapper = holidayMapper;
+        this.tenantMapper = tenantMapper;
         this.messages = messages;
     }
 
@@ -186,9 +195,11 @@ public class AttendanceService {
      */
     @Transactional(readOnly = true)
     public StatusResponse status(long tenantId, long userId) {
+        //오늘의 해석된 스케줄(W005 "오늘 근무" 표시 — work-schedule §5-3)
+        TodaySchedule today = resolveTodaySchedule(tenantId, userId);
         AttendanceStamp latest = attendanceMapper.findLatest(tenantId, userId);
         if (latest == null) {
-            return statusOf(WorkStatus.WAITING, null, null);
+            return statusOf(WorkStatus.WAITING, null, null, today);
         }
         LocalDateTime now = LocalDateTime.now();
         long hoursSince = java.time.Duration.between(latest.stampedAt(), now).toHours();
@@ -197,37 +208,68 @@ public class AttendanceService {
         switch (latest.type()) {
         case GO_TO_WORK:
             return statusOf(WorkStatus.WORKING, latest.stampedAt(),
-                    hoursSince > OVERDUE_HOURS ? StatusAlert.OVERDUE_OFF_WORK : null);
+                    hoursSince > OVERDUE_HOURS ? StatusAlert.OVERDUE_OFF_WORK : null, today);
         case OFF_WORK:
             //퇴근이 오늘이면 퇴근 완료, 아니면 출근 대기
             return sameDay
-                    ? statusOf(WorkStatus.OFF_WORK_DONE, latest.stampedAt(), null)
-                    : statusOf(WorkStatus.WAITING, null, null);
+                    ? statusOf(WorkStatus.OFF_WORK_DONE, latest.stampedAt(), null, today)
+                    : statusOf(WorkStatus.WAITING, null, null, today);
         case EARLY_DEPARTURE:
             return sameDay
-                    ? statusOf(WorkStatus.EARLY_DEPARTURE_DONE, latest.stampedAt(), null)
-                    : statusOf(WorkStatus.WAITING, null, null);
+                    ? statusOf(WorkStatus.EARLY_DEPARTURE_DONE, latest.stampedAt(), null, today)
+                    : statusOf(WorkStatus.WAITING, null, null, today);
         case BREAK:
             if (latest.status() == AttendanceStamp.STATUS_ACTIVE) {
                 return statusOf(WorkStatus.ON_BREAK, latest.stampedAt(),
-                        hoursSince > OVERDUE_HOURS ? StatusAlert.OVERDUE_BREAK_END : null);
+                        hoursSince > OVERDUE_HOURS ? StatusAlert.OVERDUE_BREAK_END : null, today);
             }
             //휴식 종료 상태면 기준 시각은 최근 출근 스탬프
             AttendanceStamp lastGo = attendanceMapper.findLatestGoToWork(tenantId, userId);
             LocalDateTime baseTime = lastGo == null ? latest.stampedAt() : lastGo.stampedAt();
             long hoursSinceGo = java.time.Duration.between(baseTime, now).toHours();
             return statusOf(WorkStatus.BREAK_ENDED, baseTime,
-                    hoursSinceGo > OVERDUE_HOURS ? StatusAlert.OVERDUE_OFF_WORK : null);
+                    hoursSinceGo > OVERDUE_HOURS ? StatusAlert.OVERDUE_OFF_WORK : null, today);
         }
-        return statusOf(WorkStatus.WAITING, null, null);
+        return statusOf(WorkStatus.WAITING, null, null, today);
+    }
+
+    /** 오늘의 해석된 스케줄(휴일이면 null/null). */
+    private record TodaySchedule(String start, String end) {
+        static final TodaySchedule HOLIDAY = new TodaySchedule(null, null);
+    }
+
+    /**
+     * 우선순위 해석(work_schedule > 개인 기본값 > 상수 — work-schedule §3-1)을 오늘 1일에 적용.
+     */
+    private TodaySchedule resolveTodaySchedule(long tenantId, long userId) {
+        LocalDate today = LocalDate.now();
+        WorkSchedule override = scheduleMapper.findBetween(tenantId, userId, today, today.plusDays(1))
+                .stream().findFirst().orElse(null);
+        boolean publicHoliday = !holidayMapper.findHolidaysBetween(tenantId, today, today.plusDays(1)).isEmpty();
+        if (publicHoliday || (override != null && override.holiday())) {
+            return TodaySchedule.HOLIDAY;
+        }
+        WorkDefaults defaults = scheduleMapper.findWorkDefaults(tenantId, userId);
+        java.time.LocalTime baseStart = defaults != null && defaults.start() != null
+                ? defaults.start() : MonthlyAttendanceAssembler.DEFAULT_START;
+        java.time.LocalTime baseEnd = defaults != null && defaults.end() != null
+                ? defaults.end() : MonthlyAttendanceAssembler.DEFAULT_END;
+        java.time.LocalTime start = override != null && override.startTime() != null
+                ? override.startTime() : baseStart;
+        java.time.LocalTime end = override != null && override.endTime() != null
+                ? override.endTime() : baseEnd;
+        DateTimeFormatter format = DateTimeFormatter.ofPattern("HH:mm");
+        return new TodaySchedule(start.format(format), end.format(format));
     }
 
     /**
      * 상태 응답 조립(라벨을 요청 로케일로 해석).
      */
-    private StatusResponse statusOf(WorkStatus status, LocalDateTime stampedAt, StatusAlert alert) {
+    private StatusResponse statusOf(WorkStatus status, LocalDateTime stampedAt, StatusAlert alert,
+            TodaySchedule today) {
         return new StatusResponse(status, messages.get(status.labelKey()), stampedAt,
-                alert, alert == null ? null : messages.get(alert.labelKey()));
+                alert, alert == null ? null : messages.get(alert.labelKey()),
+                today.start(), today.end());
     }
 
     /**
@@ -245,12 +287,28 @@ public class AttendanceService {
         List<LocalDate> monthDays = from.datesUntil(to).toList();
         Map<LocalDate, WorkSchedule> schedules = scheduleMapper.findBetween(tenantId, userId, from, to).stream()
                 .collect(Collectors.toMap(WorkSchedule::workDate, Function.identity()));
-        Set<LocalDate> holidays = Set.copyOf(scheduleMapper.findHolidayDates(tenantId, from, to));
-        //야근(자정 넘긴 퇴근) 판정을 위해 다음달 1일치 스탬프까지 함께 조회
+        //공휴일은 명칭 포함 Map(판정은 containsKey — 정본: holiday-plan §6, CR3-2)
+        Map<LocalDate, String> holidays = holidayMapper.findHolidaysBetween(tenantId, from, to).stream()
+                .collect(Collectors.toMap(Holiday::holidayDate, Holiday::holidayName));
+        //야근(자정 넘긴 퇴근) 판정을 위해 다음달 1일치 스탬프까지 함께 조회(BREAK 포함)
         List<AttendanceStamp> stamps = attendanceMapper.findBetween(tenantId, userId, from, to.plusDays(1));
+        //개인 기본 스케줄 + 테넌트 소재국 법정 휴게 정책(세션 tenantId 전파 — ISO-15)
+        WorkDefaults defaults = scheduleMapper.findWorkDefaults(tenantId, userId);
+        Tenant tenant = tenantMapper.findById(tenantId);
+        ProfileCountry country = tenant == null ? null : ProfileCountry.of(tenant.country());
+        //country 미설정/미지원이면 KR로 동작(안전한 실패 — X10)
+        BreakPolicy policy = BreakPolicy.of(country == null ? ProfileCountry.KR : country);
 
-        List<DailyAttendance> days = assembler.assemble(monthDays, schedules, holidays, stamps);
-        return new MonthlyResponse(year, month, days);
+        List<DailyAttendance> days = assembler.assemble(monthDays, schedules, holidays, stamps,
+                defaults == null ? null : defaults.start(),
+                defaults == null ? null : defaults.end(),
+                policy);
+        int totalWorkMinutes = days.stream()
+                .map(DailyAttendance::workMinutes)
+                .filter(java.util.Objects::nonNull)
+                .mapToInt(Integer::intValue)
+                .sum();
+        return new MonthlyResponse(year, month, days, totalWorkMinutes);
     }
 
     /**

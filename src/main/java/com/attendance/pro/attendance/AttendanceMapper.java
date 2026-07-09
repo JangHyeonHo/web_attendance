@@ -51,15 +51,16 @@ public interface AttendanceMapper {
     AttendanceStamp findLatestGoToWork(@Param("tenantId") long tenantId, @Param("userId") long userId);
 
     /**
-     * 기간 내 출근/퇴근/조퇴 스탬프(월별 상세용, 시각 오름차순).
+     * 기간 내 전 타입 스탬프(월별 상세용, 시각 오름차순).
+     * BREAK(type 4, status 0=시작/1=종료) 포함 — 실휴식 페어링(work-schedule §4)의 입력이 된다.
+     * (구현 주: 구 쿼리는 type IN (1,2,3) AND status=0 필터였음 — 타입 1~3은 항상 status 0이므로
+     *  필터 제거는 기존 표시 동작 불변 + BREAK 행 추가만.)
      */
     @Select("""
             SELECT attendance_id, user_id, type AS type_code, status, stamped_at
             FROM attendance
             WHERE tenant_id = #{tenantId}
               AND user_id = #{userId}
-              AND type IN (1, 2, 3)
-              AND status = 0
               AND stamped_at >= #{from}
               AND stamped_at < #{to}
             ORDER BY stamped_at ASC, attendance_id ASC

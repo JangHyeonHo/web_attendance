@@ -8,8 +8,8 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
 /**
- * work_schedule / holiday 테이블 매퍼.
- * 테넌트 전파 규약(tenantId 첫 파라미터 + 2중 조건) 적용. holiday는 테넌트별 공휴일이다.
+ * work_schedule 전용 매퍼(구 findHolidayDates는 HolidayMapper.findHolidaysBetween으로 이관).
+ * 테넌트 전파 규약(tenantId 첫 파라미터 + 2중 조건) 적용.
  */
 @Mapper
 public interface ScheduleMapper {
@@ -28,15 +28,15 @@ public interface ScheduleMapper {
             @Param("from") LocalDate from,
             @Param("to") LocalDate to);
 
+    /**
+     * 개인 기본 근무 시각 — users 테이블 SELECT지만 "그날의 스케줄 해석"이라는 근태 질의이므로
+     * 스케줄 매퍼 소유(attendance→user 패키지 의존 회피).
+     */
     @Select("""
-            SELECT holiday_date
-            FROM holiday
-            WHERE tenant_id = #{tenantId}
-              AND holiday_date >= #{from}
-              AND holiday_date < #{to}
+            SELECT default_work_start AS `start`, default_work_end AS `end`
+            FROM users
+            WHERE tenant_id = #{tenantId} AND user_id = #{userId} AND deleted = FALSE
             """)
-    List<LocalDate> findHolidayDates(@Param("tenantId") long tenantId,
-            @Param("from") LocalDate from,
-            @Param("to") LocalDate to);
+    WorkDefaults findWorkDefaults(@Param("tenantId") long tenantId, @Param("userId") long userId);
 
 }
