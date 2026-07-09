@@ -3,6 +3,7 @@ package com.attendance.pro.user;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -14,10 +15,12 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.attendance.pro.auth.LoginUser;
 import com.attendance.pro.auth.SessionUser;
+import com.attendance.pro.user.MemberDtos.InviteResponse;
 import com.attendance.pro.user.MemberDtos.MemberCreateRequest;
 import com.attendance.pro.user.MemberDtos.MemberCreateResponse;
 import com.attendance.pro.user.MemberDtos.MemberResponse;
 import com.attendance.pro.user.MemberDtos.MemberRoleRequest;
+import com.attendance.pro.user.MemberDtos.MemberScheduleRequest;
 import com.attendance.pro.user.MemberDtos.MemberStatusRequest;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -56,7 +59,43 @@ public class MemberController {
     @ResponseStatus(HttpStatus.CREATED)
     public MemberCreateResponse create(@LoginUser SessionUser user,
             @Valid @RequestBody MemberCreateRequest request) {
-        return memberService.create(user.tenantId(), request);
+        //{inviterName} = 등록을 실행한 TENANT_ADMIN의 세션 name
+        return memberService.create(user.tenantId(), request, user.name());
+    }
+
+    @Operation(summary = "api.member.invite.summary", description = "api.member.invite.description")
+    @ApiResponses({
+            @ApiResponse(responseCode = "404", description = "api.member.invite.404"),
+            @ApiResponse(responseCode = "409", description = "api.member.invite.409")
+    })
+    @PostMapping("/{userId}/invite")
+    public InviteResponse resendInvite(@LoginUser SessionUser user,
+            @PathVariable("userId") long userId) {
+        return memberService.resendInvite(user.tenantId(), userId, user.name());
+    }
+
+    @Operation(summary = "api.member.delete.summary", description = "api.member.delete.description")
+    @ApiResponses({
+            @ApiResponse(responseCode = "400", description = "api.member.delete.400"),
+            @ApiResponse(responseCode = "404", description = "api.member.invite.404"),
+            @ApiResponse(responseCode = "409", description = "api.member.delete.409")
+    })
+    @DeleteMapping("/{userId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@LoginUser SessionUser user, @PathVariable("userId") long userId) {
+        memberService.delete(user.tenantId(), user.userId(), userId);
+    }
+
+    @Operation(summary = "api.member.schedule.summary")
+    @ApiResponses({
+            @ApiResponse(responseCode = "400", description = "api.member.schedule.400"),
+            @ApiResponse(responseCode = "404", description = "api.member.invite.404")
+    })
+    @PutMapping("/{userId}/schedule")
+    public MemberResponse updateSchedule(@LoginUser SessionUser user,
+            @PathVariable("userId") long userId,
+            @Valid @RequestBody MemberScheduleRequest request) {
+        return memberService.updateSchedule(user.tenantId(), userId, request);
     }
 
     @Operation(summary = "api.member.status.summary")
