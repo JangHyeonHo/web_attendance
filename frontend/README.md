@@ -33,7 +33,7 @@
 - 언어 선택은 navigation의 `lang`(KOR/ENG/JPN)으로 서버 세션에 저장 → 이후 서버 메시지
   (상태 라벨, 에러, 확인 메시지)가 해당 언어로 응답된다.
 - **UI 텍스트의 단일 출처는 DB 언어 마스터**다. 프론트는 텍스트 사전을 갖지 않으며,
-  초기 텍스트는 Flyway 시드(`V3__seed_ui_texts.sql`, 43키 × 3언어)로 투입된다.
+  초기 텍스트는 Flyway 시드(`V3__seed_ui_texts.sql` + SaaS 화면 `V5__seed_saas_texts.sql`)로 투입된다.
   관리자 화면에서 등록/수정하면 즉시 반영되고(E2E 검증), 미등록 키는 키 이름이
   그대로 표시되어 번역 누락이 화면에서 드러난다.
 - 공통 텍스트(헤더/버튼)는 W999, 화면별 텍스트는 해당 화면 코드에 배치.
@@ -61,13 +61,21 @@ src/
 ├── api/                  # 타입 + fetch 클라이언트 + 엔드포인트
 ├── i18n/lang.ts          # 로케일 매핑(Intl용) + t() 헬퍼 (텍스트 사전 없음)
 └── screens/
-    ├── IndexScreen.tsx       # W000
-    ├── LoginScreen.tsx       # W001
-    ├── SignupScreen.tsx      # W003 (v1 미구현 화면의 신규 구현)
-    ├── AdminScreen.tsx       # W004 언어 마스터 관리
-    ├── AttendanceScreen.tsx  # W005 출결(체크→확정)
-    └── DetailsScreen.tsx     # W006 월별 상세
+    ├── LandingScreen.tsx      # W000 랜딩(제품 소개, LANDING_* 키)
+    ├── LoginScreen.tsx        # W001 로그인(테넌트 코드 + 이메일 + 비밀번호)
+    ├── AdminScreen.tsx        # W004 언어 마스터 관리 (SYSTEM_ADMIN)
+    ├── AttendanceScreen.tsx   # W005 출결(체크→확정) (TENANT_ADMIN·MEMBER)
+    ├── DetailsScreen.tsx      # W006 월별 상세
+    ├── TenantsScreen.tsx      # W007 테넌트 관리 (SYSTEM_ADMIN)
+    ├── TenantDetailScreen.tsx # W008 기업/결제 정보 — W007에 임베드 전개
+    └── MembersScreen.tsx      # W009 멤버 관리 (TENANT_ADMIN)
 ```
+
+SaaS 전환(v2.1)에서: 로그인에 테넌트 코드 입력 추가(마지막 성공 코드만 localStorage 기억,
+자격 증명은 저장 안 함), 헤더 메뉴가 role별로 달라짐, W003(회원가입) 폐지 — 멤버 등록은 W009에서.
+초기 비밀번호·PG 빌링키는 **state에 잔존시키지 않는다**(패널 닫으면 폐기, 빌링키는 제출 즉시 클리어).
+파괴적 조작(테넌트 정지, 멤버 비활성/강등)은 인라인 확인 패널을 거치고, 마지막 관리자 보호(409) 등
+서버 판단 에러는 해당 행 아래에 그대로 표시한다.
 
 구버전 대비 정리된 것: React Native geolocation 라이브러리 → 표준 `navigator.geolocation`,
 수동 달력 계산(윤년 버그) → 백엔드 monthly 응답 사용, `window.location.replace` 전체 리로드 → 상태 기반 전환,

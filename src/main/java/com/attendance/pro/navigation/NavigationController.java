@@ -8,6 +8,8 @@ import com.attendance.pro.auth.SessionUser;
 import com.attendance.pro.navigation.NavigationDtos.NavigateRequest;
 import com.attendance.pro.navigation.NavigationDtos.NavigateResponse;
 import com.attendance.pro.navigation.NavigationService.Decision;
+import com.attendance.pro.tenant.TenantHostResolver;
+import com.attendance.pro.tenant.TenantHostResolver.HostTenant;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -28,9 +30,11 @@ public class NavigationController {
     private static final String DEFAULT_LANG = "KOR";
 
     private final NavigationService navigationService;
+    private final TenantHostResolver tenantHostResolver;
 
-    public NavigationController(NavigationService navigationService) {
+    public NavigationController(NavigationService navigationService, TenantHostResolver tenantHostResolver) {
         this.navigationService = navigationService;
+        this.tenantHostResolver = tenantHostResolver;
     }
 
     @Operation(summary = "api.navigation.navigate.summary", description = "api.navigation.navigate.description")
@@ -40,15 +44,18 @@ public class NavigationController {
         SessionUser user = session == null ? null : (SessionUser) session.getAttribute(SessionUser.SESSION_KEY);
 
         String lang = resolveLang(request.lang(), httpRequest);
+        //서브도메인/코드 병행: 테넌트 서브도메인이면 비로그인 기본 화면이 로그인이 된다
+        HostTenant hostTenant = tenantHostResolver.resolve(httpRequest);
 
-        Decision decision = navigationService.decide(request.screen(), user);
+        Decision decision = navigationService.decide(request.screen(), user, hostTenant.claimsTenant());
         //로그아웃 결정이면 세션 무효화(언어 설정은 새 세션에 이어준다)
         if (decision.logout() && session != null) {
             session.invalidate();
             user = null;
             httpRequest.getSession(true).setAttribute(SESSION_LANG_KEY, lang);
         }
-        return navigationService.assemble(decision, user, lang);
+        String hostTenantName = hostTenant.tenant() == null ? null : hostTenant.tenant().name();
+        return navigationService.assemble(decision, user, lang, hostTenantName);
     }
 
     /**

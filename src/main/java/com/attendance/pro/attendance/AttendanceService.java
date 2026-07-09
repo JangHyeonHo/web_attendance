@@ -65,16 +65,16 @@ public class AttendanceService {
      * 가능하면(확인 필요 포함) 확정용 토큰을 발급한다.
      */
     @Transactional
-    public CheckResponse check(long userId, CheckRequest request) {
+    public CheckResponse check(long tenantId, long userId, CheckRequest request) {
         attendanceMapper.deleteExpiredChecks();
-        AttendanceStamp latest = attendanceMapper.findLatest(userId);
+        AttendanceStamp latest = attendanceMapper.findLatest(tenantId, userId);
         ConfirmCode code = evaluate(latest, request.type());
 
         if (code != null && !code.confirmable()) {
             return CheckResponse.rejected(code, rejectMessage(code, latest, request.type()));
         }
         String token = UUID.randomUUID().toString();
-        attendanceMapper.insertCheck(token, userId, payloadHash(userId, request),
+        attendanceMapper.insertCheck(tenantId, token, userId, payloadHash(tenantId, userId, request),
                 code == null ? null : code.code());
         if (code == null) {
             return CheckResponse.ok(token);
@@ -86,24 +86,24 @@ public class AttendanceService {
      * 출결 확정. 체크 시점과 데이터가 동일한지 해시로 검증한 후 스탬프를 등록한다.
      */
     @Transactional
-    public StampResponse confirm(long userId, ConfirmRequest request) {
-        String storedHash = attendanceMapper.findCheckHash(request.token(), userId);
-        if (storedHash == null || !storedHash.equals(payloadHash(userId, request.toCheckRequest()))) {
+    public StampResponse confirm(long tenantId, long userId, ConfirmRequest request) {
+        String storedHash = attendanceMapper.findCheckHash(tenantId, request.token(), userId);
+        if (storedHash == null || !storedHash.equals(payloadHash(tenantId, userId, request.toCheckRequest()))) {
             throw ApiException.badRequest("CHECK_MISMATCH", "attendance.check.mismatch");
         }
-        attendanceMapper.deleteCheck(request.token());
+        attendanceMapper.deleteCheck(tenantId, request.token(), userId);
 
         //휴식 스탬프인 경우: 직전 기록이 진행 중인 휴식이면 이번 스탬프는 휴식 종료
         int status = AttendanceStamp.STATUS_ACTIVE;
         if (request.type() == AttendanceType.BREAK) {
-            AttendanceStamp latest = attendanceMapper.findLatest(userId);
+            AttendanceStamp latest = attendanceMapper.findLatest(tenantId, userId);
             if (latest != null && latest.type() == AttendanceType.BREAK
                     && latest.status() == AttendanceStamp.STATUS_ACTIVE) {
                 status = AttendanceStamp.STATUS_BREAK_ENDED;
             }
         }
         LocalDateTime now = LocalDateTime.now();
-        attendanceMapper.insert(userId, request.type().code(), status, now,
+        attendanceMapper.insert(tenantId, userId, request.type().code(), status, now,
                 request.latitude(), request.longitude(), request.placeInfo(), request.terminal());
         log.debug("attendance stamped: userId={}, type={}, status={}", userId, request.type(), status);
 
@@ -185,8 +185,8 @@ public class AttendanceService {
      * 현재 출결 상태(출근 대기/출근 중/퇴근 완료 등) 취득.
      */
     @Transactional(readOnly = true)
-    public StatusResponse status(long userId) {
-        AttendanceStamp latest = attendanceMapper.findLatest(userId);
+    public StatusResponse status(long tenantId, long userId) {
+        AttendanceStamp latest = attendanceMapper.findLatest(tenantId, userId);
         if (latest == null) {
             return statusOf(WorkStatus.WAITING, null, null);
         }
@@ -213,7 +213,7 @@ public class AttendanceService {
                         hoursSince > OVERDUE_HOURS ? StatusAlert.OVERDUE_BREAK_END : null);
             }
             //휴식 종료 상태면 기준 시각은 최근 출근 스탬프
-            AttendanceStamp lastGo = attendanceMapper.findLatestGoToWork(userId);
+            AttendanceStamp lastGo = attendanceMapper.findLatestGoToWork(tenantId, userId);
             LocalDateTime baseTime = lastGo == null ? latest.stampedAt() : lastGo.stampedAt();
             long hoursSinceGo = java.time.Duration.between(baseTime, now).toHours();
             return statusOf(WorkStatus.BREAK_ENDED, baseTime,
@@ -234,7 +234,7 @@ public class AttendanceService {
      * 월별 출결 상세 취득.
      */
     @Transactional(readOnly = true)
-    public MonthlyResponse monthly(long userId, int year, int month) {
+    public MonthlyResponse monthly(long tenantId, long userId, int year, int month) {
         if (month < 1 || month > 12) {
             throw ApiException.badRequest("INVALID_MONTH", "attendance.month.invalid");
         }
@@ -243,11 +243,11 @@ public class AttendanceService {
         LocalDate to = yearMonth.plusMonths(1).atDay(1);
 
         List<LocalDate> monthDays = from.datesUntil(to).toList();
-        Map<LocalDate, WorkSchedule> schedules = scheduleMapper.findBetween(userId, from, to).stream()
+        Map<LocalDate, WorkSchedule> schedules = scheduleMapper.findBetween(tenantId, userId, from, to).stream()
                 .collect(Collectors.toMap(WorkSchedule::workDate, Function.identity()));
-        Set<LocalDate> holidays = Set.copyOf(scheduleMapper.findHolidayDates(from, to));
+        Set<LocalDate> holidays = Set.copyOf(scheduleMapper.findHolidayDates(tenantId, from, to));
         //야근(자정 넘긴 퇴근) 판정을 위해 다음달 1일치 스탬프까지 함께 조회
-        List<AttendanceStamp> stamps = attendanceMapper.findBetween(userId, from, to.plusDays(1));
+        List<AttendanceStamp> stamps = attendanceMapper.findBetween(tenantId, userId, from, to.plusDays(1));
 
         List<DailyAttendance> days = assembler.assemble(monthDays, schedules, holidays, stamps);
         return new MonthlyResponse(year, month, days);
@@ -255,9 +255,10 @@ public class AttendanceService {
 
     /**
      * 체크/확정 데이터의 변조 탐지용 SHA-256 해시.
+     * tenantId를 계산 입력에 포함한다(심층 방어 — 행이 잘못 매칭되어도 해시 대조에서 한 번 더 실패).
      */
-    private String payloadHash(long userId, CheckRequest request) {
-        String canonical = userId + "|" + request.type().code()
+    private String payloadHash(long tenantId, long userId, CheckRequest request) {
+        String canonical = tenantId + "|" + userId + "|" + request.type().code()
                 + "|" + orEmpty(request.latitude())
                 + "|" + orEmpty(request.longitude())
                 + "|" + orEmpty(request.placeInfo())

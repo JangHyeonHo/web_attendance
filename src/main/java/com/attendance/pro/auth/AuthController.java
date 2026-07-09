@@ -9,8 +9,11 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.attendance.pro.auth.AuthDtos.LoginRequest;
-import com.attendance.pro.config.LocaleConfig;
 import com.attendance.pro.auth.AuthDtos.LoginResponse;
+import com.attendance.pro.common.ApiException;
+import com.attendance.pro.config.LocaleConfig;
+import com.attendance.pro.tenant.TenantHostResolver;
+import com.attendance.pro.tenant.TenantHostResolver.HostTenant;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -29,19 +32,39 @@ import jakarta.validation.Valid;
 public class AuthController {
 
     private final AuthService authService;
+    private final LoginRateLimiter loginRateLimiter;
+    private final TenantHostResolver tenantHostResolver;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, LoginRateLimiter loginRateLimiter,
+            TenantHostResolver tenantHostResolver) {
         this.authService = authService;
+        this.loginRateLimiter = loginRateLimiter;
+        this.tenantHostResolver = tenantHostResolver;
     }
 
     @Operation(summary = "api.auth.login.summary", description = "api.auth.login.description")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "api.auth.login.200"),
-            @ApiResponse(responseCode = "401", description = "api.auth.login.401")
+            @ApiResponse(responseCode = "401", description = "api.auth.login.401"),
+            @ApiResponse(responseCode = "429", description = "api.auth.login.429")
     })
     @PostMapping("/login")
     public LoginResponse login(@Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {
-        SessionUser user = authService.authenticate(request.email(), request.password());
+        //서브도메인/코드 병행: 호스트가 테넌트를 주장하면 호스트가 이긴다
+        String tenantCode = resolveTenantCode(request, httpRequest);
+
+        //①레이트 리밋 검사(임계 초과 시 429) → ②인증 → ③실패 기록/성공 초기화
+        String clientIp = httpRequest.getRemoteAddr();
+        loginRateLimiter.check(tenantCode, request.email(), clientIp);
+        SessionUser user;
+        try {
+            user = authService.authenticate(tenantCode, request.email(), request.password());
+        } catch (ApiException e) {
+            loginRateLimiter.recordFailure(tenantCode, request.email(), clientIp);
+            throw e;
+        }
+        loginRateLimiter.reset(tenantCode, request.email());
+
         //세션 고정 공격 방지를 위해 기존 세션을 무효화하고 새로 발급한다.
         //이때 언어 설정(LANG)은 새 세션으로 이어준다.
         HttpSession oldSession = httpRequest.getSession(false);
@@ -55,6 +78,27 @@ public class AuthController {
             newSession.setAttribute(LocaleConfig.SESSION_LANG_KEY, lang);
         }
         return LoginResponse.from(user);
+    }
+
+    /**
+     * 이 로그인 요청의 테넌트 코드를 확정한다(병행 규칙).
+     *  - 테넌트 서브도메인 접속(FOUND/UNKNOWN): 호스트가 확정. 바디 코드가 있는데 다르면
+     *    모호성을 조용히 삼키지 않고 400. UNKNOWN 코드는 authenticate에서 통일 401(존재 비노출).
+     *  - 루트 도메인 접속(NONE): 기존 방식 — 바디 코드 필수.
+     */
+    private String resolveTenantCode(LoginRequest request, HttpServletRequest httpRequest) {
+        HostTenant hostTenant = tenantHostResolver.resolve(httpRequest);
+        String bodyCode = request.tenantCode() == null ? "" : request.tenantCode().trim();
+        if (hostTenant.claimsTenant()) {
+            if (!bodyCode.isEmpty() && !bodyCode.equalsIgnoreCase(hostTenant.code())) {
+                throw ApiException.badRequest("TENANT_CODE_MISMATCH", "auth.login.tenant-mismatch");
+            }
+            return hostTenant.code();
+        }
+        if (bodyCode.isEmpty()) {
+            throw ApiException.badRequest("TENANT_CODE_REQUIRED", "validation.tenant-code.required");
+        }
+        return bodyCode;
     }
 
     @Operation(summary = "api.auth.logout.summary", description = "api.auth.logout.description")

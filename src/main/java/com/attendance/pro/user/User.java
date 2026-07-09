@@ -7,11 +7,13 @@ import java.time.LocalDateTime;
  */
 public record User(
         Long userId,
+        long tenantId,
         String email,
         String passwordHash,
         String name,
         String departCd,
-        boolean admin,
+        Role role,
+        UserStatus status,
         boolean deleted,
         LocalDateTime createdAt,
         LocalDateTime updatedAt) {

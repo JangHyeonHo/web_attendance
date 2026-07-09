@@ -14,13 +14,13 @@ import com.attendance.pro.navigation.NavigationDtos.NavigationReason;
  * 서버 주도 화면 전개 서비스.
  * 프론트는 URL 라우팅 없이 이 API의 결정만으로 화면을 전환한다(v1의 화면 전개 컨셉 계승).
  *
- * 결정 규칙(v1 RootController.loginAuth 계승):
+ * 결정 규칙:
  * <ul>
- *   <li>로그인 필요 화면 + 미로그인 → 로그인 화면</li>
- *   <li>관리자 화면 + 비관리자 → 미로그인이면 로그인, 일반 유저면 출결 화면</li>
- *   <li>로그인 상태에서 로그인/가입/홈 요청 → 관리자는 관리자, 일반 유저는 출결 화면</li>
+ *   <li>보호 화면 + 미로그인 → 로그인 화면</li>
+ *   <li>허용 role 집합 미포함 → 각자의 홈 화면 + ROLE_DENIED</li>
+ *   <li>로그인 상태에서 로그인/홈 요청 → 각자의 홈 화면(SYSTEM_ADMIN=W007, 그 외=W005)</li>
  *   <li>로그아웃 요청 → (컨트롤러에서 세션 무효화 후) 로그인 화면</li>
- *   <li>알 수 없는 화면 코드 → 인덱스</li>
+ *   <li>알 수 없는 화면 코드 → 인덱스(로그인 상태면 홈)</li>
  * </ul>
  */
 @Service
@@ -47,19 +47,24 @@ public class NavigationService {
     }
 
     /**
-     * 요청 화면과 로그인 상태로 실제 표시할 화면을 결정한다. (순수 로직 - 단위 테스트 대상)
+     * 요청 화면과 로그인 상태/role로 실제 표시할 화면을 결정한다. (순수 로직 - 단위 테스트 대상)
+     *
+     * @param onTenantHost 테넌트 서브도메인으로 접속했는가 — 그 회사의 입구이므로
+     *                     비로그인 기본 화면이 랜딩(W000)이 아닌 로그인(W001)이 된다
      */
-    public Decision decide(String requestedCode, SessionUser user) {
+    public Decision decide(String requestedCode, SessionUser user, boolean onTenantHost) {
         Screen requested = Screen.fromCode(requestedCode);
         boolean loggedIn = user != null;
+        //비로그인 기본 화면: 루트 도메인=랜딩, 테넌트 서브도메인=로그인
+        Screen anonymousHome = onTenantHost ? Screen.LOGIN : Screen.INDEX;
 
-        //알 수 없는(또는 미지정) 화면 코드는 인덱스로
+        //알 수 없는(또는 미지정) 화면 코드는 기본 화면으로
         if (requested == null || requested == Screen.COMMON) {
-            //로그인 상태라면 인덱스 대신 각자의 홈 화면으로
+            //로그인 상태라면 각자의 홈 화면으로
             if (loggedIn) {
                 return new Decision(homeOf(user), NavigationReason.ALREADY_LOGGED_IN, false);
             }
-            return new Decision(Screen.INDEX,
+            return new Decision(anonymousHome,
                     requestedCode == null ? null : NavigationReason.UNKNOWN_SCREEN, false);
         }
 
@@ -68,48 +73,53 @@ public class NavigationService {
             return new Decision(Screen.LOGIN, NavigationReason.LOGGED_OUT, loggedIn);
         }
 
-        //접근 레벨 검사
-        switch (requested.access()) {
-        case LOGIN_REQUIRED:
-            if (!loggedIn) {
-                return new Decision(Screen.LOGIN, NavigationReason.LOGIN_REQUIRED, false);
-            }
-            return new Decision(requested, null, false);
-        case ADMIN_ONLY:
-            if (!loggedIn) {
-                return new Decision(Screen.LOGIN, NavigationReason.LOGIN_REQUIRED, false);
-            }
-            if (!user.admin()) {
-                return new Decision(Screen.ATTENDANCE, NavigationReason.ADMIN_ONLY, false);
-            }
-            return new Decision(requested, null, false);
-        case PUBLIC:
-        default:
-            //로그인 상태에서 로그인/가입/홈을 요청하면 각자의 홈 화면으로
-            if (loggedIn && (requested == Screen.LOGIN || requested == Screen.SIGNUP || requested == Screen.INDEX)) {
+        if (requested.isPublic()) {
+            //로그인 상태에서 로그인/홈을 요청하면 각자의 홈 화면으로
+            if (loggedIn && (requested == Screen.LOGIN || requested == Screen.INDEX)) {
                 return new Decision(homeOf(user), NavigationReason.ALREADY_LOGGED_IN, false);
+            }
+            //테넌트 서브도메인에서 랜딩 요청은 로그인으로(랜딩은 루트 도메인 전용)
+            if (!loggedIn && onTenantHost && requested == Screen.INDEX) {
+                return new Decision(Screen.LOGIN, null, false);
             }
             return new Decision(requested, null, false);
         }
+        if (!loggedIn) {
+            return new Decision(Screen.LOGIN, NavigationReason.LOGIN_REQUIRED, false);
+        }
+        if (!requested.allowed().contains(user.role())) {
+            return new Decision(homeOf(user), NavigationReason.ROLE_DENIED, false); //허용 role 집합 미포함
+        }
+        return new Decision(requested, null, false);
     }
 
     /**
-     * 로그인 유저의 홈 화면(관리자는 관리자 화면, 일반 유저는 출결 화면).
+     * 로그인 유저의 홈 화면.
+     * TENANT_ADMIN의 일상 업무는 출결(W005) — 멤버 관리(W009)는 헤더 메뉴로 진입.
      */
     private Screen homeOf(SessionUser user) {
-        return user.admin() ? Screen.ADMIN : Screen.ATTENDANCE;
+        return switch (user.role()) {
+        case SYSTEM_ADMIN -> Screen.SYSTEM_TENANTS;   //W007
+        case TENANT_ADMIN -> Screen.ATTENDANCE;       //W005
+        case MEMBER -> Screen.ATTENDANCE;             //W005
+        };
     }
 
     /**
      * 결정된 화면의 응답(다국어 텍스트 + 화면 초기 데이터)을 조립한다.
+     *
+     * @param hostTenantName 테넌트 서브도메인으로 접속한 경우 그 테넌트명(로그인 화면 브랜딩용), 아니면 null
      */
-    public NavigateResponse assemble(Decision decision, SessionUser user, String lang) {
+    public NavigateResponse assemble(Decision decision, SessionUser user, String lang, String hostTenantName) {
         Screen target = decision.target();
         Object data = loadScreenData(target, user);
         return new NavigateResponse(
                 target.code(),
+                lang,
                 decision.reason(),
                 user == null ? null : user.name(),
+                user == null ? null : user.role(),
+                hostTenantName,
                 languageService.texts(target.code(), lang),
                 languageService.texts(Screen.COMMON.code(), lang),
                 data);
@@ -117,11 +127,12 @@ public class NavigationService {
 
     /**
      * 화면별 초기 데이터. v1의 "화면 전개시 데이터 동봉" 컨셉 계승.
+     * W007/W008/W009는 초기 데이터 없이 시작(프론트가 각 API를 호출) — 화면 전개 응답 비대화 방지.
      */
     private Object loadScreenData(Screen target, SessionUser user) {
         if (target == Screen.ATTENDANCE && user != null) {
             try {
-                return attendanceService.status(user.userId());
+                return attendanceService.status(user.tenantId(), user.userId());
             } catch (Exception e) {
                 //초기 데이터 취득 실패가 화면 전개 자체를 막지 않도록 한다
                 log.error("attendance status load failed on navigation", e);

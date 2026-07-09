@@ -1,9 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { navigationApi } from '../api/endpoints'
+import { authApi, navigationApi } from '../api/endpoints'
 import { setUnauthorizedHandler } from '../api/client'
 import { makeT } from '../i18n/lang'
-import type { Lang, ScreenCode } from '../api/types'
+import type { Lang, Role, ScreenCode } from '../api/types'
 
 /**
  * 서버 주도 화면 전개의 클라이언트 측 절반.
@@ -15,13 +15,21 @@ import type { Lang, ScreenCode } from '../api/types'
 interface AppState {
   screen: ScreenCode
   userName: string | null
+  /** 세션 role (navigation 응답 기준, 비로그인 null) — 헤더 메뉴 분기용 */
+  role: Role | null
+  /** 헤더 뱃지용 테넌트명 (auth/me 기준, SYSTEM_ADMIN·비로그인은 null) */
+  tenantName: string | null
+  /** 테넌트 서브도메인 접속 시 그 테넌트명 — 로그인 화면이 코드 입력란을 숨기고 회사명을 표시 */
+  hostTenantName: string | null
   lang: Lang
   /** 화면 초기 데이터(출결 화면이면 StatusResponse) */
   data: unknown
-  /** 텍스트 해석: 서버 언어 마스터 > 내장 사전 > 키 */
+  /** 텍스트 해석: 서버 언어 마스터 > 키 이름 */
   t: (key: string) => string
   navigate: (screen?: ScreenCode, lang?: Lang) => Promise<void>
   ready: boolean
+  /** 직전 navigate 실패 메시지(서버 텍스트 부재 시에도 표시 가능해야 하므로 원문 그대로) */
+  navError: string | null
 }
 
 const AppContext = createContext<AppState | null>(null)
@@ -29,28 +37,49 @@ const AppContext = createContext<AppState | null>(null)
 export function AppProvider({ children }: { children: ReactNode }) {
   const [screen, setScreen] = useState<ScreenCode>('W000')
   const [userName, setUserName] = useState<string | null>(null)
+  const [role, setRole] = useState<Role | null>(null)
+  const [tenantName, setTenantName] = useState<string | null>(null)
+  const [hostTenantName, setHostTenantName] = useState<string | null>(null)
   const [lang, setLang] = useState<Lang>('KOR')
   const [texts, setTexts] = useState<Record<string, string>>({})
   const [headers, setHeaders] = useState<Record<string, string>>({})
   const [data, setData] = useState<unknown>(null)
   const [ready, setReady] = useState(false)
+  const [navError, setNavError] = useState<string | null>(null)
   const langRef = useRef<Lang>('KOR')
+  /** 동시 navigate 경합 방지 — 최신 요청의 응답만 상태에 반영한다 */
+  const navSeqRef = useRef(0)
 
   const navigate = useCallback(async (nextScreen?: ScreenCode, nextLang?: Lang) => {
-    const response = await navigationApi.navigate({
-      screen: nextScreen ?? null,
-      lang: nextLang ?? null,
-    })
-    if (nextLang) {
-      langRef.current = nextLang
-      setLang(nextLang)
+    const seq = ++navSeqRef.current
+    try {
+      const response = await navigationApi.navigate({
+        screen: nextScreen ?? null,
+        lang: nextLang ?? null,
+      })
+      if (seq !== navSeqRef.current) {
+        //이후에 시작된 navigate가 있음 — 이 응답은 폐기(늦은 응답이 최종 화면을 덮지 않게)
+        return
+      }
+      //언어는 서버 확정값으로 동기화(리로드 후 세션 언어와의 어긋남 방지)
+      const appliedLang = response.lang
+      langRef.current = appliedLang
+      setLang(appliedLang)
+      setScreen(response.screen)
+      setUserName(response.userName)
+      setRole(response.role)
+      setHostTenantName(response.hostTenantName)
+      setTexts(response.texts)
+      setHeaders(response.headers)
+      setData(response.data)
+      setNavError(null)
+      setReady(true)
+    } catch (e) {
+      if (seq === navSeqRef.current) {
+        //ready 전이면 App이 재시도 화면을, 이후면 배너를 렌더한다
+        setNavError(e instanceof Error ? e.message : String(e))
+      }
     }
-    setScreen(response.screen)
-    setUserName(response.userName)
-    setTexts(response.texts)
-    setHeaders(response.headers)
-    setData(response.data)
-    setReady(true)
   }, [])
 
   //세션 만료(401) → 로그인 화면 전개
@@ -60,16 +89,37 @@ export function AppProvider({ children }: { children: ReactNode }) {
     })
   }, [navigate])
 
-  //기동시: 서버에 화면 결정을 위임(로그인 상태면 홈, 아니면 인덱스)
+  //기동시: 서버에 화면 결정을 위임(로그인 상태면 홈, 아니면 랜딩)
   useEffect(() => {
     void navigate()
   }, [navigate])
 
+  //테넌트명 뱃지: navigation 응답에는 tenantName이 없으므로 auth/me로 1회 취득
+  //(SYSTEM_ADMIN은 뱃지 미표시 계약이라 취득 자체를 생략)
+  useEffect(() => {
+    if (!role || role === 'SYSTEM_ADMIN') {
+      setTenantName(null)
+      return
+    }
+    let cancelled = false
+    authApi
+      .me()
+      .then((me) => {
+        if (!cancelled) setTenantName(me.tenantName)
+      })
+      .catch(() => {
+        //뱃지는 부가 정보 — 취득 실패는 무시(401은 클라이언트 훅이 처리)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [role])
+
   const t = useMemo(() => makeT({ ...headers, ...texts }), [texts, headers])
 
   const value = useMemo<AppState>(
-    () => ({ screen, userName, lang, data, t, navigate, ready }),
-    [screen, userName, lang, data, t, navigate, ready],
+    () => ({ screen, userName, role, tenantName, hostTenantName, lang, data, t, navigate, ready, navError }),
+    [screen, userName, role, tenantName, hostTenantName, lang, data, t, navigate, ready, navError],
   )
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>
