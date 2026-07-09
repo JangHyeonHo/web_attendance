@@ -90,3 +90,5 @@ target/classes/META-INF/maven/com.attendance.pro/web_attendance/pom.properties
 frontend/node_modules/
 frontend/dist/
 frontend/*.tsbuildinfo
+frontend/.vite/
+.claude/
