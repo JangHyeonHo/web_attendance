@@ -136,6 +136,40 @@ public class AttendanceService {
      */
     @Transactional
     public StampResponse manual(long tenantId, long userId, ManualStampRequest request) {
+        ValidatedManual validated = validateManual(request);
+        //좌표·장소 없음 — 위치는 자동 스탬프의 무결성 장치이지 정정의 입력이 아니다(§3)
+        attendanceMapper.insert(tenantId, userId, request.type().code(), AttendanceStamp.STATUS_ACTIVE,
+                validated.stampedAt(), null, null, null, "manual",
+                StampSource.MANUAL, validated.reason().name(), validated.reasonText());
+        log.info("manual attendance stamped: userId={}, type={}, at={}, reason={}",
+                userId, request.type(), validated.stampedAt(), validated.reason());
+        return manualResponse("attendance.manual.success", request.type(), validated.stampedAt());
+    }
+
+    /**
+     * 수동 정정 수정(잘못 입력 복구 — 시각/구분/사유 변경).
+     * 본인 + MANUAL 행만(자동 기록 불변). 조건 불일치는 404(존재 비노출).
+     */
+    @Transactional
+    public StampResponse updateManual(long tenantId, long userId, long attendanceId,
+            ManualStampRequest request) {
+        ValidatedManual validated = validateManual(request);
+        int updated = attendanceMapper.updateManual(tenantId, userId, attendanceId,
+                request.type().code(), validated.stampedAt(),
+                validated.reason().name(), validated.reasonText());
+        if (updated == 0) {
+            throw ApiException.notFound("MANUAL_NOT_FOUND", "attendance.manual.not-found");
+        }
+        log.info("manual attendance updated: userId={}, attendanceId={}, type={}, at={}",
+                userId, attendanceId, request.type(), validated.stampedAt());
+        return manualResponse("attendance.manual.updated", request.type(), validated.stampedAt());
+    }
+
+    /** 검증 통과한 정정 입력(등록/수정 공통 규칙 — manual-attendance §3) */
+    private record ValidatedManual(LocalDateTime stampedAt, ManualReason reason, String reasonText) {
+    }
+
+    private ValidatedManual validateManual(ManualStampRequest request) {
         if (request.type() == AttendanceType.BREAK) {
             throw ApiException.badRequest("MANUAL_TYPE_INVALID", "attendance.manual.type.invalid");
         }
@@ -160,16 +194,14 @@ public class AttendanceService {
         if (request.date().isBefore(now.toLocalDate().minusDays(MANUAL_MAX_DAYS))) {
             throw ApiException.badRequest("MANUAL_TOO_OLD", "attendance.manual.too-old");
         }
-        //좌표·장소 없음 — 위치는 자동 스탬프의 무결성 장치이지 정정의 입력이 아니다(§3)
-        attendanceMapper.insert(tenantId, userId, request.type().code(), AttendanceStamp.STATUS_ACTIVE,
-                stampedAt, null, null, null, "manual", StampSource.MANUAL, reason.name(), reasonText);
-        log.info("manual attendance stamped: userId={}, type={}, at={}, reason={}",
-                userId, request.type(), stampedAt, reason);
+        return new ValidatedManual(stampedAt, reason, reasonText);
+    }
 
-        String message = messages.get("attendance.manual.success",
+    private StampResponse manualResponse(String messageKey, AttendanceType type, LocalDateTime stampedAt) {
+        String message = messages.get(messageKey,
                 stampedAt.format(DateTimeFormatter.ofPattern("MM-dd HH:mm")),
-                messages.get(request.type().labelKey()));
-        return new StampResponse(request.type(), stampedAt, message);
+                messages.get(type.labelKey()));
+        return new StampResponse(type, stampedAt, message);
     }
 
     /**
@@ -188,19 +220,6 @@ public class AttendanceService {
         return new DailyResponse(date, entries);
     }
 
-    /**
-     * 수동 정정 스탬프 삭제(잘못 입력 복구 — manual-attendance §3).
-     * 본인 + MANUAL 행만. AUTO 행·타인 행·미존재는 동일하게 404(존재 비노출).
-     * 채용 규칙이 "마지막 값 우선"이라 잘못 넣은 늦은 시각은 재등록으로 못 고친다 — 삭제가 유일한 복구 경로.
-     */
-    @Transactional
-    public void deleteManual(long tenantId, long userId, long attendanceId) {
-        int deleted = attendanceMapper.deleteManual(tenantId, userId, attendanceId);
-        if (deleted == 0) {
-            throw ApiException.notFound("MANUAL_NOT_FOUND", "attendance.manual.not-found");
-        }
-        log.info("manual attendance deleted: userId={}, attendanceId={}", userId, attendanceId);
-    }
 
     /**
      * 출결 체크 규칙(기존 시스템의 err_cd 1~8 규칙을 계승).

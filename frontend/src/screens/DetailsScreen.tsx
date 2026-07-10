@@ -6,7 +6,7 @@ import { useApp } from '../app/AppContext'
 import { Modal } from '../components/Modal'
 import { SelectField, TimeField } from '../components/fields'
 import { localeOf } from '../i18n/lang'
-import type { DailyStampEntry, ManualReason, MonthlyResponse } from '../api/types'
+import type { AttendanceType, DailyStampEntry, ManualReason, MonthlyResponse } from '../api/types'
 
 /** 분 → "h:mm" 조립(서버는 로케일 무관 수치만 — 표기는 화면 책임). null은 '-' */
 function formatMinutes(minutes: number | null): string {
@@ -22,7 +22,7 @@ const REASONS: { code: ManualReason; labelKey: string }[] = [
   { code: 'OTHER', labelKey: 'REASON_OTHER' },
 ]
 
-/** 이력 행의 타입 라벨 키(BREAK는 시작/종료 구분) */
+/** 이력 행의 타입 라벨 키(BREAK는 시작/종료 구분. 조퇴는 과거 데이터 표기용) */
 function stampTypeKey(stamp: DailyStampEntry): string {
   switch (stamp.type) {
     case 'GO_TO_WORK':
@@ -36,13 +36,19 @@ function stampTypeKey(stamp: DailyStampEntry): string {
   }
 }
 
+/** 수정 대상(일자 상세의 [수정] → 정정 모달을 수정 모드로) */
+interface EditingStamp {
+  attendanceId: number
+  type: AttendanceType
+}
+
 /**
  * W006 출결 상세(월별). 출결 화면(W005)에서 확장 표시로도 사용되므로
  * 자신의 화면 텍스트(W006)를 언어 마스터에서 직접 취득한다(공통 텍스트는 컨텍스트 사용).
- * Phase 5.1:
- * - 진입: 날짜 셀 버튼 클릭 → 일자 상세 모달(행 전체 클릭은 스크롤 오조작이 있어 폐지)
- * - 정정 모달: 날짜 고정(클릭한 날), 출근·퇴근을 토글로 한 번에 등록, 전용 Select/Time 컴포넌트
- * - 잘못 입력 복구: 일자 상세에서 수동(MANUAL) 스탬프 삭제(자동 기록은 불변)
+ * Phase 5.2:
+ * - 정정 모달: 날짜 고정, 출근·퇴근 행을 한 그룹으로(시각은 "HH:mm" 단일 필드 — 통합 타임피커)
+ * - 조퇴 UI 폐지(출근/퇴근만) — 과거 조퇴 데이터는 이력 표기만 유지
+ * - 잘못 입력 복구는 [수정](시각·구분·사유 변경) — 이력 삭제는 제공하지 않는다
  */
 export function DetailsScreen() {
   const { t: commonT, lang } = useApp()
@@ -58,18 +64,19 @@ export function DetailsScreen() {
   const [detailDate, setDetailDate] = useState<string | null>(null)
   const [detailStamps, setDetailStamps] = useState<DailyStampEntry[] | null>(null)
   const [detailError, setDetailError] = useState<string | null>(null)
-  /** 삭제 2단계 확인(행 인라인 — 모달 중첩 없이) */
-  const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null)
 
-  //정정 등록 모달 — 날짜는 클릭한 날로 고정, 출근/퇴근을 각각 토글해 한 번에 등록
+  //정정 모달 — 날짜는 클릭한 날로 고정. editing이 있으면 수정 모드(단일 행)
   const [manualOpen, setManualOpen] = useState(false)
   const [manualDate, setManualDate] = useState('')
+  const [editing, setEditing] = useState<EditingStamp | null>(null)
+  //등록 모드: 출근/퇴근 행 토글(둘 다 잊은 날 한 번에)
   const [inOn, setInOn] = useState(true)
   const [inTime, setInTime] = useState('09:00')
   const [outOn, setOutOn] = useState(false)
   const [outTime, setOutTime] = useState('18:00')
-  /** 퇴근 구분 — v1(5년 전)부터 조퇴는 별도 타입이라 유지(집계상 둘 다 퇴근 시각) */
-  const [outType, setOutType] = useState<'OFF_WORK' | 'EARLY_DEPARTURE'>('OFF_WORK')
+  //수정 모드: 구분(출근/퇴근)과 시각
+  const [editType, setEditType] = useState<AttendanceType>('GO_TO_WORK')
+  const [editTime, setEditTime] = useState('09:00')
   const [reasonCode, setReasonCode] = useState<ManualReason>('FORGOT')
   const [reasonText, setReasonText] = useState('')
   const [manualError, setManualError] = useState<string | null>(null)
@@ -121,7 +128,6 @@ export function DetailsScreen() {
     setDetailDate(date)
     setDetailStamps(null)
     setDetailError(null)
-    setDeleteTargetId(null)
     try {
       const response = await attendanceApi.daily(date)
       setDetailStamps(response.stamps)
@@ -130,31 +136,31 @@ export function DetailsScreen() {
     }
   }
 
-  /** 수동 스탬프 삭제(잘못 입력 복구) — 삭제 후 이력·월별을 함께 갱신 */
-  async function deleteManualStamp(attendanceId: number) {
-    setDeleteTargetId(null)
-    setDetailError(null)
-    try {
-      await attendanceApi.manualDelete(attendanceId)
-      if (detailDate) {
-        const response = await attendanceApi.daily(detailDate)
-        setDetailStamps(response.stamps)
-      }
-      await reload()
-    } catch (e) {
-      setDetailError(e instanceof ApiError ? e.message : String(e))
-    }
-  }
-
+  /** 등록 모드로 열기(일자 상세 → [정정 등록]) */
   function openManual(date: string) {
     setManualDate(date)
+    setEditing(null)
     setInOn(true)
     setInTime('09:00')
     setOutOn(false)
     setOutTime('18:00')
-    setOutType('OFF_WORK')
     setReasonCode('FORGOT')
     setReasonText('')
+    setManualError(null)
+    setManualNotice(null)
+    setDetailDate(null)
+    setManualOpen(true)
+  }
+
+  /** 수정 모드로 열기(일자 상세의 MANUAL 행 [수정] — 시각·구분·사유가 채워진 채) */
+  function openEdit(date: string, stamp: DailyStampEntry) {
+    setManualDate(date)
+    setEditing({ attendanceId: stamp.attendanceId, type: stamp.type })
+    //조퇴는 UI에서 폐지 — 과거 조퇴 스탬프를 수정하면 퇴근으로 정리된다
+    setEditType(stamp.type === 'GO_TO_WORK' ? 'GO_TO_WORK' : 'OFF_WORK')
+    setEditTime(stamp.stampedAt.slice(11, 16))
+    setReasonCode((stamp.reasonCode as ManualReason) ?? 'FORGOT')
+    setReasonText(stamp.reasonCode === 'OTHER' ? (stamp.reasonText ?? '') : '')
     setManualError(null)
     setManualNotice(null)
     setDetailDate(null)
@@ -169,26 +175,38 @@ export function DetailsScreen() {
     const reasonTextValue = reasonCode === 'OTHER' ? reasonText.trim() : null
     try {
       const messages: string[] = []
-      //출근·퇴근을 한 번에(둘 다 잊은 날) — 출근 먼저 등록해 시각 순서를 자연스럽게 유지
-      if (inOn) {
-        const response = await attendanceApi.manual({
+      if (editing) {
+        //수정 모드: 기존 수동 스탬프의 시각/구분/사유 변경(이력 삭제 없음)
+        const response = await attendanceApi.manualUpdate(editing.attendanceId, {
           date: manualDate,
-          time: inTime,
-          type: 'GO_TO_WORK',
+          time: editTime,
+          type: editType,
           reasonCode,
           reasonText: reasonTextValue,
         })
         messages.push(response.message)
-      }
-      if (outOn) {
-        const response = await attendanceApi.manual({
-          date: manualDate,
-          time: outTime,
-          type: outType,
-          reasonCode,
-          reasonText: reasonTextValue,
-        })
-        messages.push(response.message)
+      } else {
+        //등록 모드: 출근·퇴근을 한 번에(둘 다 잊은 날) — 출근 먼저 등록해 시각 순서 유지
+        if (inOn) {
+          const response = await attendanceApi.manual({
+            date: manualDate,
+            time: inTime,
+            type: 'GO_TO_WORK',
+            reasonCode,
+            reasonText: reasonTextValue,
+          })
+          messages.push(response.message)
+        }
+        if (outOn) {
+          const response = await attendanceApi.manual({
+            date: manualDate,
+            time: outTime,
+            type: 'OFF_WORK',
+            reasonCode,
+            reasonText: reasonTextValue,
+          })
+          messages.push(response.message)
+        }
       }
       setManualOpen(false)
       setManualNotice(messages.join(' / '))
@@ -226,7 +244,7 @@ export function DetailsScreen() {
           />
         </div>
       </div>
-      {/* 정정 진입은 날짜 버튼 → 일자 상세 → [정정 등록] 단일 동선(날짜가 먼저 정해지는 UX) */}
+      {/* 정정 진입은 날짜 버튼 → 일자 상세 → [정정 등록]/[수정] 단일 동선 */}
       {manualNotice && (
         <div className="banner" role="status">
           <p className="success">{manualNotice}</p>
@@ -328,29 +346,14 @@ export function DetailsScreen() {
                   ) : (
                     <span className="muted stamp-source">{t('SOURCE_AUTO')}</span>
                   )}
-                  {/* 잘못 입력 복구 — 수동 행만 삭제 가능(자동 기록은 불변), 2단계 확인 */}
-                  {stamp.source === 'MANUAL' &&
-                    (deleteTargetId === stamp.attendanceId ? (
-                      <span className="stamp-actions">
-                        <span className="error">{t('DELETE_CONFIRM')}</span>
-                        <button
-                          type="button"
-                          className="primary"
-                          onClick={() => void deleteManualStamp(stamp.attendanceId)}
-                        >
-                          {t('DELETE')}
-                        </button>
-                        <button type="button" onClick={() => setDeleteTargetId(null)}>
-                          {commonT('CANCEL')}
-                        </button>
-                      </span>
-                    ) : (
-                      <span className="stamp-actions">
-                        <button type="button" onClick={() => setDeleteTargetId(stamp.attendanceId)}>
-                          {t('DELETE')}
-                        </button>
-                      </span>
-                    ))}
+                  {/* 잘못 입력 복구 = 수정(시각·구분·사유 변경) — 이력 삭제는 제공하지 않는다 */}
+                  {stamp.source === 'MANUAL' && (
+                    <span className="stamp-actions">
+                      <button type="button" onClick={() => openEdit(detailDate, stamp)}>
+                        {t('EDIT')}
+                      </button>
+                    </span>
+                  )}
                   {stamp.reasonCode && (
                     <span className="stamp-reason muted">
                       {t(`REASON_${stamp.reasonCode}`)}
@@ -371,40 +374,66 @@ export function DetailsScreen() {
       )}
 
       {manualOpen && (
-        <Modal title={`${manualDate} — ${t('MANUAL_ADD')}`} onClose={() => setManualOpen(false)}>
+        <Modal
+          title={`${manualDate} — ${editing ? t('EDIT') : t('MANUAL_ADD')}`}
+          onClose={() => setManualOpen(false)}
+        >
           <form onSubmit={(e) => void submitManual(e)}>
-            {/* 날짜는 클릭한 날로 고정 — 제목에 표시(수정 불가) */}
-            <p className="hint">{t('MANUAL_HINT')}</p>
-
-            {/* 출근/퇴근 동시 등록 — 둘 다 잊은 날을 한 번에 */}
-            <div className="manual-section">
-              <label className={`toggle-chip${inOn ? ' on' : ''}`}>
-                <input type="checkbox" checked={inOn} onChange={() => setInOn((v) => !v)} />
-                {t('TYPE_GO')}
-              </label>
-              {inOn && <TimeField value={inTime} onChange={setInTime} ariaLabel={t('TYPE_GO')} />}
-            </div>
-            <div className="manual-section">
-              <label className={`toggle-chip${outOn ? ' on' : ''}`}>
-                <input type="checkbox" checked={outOn} onChange={() => setOutOn((v) => !v)} />
-                {t('TYPE_OFF')}
-              </label>
-              {outOn && (
-                <>
-                  <TimeField value={outTime} onChange={setOutTime} ariaLabel={t('TYPE_OFF')} />
+            {editing ? (
+              //수정 모드: 구분(출근/퇴근) + 시각 한 행
+              <div className="manual-rows">
+                <div className="manual-row">
                   <SelectField
                     compact
-                    value={outType}
+                    value={editType}
                     options={[
+                      { value: 'GO_TO_WORK', label: t('TYPE_GO') },
                       { value: 'OFF_WORK', label: t('TYPE_OFF') },
-                      { value: 'EARLY_DEPARTURE', label: t('TYPE_EARLY') },
                     ]}
                     ariaLabel={t('TYPE')}
-                    onChange={(v) => setOutType(v as 'OFF_WORK' | 'EARLY_DEPARTURE')}
+                    onChange={(v) => setEditType(v as AttendanceType)}
                   />
-                </>
-              )}
-            </div>
+                  <div className="row-controls">
+                    <TimeField value={editTime} onChange={setEditTime} ariaLabel={t('TIME')} />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              //등록 모드: 출근/퇴근을 하나의 그룹에서 켜고 끄며 한 번에 등록
+              <>
+                <p className="hint">{t('MANUAL_HINT')}</p>
+                <div className="manual-rows">
+                  <div className={`manual-row${inOn ? '' : ' off'}`}>
+                    <label className="row-check">
+                      <input type="checkbox" checked={inOn} onChange={() => setInOn((v) => !v)} />
+                      <span>{t('TYPE_GO')}</span>
+                    </label>
+                    <div className="row-controls">
+                      <TimeField
+                        value={inTime}
+                        onChange={setInTime}
+                        ariaLabel={t('TYPE_GO')}
+                        disabled={!inOn}
+                      />
+                    </div>
+                  </div>
+                  <div className={`manual-row${outOn ? '' : ' off'}`}>
+                    <label className="row-check">
+                      <input type="checkbox" checked={outOn} onChange={() => setOutOn((v) => !v)} />
+                      <span>{t('TYPE_OFF')}</span>
+                    </label>
+                    <div className="row-controls">
+                      <TimeField
+                        value={outTime}
+                        onChange={setOutTime}
+                        ariaLabel={t('TYPE_OFF')}
+                        disabled={!outOn}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
 
             <span className="field-label">{t('REASON')}</span>
             <SelectField
@@ -434,11 +463,11 @@ export function DetailsScreen() {
               className="primary"
               disabled={
                 submitting ||
-                (!inOn && !outOn) || //최소 하나는 등록
+                (!editing && !inOn && !outOn) || //등록 모드는 최소 하나
                 (reasonCode === 'OTHER' && !reasonText.trim())
               }
             >
-              {t('MANUAL_ADD')}
+              {editing ? t('EDIT') : t('MANUAL_ADD')}
             </button>
           </form>
         </Modal>

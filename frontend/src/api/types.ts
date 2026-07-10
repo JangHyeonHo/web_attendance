@@ -419,7 +419,7 @@ export interface ManualStampRequest {
 
 /** 일자 스탬프 이력 1건 — attendance는 append-only(중복 스탬프도 전부 나온다) */
 export interface DailyStampEntry {
-  /** 수동 정정 삭제(잘못 입력 복구)의 대상 식별자 — MANUAL 행만 삭제 가능 */
+  /** 수동 정정 수정(잘못 입력 복구)의 대상 식별자 — MANUAL 행만 수정 가능 */
   attendanceId: number
   stampedAt: string
   type: AttendanceType

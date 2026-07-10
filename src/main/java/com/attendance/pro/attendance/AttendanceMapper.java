@@ -9,6 +9,7 @@ import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 /**
  * attendance / attendance_check 테이블 매퍼.
@@ -95,19 +96,25 @@ public interface AttendanceMapper {
             @Param("reasonText") String reasonText);
 
     /**
-     * 수동 정정 스탬프 삭제(잘못 입력 복구 — 본인 + MANUAL 행만).
-     * AUTO 행은 불변(무결성 장치가 붙은 실측 기록) — 조건 불일치는 0행(호출부에서 404, 존재 비노출).
+     * 수동 정정 스탬프 수정(잘못 입력 복구 — 본인 + MANUAL 행만, 시각/구분/사유 변경).
+     * AUTO 행은 불변 — 조건 불일치는 0행(호출부에서 404, 존재 비노출).
      */
-    @Delete("""
-            DELETE FROM attendance
+    @Update("""
+            UPDATE attendance
+            SET type = #{typeCode}, stamped_at = #{stampedAt},
+                reason_code = #{reasonCode}, reason_text = #{reasonText}
             WHERE attendance_id = #{attendanceId}
               AND tenant_id = #{tenantId}
               AND user_id = #{userId}
               AND source = 'MANUAL'
             """)
-    int deleteManual(@Param("tenantId") long tenantId,
+    int updateManual(@Param("tenantId") long tenantId,
             @Param("userId") long userId,
-            @Param("attendanceId") long attendanceId);
+            @Param("attendanceId") long attendanceId,
+            @Param("typeCode") int typeCode,
+            @Param("stampedAt") LocalDateTime stampedAt,
+            @Param("reasonCode") String reasonCode,
+            @Param("reasonText") String reasonText);
 
     // ---- attendance_check (변조 방지 토큰) ----
 

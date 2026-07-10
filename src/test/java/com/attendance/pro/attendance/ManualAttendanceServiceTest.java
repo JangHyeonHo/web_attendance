@@ -149,16 +149,39 @@ class ManualAttendanceServiceTest {
 
 
     @Test
-    @DisplayName("deleteManual: 본인 MANUAL 행이면 삭제, 조건 불일치(자동/타인/미존재)는 404")
-    void deleteManual() {
-        when(attendanceMapper.deleteManual(TENANT_ID, USER_ID, 7L)).thenReturn(1);
-        service().deleteManual(TENANT_ID, USER_ID, 7L);
-        verify(attendanceMapper).deleteManual(TENANT_ID, USER_ID, 7L);
+    @DisplayName("updateManual: 본인 MANUAL 행이면 시각/구분/사유가 수정된다(등록과 동일 검증 규칙)")
+    void updateManual() {
+        when(messages.get(anyString(), any(Object[].class))).thenReturn("ok");
+        LocalDate yesterday = LocalDate.now().minusDays(1);
+        when(attendanceMapper.updateManual(eq(TENANT_ID), eq(USER_ID), eq(7L),
+                eq(AttendanceType.OFF_WORK.code()), eq(yesterday.atTime(17, 30)),
+                eq("DEVICE"), eq(null))).thenReturn(1);
 
-        when(attendanceMapper.deleteManual(TENANT_ID, USER_ID, 8L)).thenReturn(0);
-        assertThatThrownBy(() -> service().deleteManual(TENANT_ID, USER_ID, 8L))
+        StampResponse response = service().updateManual(TENANT_ID, USER_ID, 7L,
+                request(yesterday, "17:30", AttendanceType.OFF_WORK, "DEVICE", null));
+
+        assertThat(response.stampedAt()).isEqualTo(yesterday.atTime(17, 30));
+        verify(attendanceMapper).updateManual(eq(TENANT_ID), eq(USER_ID), eq(7L),
+                eq(AttendanceType.OFF_WORK.code()), eq(yesterday.atTime(17, 30)),
+                eq("DEVICE"), eq(null));
+    }
+
+    @Test
+    @DisplayName("updateManual: 조건 불일치(자동/타인/미존재)는 404, 검증 실패는 400 + DB 무변경")
+    void updateManualRejections() {
+        LocalDate yesterday = LocalDate.now().minusDays(1);
+        when(attendanceMapper.updateManual(eq(TENANT_ID), eq(USER_ID), eq(8L),
+                anyInt(), any(), anyString(), any())).thenReturn(0);
+        assertThatThrownBy(() -> service().updateManual(TENANT_ID, USER_ID, 8L,
+                request(yesterday, "17:30", AttendanceType.OFF_WORK, "FORGOT", null)))
                 .isInstanceOf(ApiException.class)
                 .hasFieldOrPropertyWithValue("code", "MANUAL_NOT_FOUND");
+
+        //등록과 동일 검증(대표 1건 — BREAK 거부)
+        assertThatThrownBy(() -> service().updateManual(TENANT_ID, USER_ID, 7L,
+                request(yesterday, "12:00", AttendanceType.BREAK, "FORGOT", null)))
+                .isInstanceOf(ApiException.class)
+                .hasFieldOrPropertyWithValue("code", "MANUAL_TYPE_INVALID");
     }
 
 }

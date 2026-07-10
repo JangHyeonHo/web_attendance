@@ -1,10 +1,10 @@
 package com.attendance.pro.attendance;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -79,17 +79,17 @@ public class AttendanceController {
         return attendanceService.manual(user.tenantId(), user.userId(), request);
     }
 
-    @Operation(summary = "api.attendance.manual-delete.summary",
-            description = "api.attendance.manual-delete.description")
+    @Operation(summary = "api.attendance.manual-update.summary",
+            description = "api.attendance.manual-update.description")
     @ApiResponses({
-            @ApiResponse(responseCode = "204", description = "api.attendance.manual-delete.204"),
-            @ApiResponse(responseCode = "404", description = "api.attendance.manual-delete.404")
+            @ApiResponse(responseCode = "400", description = "api.attendance.manual.400"),
+            @ApiResponse(responseCode = "404", description = "api.attendance.manual-update.404")
     })
-    @DeleteMapping("/manual/{attendanceId}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteManual(@LoginUser SessionUser user,
-            @PathVariable("attendanceId") long attendanceId) {
-        attendanceService.deleteManual(user.tenantId(), user.userId(), attendanceId);
+    @PutMapping("/manual/{attendanceId}")
+    public StampResponse updateManual(@LoginUser SessionUser user,
+            @PathVariable("attendanceId") long attendanceId,
+            @Valid @RequestBody ManualStampRequest request) {
+        return attendanceService.updateManual(user.tenantId(), user.userId(), attendanceId, request);
     }
 
     @Operation(summary = "api.attendance.daily.summary", description = "api.attendance.daily.description")

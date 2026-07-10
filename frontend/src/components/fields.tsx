@@ -89,15 +89,8 @@ export function SelectField({ value, options, onChange, ariaLabel, compact }: Se
   )
 }
 
-const HOURS: SelectOption[] = Array.from({ length: 24 }, (_, h) => {
-  const value = String(h).padStart(2, '0')
-  return { value, label: value }
-})
-
-const MINUTES: SelectOption[] = Array.from({ length: 60 }, (_, m) => {
-  const value = String(m).padStart(2, '0')
-  return { value, label: value }
-})
+const HOURS = Array.from({ length: 24 }, (_, h) => String(h).padStart(2, '0'))
+const MINUTES = Array.from({ length: 60 }, (_, m) => String(m).padStart(2, '0'))
 
 interface TimeFieldProps {
   /** "HH:mm" */
@@ -109,27 +102,89 @@ interface TimeFieldProps {
 
 /**
  * 전용 시각 선택 — 네이티브 <input type="time"> 대체.
- * 시/분을 각각 리스트 셀렉트로 고른다(모바일에서도 동일한 UI).
+ * "09:30" 하나의 필드이고, 누르면 시·분 2열이 한 패널로 열린다(분 선택 시 닫힘).
  */
 export function TimeField({ value, onChange, ariaLabel, disabled }: TimeFieldProps) {
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const hourRef = useRef<HTMLButtonElement>(null)
+  const minuteRef = useRef<HTMLButtonElement>(null)
   const [hour, minute] = value.split(':')
+
+  useEffect(() => {
+    if (!open) return
+    const onPointerDown = (event: PointerEvent) => {
+      if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
+        setOpen(false)
+      }
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.stopPropagation() //모달 전체가 닫히지 않게 — 패널만 닫는다
+        setOpen(false)
+      }
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown, true)
+    hourRef.current?.scrollIntoView({ block: 'center' })
+    minuteRef.current?.scrollIntoView({ block: 'center' })
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown, true)
+    }
+  }, [open])
+
   return (
-    <div className={`time-field${disabled ? ' disabled' : ''}`} aria-label={ariaLabel}>
-      <SelectField
-        compact
-        value={hour}
-        options={HOURS}
-        ariaLabel={`${ariaLabel} (hour)`}
-        onChange={(h) => onChange(`${h}:${minute}`)}
-      />
-      <span className="time-colon" aria-hidden="true">:</span>
-      <SelectField
-        compact
-        value={minute}
-        options={MINUTES}
-        ariaLabel={`${ariaLabel} (minute)`}
-        onChange={(m) => onChange(`${hour}:${m}`)}
-      />
+    <div className="time-picker" ref={rootRef}>
+      <button
+        type="button"
+        className="field-select-trigger"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-label={ariaLabel}
+        disabled={disabled}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span className="time-value">{value}</span>
+        <span className="field-select-chevron" aria-hidden="true" />
+      </button>
+      {open && (
+        <div className="time-picker-panel">
+          <div className="time-col" role="listbox" aria-label={`${ariaLabel} (hour)`}>
+            {HOURS.map((h) => (
+              <button
+                key={h}
+                ref={h === hour ? hourRef : undefined}
+                type="button"
+                role="option"
+                aria-selected={h === hour}
+                className={h === hour ? 'selected' : ''}
+                onClick={() => onChange(`${h}:${minute}`)}
+              >
+                {h}
+              </button>
+            ))}
+          </div>
+          <div className="time-col" role="listbox" aria-label={`${ariaLabel} (minute)`}>
+            {MINUTES.map((m) => (
+              <button
+                key={m}
+                ref={m === minute ? minuteRef : undefined}
+                type="button"
+                role="option"
+                aria-selected={m === minute}
+                className={m === minute ? 'selected' : ''}
+                onClick={() => {
+                  onChange(`${hour}:${m}`)
+                  setOpen(false) //분까지 고르면 완성 — 닫는다
+                }}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

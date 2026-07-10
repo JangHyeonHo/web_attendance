@@ -10,9 +10,12 @@ import { localeOf } from '../i18n/lang'
 const TYPE_LABEL_KEYS: Record<AttendanceType, string> = {
   GO_TO_WORK: 'ATTEND',
   OFF_WORK: 'OFFWORK',
-  EARLY_DEPARTURE: 'EARLY',
+  EARLY_DEPARTURE: 'EARLY', //확정 모달 제목 등 과거 데이터 표기용(버튼은 폐지)
   BREAK: 'BREAKTIME',
 }
+
+/** 스탬프 버튼 — 조퇴 폐지(Phase 5.2): 출근/퇴근/휴식 3버튼 */
+const STAMP_TYPES: AttendanceType[] = ['GO_TO_WORK', 'OFF_WORK', 'BREAK']
 
 /** 위치 취득 결과 + 선택한 타입(등록 패널 상태) */
 interface PendingStamp {
@@ -166,7 +169,7 @@ export function AttendanceScreen() {
       </div>
 
       <div className="stamp-grid">
-        {(Object.keys(TYPE_LABEL_KEYS) as AttendanceType[]).map((type) => (
+        {STAMP_TYPES.map((type) => (
           //주 동작(출근)만 채움 버튼 — 나머지는 조용한 아웃라인
           <button
             key={type}
