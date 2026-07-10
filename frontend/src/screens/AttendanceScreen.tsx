@@ -4,6 +4,7 @@ import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import type { AttendanceType, CheckRequest, StatusResponse } from '../api/types'
 import { DetailsScreen } from './DetailsScreen'
+import { Modal } from '../components/Modal'
 import { localeOf } from '../i18n/lang'
 
 const TYPE_LABEL_KEYS: Record<AttendanceType, string> = {
@@ -164,48 +165,61 @@ export function AttendanceScreen() {
         {status?.alertLabel && <p className="alert">{status.alertLabel}</p>}
       </div>
 
-      <div className="btn-row">
+      <div className="stamp-grid">
         {(Object.keys(TYPE_LABEL_KEYS) as AttendanceType[]).map((type) => (
-          <button key={type} onClick={() => selectType(type)}>
+          //주 동작(출근)만 채움 버튼 — 나머지는 조용한 아웃라인
+          <button
+            key={type}
+            className={type === 'GO_TO_WORK' ? 'primary' : ''}
+            onClick={() => selectType(type)}
+          >
             {t(TYPE_LABEL_KEYS[type])}
           </button>
         ))}
       </div>
 
       {pending && !confirmation && (
-        <div className="stamp-box">
-          <h3>{t(TYPE_LABEL_KEYS[pending.type])}</h3>
-          <p>
-            {t('CURRENT_TIME')}: {now.toLocaleTimeString(localeOf(lang))}
-          </p>
-          <p className="muted">
-            {t('LATITUDE')}: {pending.latitude ?? '-'} / {t('LONGITUDE')}: {pending.longitude ?? '-'}
-          </p>
-          {pending.geoError && <p className="error">{pending.geoError}</p>}
-          <p>{t('CONFIRM_STAMP')}</p>
-          <div className="btn-row">
-            <button className="primary" onClick={() => void submit()}>
-              {t('SUBMIT')}
-            </button>
-            <button onClick={() => selectType(pending.type)}>{t('RETRY')}</button>
-            <button onClick={() => setPending(null)}>{t('CANCEL')}</button>
+        <Modal title={t(TYPE_LABEL_KEYS[pending.type])} onClose={() => setPending(null)}>
+          <div className="center">
+            <p className="stamp-meta">
+              {t('CURRENT_TIME')}: {now.toLocaleTimeString(localeOf(lang))}
+            </p>
+            <p className="stamp-meta muted">
+              {t('LATITUDE')}: {pending.latitude ?? '-'} / {t('LONGITUDE')}:{' '}
+              {pending.longitude ?? '-'}
+            </p>
+            {pending.geoError && <p className="error">{pending.geoError}</p>}
+            <p>{t('CONFIRM_STAMP')}</p>
+            <div className="btn-row">
+              <button className="primary" onClick={() => void submit()}>
+                {t('SUBMIT')}
+              </button>
+              <button onClick={() => selectType(pending.type)}>{t('RETRY')}</button>
+              <button onClick={() => setPending(null)}>{t('CANCEL')}</button>
+            </div>
           </div>
-        </div>
+        </Modal>
       )}
 
       {confirmation && (
-        <div className="stamp-box confirm" role="alertdialog">
-          <p>{confirmation.message}</p>
-          <div className="btn-row">
-            <button
-              className="primary"
-              onClick={() => void confirmStamp(confirmation.request, confirmation.token)}
-            >
-              {t('SUBMIT')}
-            </button>
-            <button onClick={() => setConfirmation(null)}>{t('CANCEL')}</button>
+        <Modal
+          title={t(TYPE_LABEL_KEYS[confirmation.request.type])}
+          onClose={() => setConfirmation(null)}
+          danger
+        >
+          <div className="center">
+            <p>{confirmation.message}</p>
+            <div className="btn-row">
+              <button
+                className="primary"
+                onClick={() => void confirmStamp(confirmation.request, confirmation.token)}
+              >
+                {t('SUBMIT')}
+              </button>
+              <button onClick={() => setConfirmation(null)}>{t('CANCEL')}</button>
+            </div>
           </div>
-        </div>
+        </Modal>
       )}
 
       {message && <p className="success center" role="status">{message}</p>}

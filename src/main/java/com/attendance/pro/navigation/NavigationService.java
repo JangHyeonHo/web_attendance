@@ -9,6 +9,7 @@ import com.attendance.pro.auth.SessionUser;
 import com.attendance.pro.language.LanguageService;
 import com.attendance.pro.navigation.NavigationDtos.NavigateResponse;
 import com.attendance.pro.navigation.NavigationDtos.NavigationReason;
+import com.attendance.pro.setting.UiThemeService;
 
 /**
  * 서버 주도 화면 전개 서비스.
@@ -30,10 +31,13 @@ public class NavigationService {
 
     private final LanguageService languageService;
     private final AttendanceService attendanceService;
+    private final UiThemeService uiThemeService;
 
-    public NavigationService(LanguageService languageService, AttendanceService attendanceService) {
+    public NavigationService(LanguageService languageService, AttendanceService attendanceService,
+            UiThemeService uiThemeService) {
         this.languageService = languageService;
         this.attendanceService = attendanceService;
+        this.uiThemeService = uiThemeService;
     }
 
     /**
@@ -120,6 +124,7 @@ public class NavigationService {
                 user == null ? null : user.name(),
                 user == null ? null : user.role(),
                 hostTenantName,
+                uiThemeService.resolved(), //확정 테마(AUTO 해석 완료) — 공개 화면(랜딩/로그인)도 테마 적용
                 languageService.texts(target.code(), lang),
                 languageService.texts(Screen.COMMON.code(), lang),
                 data);

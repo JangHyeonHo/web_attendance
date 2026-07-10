@@ -23,6 +23,23 @@ export type ScreenCode =
 
 export type Lang = 'KOR' | 'ENG' | 'JPN'
 
+// ---- UI 테마 (Phase 4) ----
+
+/** 화면 적용 확정 테마 — 서버가 AUTO를 계절로 해석한 뒤의 값(AUTO는 오지 않는다) */
+export type UiTheme = 'SPRING' | 'SUMMER' | 'AUTUMN' | 'WINTER'
+
+/** 저장 설정값 — AUTO는 서버 날짜의 계절로 자동 해석 */
+export type UiThemeSetting = UiTheme | 'AUTO'
+
+export interface UiThemeResponse {
+  theme: UiThemeSetting
+  resolved: UiTheme
+}
+
+export interface UiThemeUpdateRequest {
+  theme: UiThemeSetting
+}
+
 export type AttendanceType = 'GO_TO_WORK' | 'OFF_WORK' | 'EARLY_DEPARTURE' | 'BREAK'
 
 export type ConfirmCode =
@@ -76,6 +93,8 @@ export interface NavigateResponse {
   role: Role | null
   /** 테넌트 서브도메인으로 접속한 경우 그 테넌트명(로그인 화면 브랜딩·코드 입력란 숨김), 아니면 null */
   hostTenantName: string | null
+  /** 화면 적용 확정 테마(시스템 전역 설정 — AUTO는 서버가 계절로 해석 완료) */
+  theme: UiTheme
   texts: Record<string, string>
   headers: Record<string, string>
   data: unknown

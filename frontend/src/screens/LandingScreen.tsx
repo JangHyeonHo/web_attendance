@@ -26,7 +26,7 @@ export function LandingScreen() {
   )
 
   const features = [1, 2, 3, 4].map((n) => ({
-    icon: ['◎', '✓', '▦', 'Aあ'][n - 1],
+    num: String(n).padStart(2, '0'), //아이콘 대신 번호(01~04) — 장식 없는 위계
     title: t(`LANDING_FEAT${n}_TITLE`),
     desc: t(`LANDING_FEAT${n}_DESC`),
   }))
@@ -38,14 +38,15 @@ export function LandingScreen() {
 
   const steps = [1, 2, 3].map((n) => ({
     no: n,
-    title: t(`LANDING_STEP${n}_TITLE`),
+    //카피에 "1. " 접두어가 있으면 제거 — 원형 번호와 중복 표기 방지
+    title: t(`LANDING_STEP${n}_TITLE`).replace(/^\d+\.\s*/, ''),
     desc: t(`LANDING_STEP${n}_DESC`),
   }))
 
   return (
     <div className="landing">
       <section className="hero">
-        <span className="badge">{t('LANDING_HERO_BADGE')}</span>
+        <span className="hero-eyebrow">{t('LANDING_HERO_BADGE')}</span>
         <h1>{t('LANDING_HERO_TITLE')}</h1>
         <p className="hero-sub">{t('LANDING_HERO_SUB')}</p>
         <div className="hero-actions">
@@ -63,8 +64,8 @@ export function LandingScreen() {
         <div className="features">
           {features.map((feature) => (
             <div className="feature-card" key={feature.title}>
-              <span className="feature-icon" aria-hidden="true">
-                {feature.icon}
+              <span className="feature-num" aria-hidden="true">
+                {feature.num}
               </span>
               <h3>{feature.title}</h3>
               <p>{feature.desc}</p>

@@ -74,27 +74,57 @@ export default function App() {
     return <div className="panel center muted">...</div>
   }
 
+  //현재 화면의 내비 필 강조(aria-current). W008은 W007에 임베드 전개되므로 W007로 취급
+  const current = (code: ScreenCode) =>
+    (screen === code || (code === 'W007' && screen === 'W008') ? 'page' : undefined)
+
   return (
     <div className="app">
       <header className="header">
+        <span className="brand" aria-hidden="true">
+          Web<em>Attendance</em>
+        </span>
         <nav>
-          <button onClick={() => void navigate('W000')}>{t('HOME')}</button>
-          {!userName && <button onClick={() => void navigate('W001')}>{t('LOGIN')}</button>}
+          {/* 로그인 상태에서 '홈'은 자기 홈으로 재전개될 뿐이라 비로그인일 때만 노출(모바일 탭 수 절약) */}
+          {!userName && (
+            <button aria-current={current('W000')} onClick={() => void navigate('W000')}>
+              {t('HOME')}
+            </button>
+          )}
+          {!userName && (
+            <button aria-current={current('W001')} onClick={() => void navigate('W001')}>
+              {t('LOGIN')}
+            </button>
+          )}
           {(role === 'MEMBER' || role === 'TENANT_ADMIN') && (
-            <button onClick={() => void navigate('W005')}>{t('ATTEND')}</button>
+            <button aria-current={current('W005')} onClick={() => void navigate('W005')}>
+              {t('ATTEND')}
+            </button>
           )}
           {role === 'TENANT_ADMIN' && (
             <>
-              <button onClick={() => void navigate('W009')}>{t('MEMBERS')}</button>
-              <button onClick={() => void navigate('W013')}>{t('HOLIDAYS')}</button>
-              <button onClick={() => void navigate('W014')}>{t('MAIL_TEMPLATES')}</button>
+              <button aria-current={current('W009')} onClick={() => void navigate('W009')}>
+                {t('MEMBERS')}
+              </button>
+              <button aria-current={current('W013')} onClick={() => void navigate('W013')}>
+                {t('HOLIDAYS')}
+              </button>
+              <button aria-current={current('W014')} onClick={() => void navigate('W014')}>
+                {t('MAIL_TEMPLATES')}
+              </button>
             </>
           )}
           {role === 'SYSTEM_ADMIN' && (
             <>
-              <button onClick={() => void navigate('W007')}>{t('TENANTS')}</button>
-              <button onClick={() => void navigate('W012')}>{t('MAIL_TEMPLATES')}</button>
-              <button onClick={() => void navigate('W004')}>{t('ADMIN')}</button>
+              <button aria-current={current('W007')} onClick={() => void navigate('W007')}>
+                {t('TENANTS')}
+              </button>
+              <button aria-current={current('W012')} onClick={() => void navigate('W012')}>
+                {t('MAIL_TEMPLATES')}
+              </button>
+              <button aria-current={current('W004')} onClick={() => void navigate('W004')}>
+                {t('ADMIN')}
+              </button>
             </>
           )}
           {userName && <button onClick={() => void navigate('W002')}>{t('LOGOUT')}</button>}

@@ -42,6 +42,8 @@ import type {
   TokenPurpose,
   TokenVerifyRequest,
   TokenVerifyResponse,
+  UiThemeResponse,
+  UiThemeUpdateRequest,
 } from './types'
 
 /** 서버 주도 화면 전개 */
@@ -85,6 +87,13 @@ export const systemTenantApi = {
     get<TenantBillingResponse | null>(`/api/v1/system/tenants/${tenantId}/billing`),
   upsertBilling: (tenantId: number, request: TenantBillingUpsertRequest) =>
     put<TenantBillingResponse>(`/api/v1/system/tenants/${tenantId}/billing`, request),
+}
+
+/** SYSTEM_ADMIN 전용 — 시스템 전역 UI 테마(W004). 확정 테마의 배포는 navigation 응답이 담당 */
+export const adminUiThemeApi = {
+  get: () => get<UiThemeResponse>('/api/v1/admin/ui-theme'),
+  update: (request: UiThemeUpdateRequest) =>
+    put<UiThemeResponse>('/api/v1/admin/ui-theme', request),
 }
 
 /** SYSTEM_ADMIN 전용 — 메일 템플릿(W012, 글로벌 제품 자산) */

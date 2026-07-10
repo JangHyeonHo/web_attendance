@@ -109,6 +109,7 @@ export function MailTemplatesScreen() {
 
       {listError && <p className="error" role="alert">{listError}</p>}
 
+      <div className="table-wrap">
       <table className="detail-table">
         <thead>
           <tr>
@@ -124,7 +125,7 @@ export function MailTemplatesScreen() {
             <tr key={`${template.purpose}:${template.lang}`}>
               <td>{template.purpose}</td>
               <td>{template.lang}</td>
-              <td>{template.subject}</td>
+              <td className="wrap">{template.subject}</td>
               <td>{template.updatedAt.replace('T', ' ').slice(0, 16)}</td>
               <td>
                 <div className="row-actions">
@@ -135,6 +136,7 @@ export function MailTemplatesScreen() {
           ))}
         </tbody>
       </table>
+      </div>
 
       {target && (
         <div className="tpl-edit">
