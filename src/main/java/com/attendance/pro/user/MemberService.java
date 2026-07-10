@@ -1,73 +1,135 @@
 package com.attendance.pro.user;
 
 import java.security.SecureRandom;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.attendance.pro.auth.PasswordResetRateLimiter;
 import com.attendance.pro.common.ApiException;
+import com.attendance.pro.user.MemberDtos.InviteResponse;
 import com.attendance.pro.user.MemberDtos.MemberCreateRequest;
 import com.attendance.pro.user.MemberDtos.MemberCreateResponse;
 import com.attendance.pro.user.MemberDtos.MemberResponse;
+import com.attendance.pro.user.MemberDtos.MemberScheduleRequest;
+import com.attendance.pro.user.MemberInviteService.InviteOutcome;
 
 /**
- * 테넌트 멤버 관리 서비스(TENANT_ADMIN 등록제).
+ * 테넌트 멤버 관리 서비스(TENANT_ADMIN 초대 등록제 — Phase 3에서 초기 비밀번호 방식 폐지).
  * tenantId는 항상 세션에서 취득해 명시 전달받는다.
- * 초기 비밀번호는 서버 생성(SecureRandom) — 응답에 1회만 평문 반환하고 어디에도 보관/로그하지 않는다.
+ *
+ * 등록 = PENDING + 사용 불능 플레이스홀더 해시(BCrypt(SecureRandom 64B)) + INVITE 메일.
+ * 메일 발송은 등록 INSERT 뒤(토큰 발급은 UserTokenService의 자체 Tx) — 발송 실패해도 멤버는
+ * 생성되며 mailSent=false로 응답한다(재발송이 수습 경로 — INV-06).
  */
 @Service
 public class MemberService {
 
-    /** 초기 비밀번호 길이(PASSWORD_PATTERN 충족 12자) */
-    private static final int INITIAL_PASSWORD_LENGTH = 12;
-    private static final String LOWER = "abcdefghijkmnopqrstuvwxyz";
-    private static final String UPPER = "ABCDEFGHJKLMNPQRSTUVWXYZ";
-    private static final String DIGIT = "23456789";
-    private static final String SPECIAL = "!@#$%^&*";
-    private static final String ALL = LOWER + UPPER + DIGIT + SPECIAL;
+    /** 개인 기본 근무 스케줄 미지정 시 기본값 */
+    static final LocalTime DEFAULT_WORK_START = LocalTime.of(9, 0);
+    static final LocalTime DEFAULT_WORK_END = LocalTime.of(18, 0);
 
     private final UserMapper userMapper;
+    private final UserTokenService userTokenService;
+    private final MemberInviteService memberInviteService;
+    private final PasswordResetRateLimiter rateLimiter;
     private final PasswordEncoder passwordEncoder;
     private final SecureRandom random = new SecureRandom();
 
-    public MemberService(UserMapper userMapper) {
+    public MemberService(UserMapper userMapper, UserTokenService userTokenService,
+            MemberInviteService memberInviteService, PasswordResetRateLimiter rateLimiter) {
         this.userMapper = userMapper;
+        this.userTokenService = userTokenService;
+        this.memberInviteService = memberInviteService;
+        this.rateLimiter = rateLimiter;
         this.passwordEncoder = new BCryptPasswordEncoder();
     }
 
     /**
-     * 멤버 목록(자기 테넌트만).
+     * 멤버 목록(자기 테넌트만). PENDING 행은 유효 INVITE 토큰의 만료시각을 동봉한다.
      */
     public List<MemberResponse> list(long tenantId) {
+        Map<Long, LocalDateTime> inviteExpiries = userTokenService.findActiveInviteExpiries(tenantId);
         return userMapper.findByTenant(tenantId).stream()
-                .map(MemberResponse::from)
+                .map(user -> MemberResponse.from(user, inviteExpiries.get(user.userId())))
                 .toList();
     }
 
     /**
-     * 멤버 등록. 항상 MEMBER/ACTIVE로 생성한다(관리자 지정은 role 변경 API로만).
-     * 테넌트 내 이메일 중복시 409.
+     * 멤버 초대 등록. 항상 MEMBER/PENDING으로 생성하고 INVITE 메일을 발송한다.
+     * 테넌트 내 이메일 중복(활성 행 기준)시 409. workStart/End 미지정은 09:00/18:00.
      */
-    @Transactional
-    public MemberCreateResponse create(long tenantId, MemberCreateRequest request) {
+    public MemberCreateResponse create(long tenantId, MemberCreateRequest request, String inviterName) {
         if (userMapper.existsByEmail(tenantId, request.email())) {
             throw ApiException.conflict("EMAIL_DUPLICATED", "member.email.duplicated");
         }
-        String initialPassword = generateInitialPassword();
+        LocalTime workStart = parseOrDefault(request.workStart(), DEFAULT_WORK_START);
+        LocalTime workEnd = parseOrDefault(request.workEnd(), DEFAULT_WORK_END);
+        validateWorkRange(workStart, workEnd);
         UserCreate create = new UserCreate(tenantId, request.email(),
-                passwordEncoder.encode(initialPassword), request.name(), request.departCd(),
-                Role.MEMBER, UserStatus.ACTIVE);
-        userMapper.insert(create);
+                unusablePasswordHash(), request.name(), request.departCd(),
+                workStart, workEnd, Role.MEMBER, UserStatus.PENDING);
+        try {
+            userMapper.insert(create);
+        } catch (DuplicateKeyException e) {
+            //existsByEmail 검사와 INSERT 사이의 동시 등록 레이스 — UNIQUE(email_key) 위반을 같은 409로
+            throw ApiException.conflict("EMAIL_DUPLICATED", "member.email.duplicated");
+        }
+        //메일 발송은 등록 트랜잭션과 분리 — 실패해도 멤버·토큰은 존재(mailSent=false → 재발송 유도)
+        InviteOutcome mail = memberInviteService.sendInvite(tenantId, create.getUserId(),
+                create.getEmail(), create.getName(), inviterName);
         return new MemberCreateResponse(create.getUserId(), create.getEmail(), create.getName(),
-                create.getDepartCd(), Role.MEMBER, UserStatus.ACTIVE, initialPassword);
+                create.getDepartCd(), Role.MEMBER, UserStatus.PENDING,
+                MemberDtos.formatTime(workStart), MemberDtos.formatTime(workEnd),
+                mail.mailSent(), mail.expiresAt());
+    }
+
+    /**
+     * 초대 재발송 — PENDING 대상 한정(ACTIVE/DISABLED는 409).
+     * 기존 INVITE 토큰 삭제 + 신규 발급(72h 리셋) — 구 링크는 즉시 무효(오송신 수습 겸용).
+     */
+    public InviteResponse resendInvite(long tenantId, long userId, String inviterName) {
+        User target = requireManageableMember(tenantId, userId);
+        if (target.status() != UserStatus.PENDING) {
+            throw ApiException.conflict("MEMBER_NOT_PENDING", "member.invite.not-pending");
+        }
+        rateLimiter.checkInviteResend(tenantId, target.email());
+        InviteOutcome mail = memberInviteService.sendInvite(tenantId, userId,
+                target.email(), target.name(), inviterName);
+        return new InviteResponse(userId, target.email(), mail.mailSent(), mail.expiresAt());
+    }
+
+    /**
+     * 멤버 소프트 삭제(deleted=TRUE — 출결 기록 보존) + 같은 Tx에서 유효 토큰 전멸.
+     * 가드 순서: 자기 자신 400 → 존재 비노출 404 → 마지막 활성 TENANT_ADMIN 409.
+     * 활성 세션은 SessionRevalidationInterceptor의 findById null → 즉시 회수(추가 장치 불요).
+     */
+    @Transactional
+    public void delete(long tenantId, long actorUserId, long userId) {
+        if (userId == actorUserId) {
+            throw ApiException.badRequest("MEMBER_SELF_DELETE", "member.delete.self");
+        }
+        User target = requireManageableMember(tenantId, userId);
+        if (target.role() == Role.TENANT_ADMIN && target.status() == UserStatus.ACTIVE) {
+            guardLastTenantAdmin(tenantId);
+        }
+        userMapper.softDelete(tenantId, userId);
+        userTokenService.invalidateAll(tenantId, userId);
     }
 
     /**
      * 멤버 상태 변경(ACTIVE/DISABLED — PENDING 지정은 400).
+     * 대상이 PENDING이면 400 — 비밀번호 미설정 계정이 ACTIVE가 되는 경로 차단(수습은 재발송/삭제로).
      * 타 테넌트 userId는 404(존재 비노출), 마지막 활성 TENANT_ADMIN 비활성은 409.
+     * 정지 시 유효 토큰도 전멸(오송신 잔존 링크 무력화).
      */
     @Transactional
     public MemberResponse updateStatus(long tenantId, long userId, UserStatus status) {
@@ -75,12 +137,19 @@ public class MemberService {
             throw ApiException.badRequest("MEMBER_STATUS_INVALID", "member.status.invalid");
         }
         User target = requireManageableMember(tenantId, userId);
+        if (target.status() == UserStatus.PENDING) {
+            //ACTIVE 전이는 토큰 경유 단일 경로(INV-07)
+            throw ApiException.badRequest("MEMBER_STATUS_INVALID", "member.status.invalid");
+        }
         if (status == UserStatus.DISABLED && target.role() == Role.TENANT_ADMIN
                 && target.status() == UserStatus.ACTIVE) {
             guardLastTenantAdmin(tenantId);
         }
         userMapper.updateStatus(tenantId, userId, status);
-        return MemberResponse.from(userMapper.findById(tenantId, userId));
+        if (status == UserStatus.DISABLED) {
+            userTokenService.invalidateAll(tenantId, userId);
+        }
+        return toResponse(tenantId, userMapper.findById(tenantId, userId));
     }
 
     /**
@@ -98,24 +167,37 @@ public class MemberService {
             guardLastTenantAdmin(tenantId);
         }
         userMapper.updateRole(tenantId, userId, role);
-        return MemberResponse.from(userMapper.findById(tenantId, userId));
+        return toResponse(tenantId, userMapper.findById(tenantId, userId));
     }
 
     /**
-     * 테넌트 생성시 최초 TENANT_ADMIN 발급(TenantService용 — UserMapper 접근을 user 패키지에 유지).
+     * 개인 기본 근무 스케줄 수정(속성별 PUT — /status·/role 패턴 계승).
+     * PENDING(초대 대기) 행에도 허용(입사 전 준비 — CR3-6).
      */
     @Transactional
-    public InitialAdmin registerInitialAdmin(long tenantId, String email, String name) {
-        String initialPassword = generateInitialPassword();
-        UserCreate create = new UserCreate(tenantId, email,
-                passwordEncoder.encode(initialPassword), name, null,
-                Role.TENANT_ADMIN, UserStatus.ACTIVE);
-        userMapper.insert(create);
-        return new InitialAdmin(create.getUserId(), initialPassword);
+    public MemberResponse updateSchedule(long tenantId, long userId, MemberScheduleRequest request) {
+        requireManageableMember(tenantId, userId);
+        LocalTime workStart = LocalTime.parse(request.workStart());
+        LocalTime workEnd = LocalTime.parse(request.workEnd());
+        validateWorkRange(workStart, workEnd);
+        userMapper.updateWorkSchedule(tenantId, userId, workStart, workEnd);
+        return toResponse(tenantId, userMapper.findById(tenantId, userId));
     }
 
-    /** 최초 관리자 발급 결과(초기 비밀번호는 이 값을 응답에 1회 실은 뒤 폐기). */
-    public record InitialAdmin(long userId, String initialPassword) {
+    /**
+     * 테넌트 생성시 최초 TENANT_ADMIN을 PENDING으로 등록(TenantService용 — UserMapper 접근을 user 패키지에 유지).
+     * INVITE 발송은 생성 트랜잭션 커밋 후 호출부(TenantService)가 수행한다.
+     */
+    public long registerPendingAdmin(long tenantId, String email, String name) {
+        UserCreate create = new UserCreate(tenantId, email, unusablePasswordHash(), name, null,
+                DEFAULT_WORK_START, DEFAULT_WORK_END, Role.TENANT_ADMIN, UserStatus.PENDING);
+        userMapper.insert(create);
+        return create.getUserId();
+    }
+
+    private MemberResponse toResponse(long tenantId, User user) {
+        return MemberResponse.from(user,
+                userTokenService.findActiveInviteExpiries(tenantId).get(user.userId()));
     }
 
     /**
@@ -140,27 +222,26 @@ public class MemberService {
         }
     }
 
+    private LocalTime parseOrDefault(String time, LocalTime defaultValue) {
+        return time == null || time.isBlank() ? defaultValue : LocalTime.parse(time);
+    }
+
+    /** 교차 검증은 서비스 단일 출처 — 자정 넘김(22:00~06:00) 개인 기본 스케줄은 비지원(교대제는 별도 Phase). */
+    private void validateWorkRange(LocalTime workStart, LocalTime workEnd) {
+        if (!workStart.isBefore(workEnd)) {
+            throw ApiException.badRequest("WORK_TIME_INVALID_RANGE", "member.work-time.invalid-range");
+        }
+    }
+
     /**
-     * PASSWORD_PATTERN(3종 이상 조합)을 항상 충족하는 랜덤 초기 비밀번호를 생성한다.
+     * PENDING 계정의 사용 불능 플레이스홀더 해시 — password_hash NOT NULL 불변식 유지.
+     * 원문(SecureRandom 48B → Base64 64자, BCrypt 72바이트 한계 내)은 어디에도 보관하지 않으므로
+     * 로그인 불가(어차피 status=ACTIVE만 통과).
      */
-    private String generateInitialPassword() {
-        char[] chars = new char[INITIAL_PASSWORD_LENGTH];
-        //4종 문자군을 최소 1자씩 보장
-        chars[0] = LOWER.charAt(random.nextInt(LOWER.length()));
-        chars[1] = UPPER.charAt(random.nextInt(UPPER.length()));
-        chars[2] = DIGIT.charAt(random.nextInt(DIGIT.length()));
-        chars[3] = SPECIAL.charAt(random.nextInt(SPECIAL.length()));
-        for (int i = 4; i < chars.length; i++) {
-            chars[i] = ALL.charAt(random.nextInt(ALL.length()));
-        }
-        //보장 문자의 위치 고정을 피하기 위해 셔플
-        for (int i = chars.length - 1; i > 0; i--) {
-            int j = random.nextInt(i + 1);
-            char tmp = chars[i];
-            chars[i] = chars[j];
-            chars[j] = tmp;
-        }
-        return new String(chars);
+    private String unusablePasswordHash() {
+        byte[] bytes = new byte[48];
+        random.nextBytes(bytes);
+        return passwordEncoder.encode(Base64.getEncoder().encodeToString(bytes));
     }
 
 }

@@ -7,7 +7,8 @@ import { useApp } from '../app/AppContext'
 /** 마지막 성공 테넌트 코드 기억용 localStorage 키 (이메일/비밀번호는 저장하지 않는다) */
 const TENANT_CODE_STORAGE_KEY = 'wa.tenantCode'
 
-function storedTenantCode(): string {
+/** W011(비밀번호 재설정 요청)도 같은 코드 프리필을 재사용한다 */
+export function storedTenantCode(): string {
   try {
     return localStorage.getItem(TENANT_CODE_STORAGE_KEY) ?? ''
   } catch {
@@ -100,6 +101,12 @@ export function LoginScreen() {
           {t('LOGIN')}
         </button>
       </form>
+      <p className="center">
+        {/* W011 비밀번호 재설정 요청 진입 링크 */}
+        <button type="button" className="link" onClick={() => void navigate('W011')}>
+          {t('FORGOT_PWD')}
+        </button>
+      </p>
     </div>
   )
 }

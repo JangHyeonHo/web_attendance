@@ -80,15 +80,18 @@ public class AuthController {
         return LoginResponse.from(user);
     }
 
+    private String resolveTenantCode(LoginRequest request, HttpServletRequest httpRequest) {
+        return resolveTenantCode(tenantHostResolver.resolve(httpRequest), request.tenantCode());
+    }
+
     /**
-     * 이 로그인 요청의 테넌트 코드를 확정한다(병행 규칙).
+     * 요청의 테넌트 코드를 확정한다(병행 규칙 — 로그인/비밀번호 재설정 요청 공용).
      *  - 테넌트 서브도메인 접속(FOUND/UNKNOWN): 호스트가 확정. 바디 코드가 있는데 다르면
-     *    모호성을 조용히 삼키지 않고 400. UNKNOWN 코드는 authenticate에서 통일 401(존재 비노출).
+     *    모호성을 조용히 삼키지 않고 400. UNKNOWN 코드는 후속 조회에서 통일 처리(존재 비노출).
      *  - 루트 도메인 접속(NONE): 기존 방식 — 바디 코드 필수.
      */
-    private String resolveTenantCode(LoginRequest request, HttpServletRequest httpRequest) {
-        HostTenant hostTenant = tenantHostResolver.resolve(httpRequest);
-        String bodyCode = request.tenantCode() == null ? "" : request.tenantCode().trim();
+    static String resolveTenantCode(HostTenant hostTenant, String requestedCode) {
+        String bodyCode = requestedCode == null ? "" : requestedCode.trim();
         if (hostTenant.claimsTenant()) {
             if (!bodyCode.isEmpty() && !bodyCode.equalsIgnoreCase(hostTenant.code())) {
                 throw ApiException.badRequest("TENANT_CODE_MISMATCH", "auth.login.tenant-mismatch");

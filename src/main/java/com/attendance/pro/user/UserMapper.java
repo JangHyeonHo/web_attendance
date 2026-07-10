@@ -21,7 +21,8 @@ import org.apache.ibatis.annotations.Update;
 public interface UserMapper {
 
     @Select("""
-            SELECT user_id, tenant_id, email, password_hash, name, depart_cd,
+            SELECT user_id, tenant_id, email, password_hash, password_changed_at, name, depart_cd,
+                   default_work_start, default_work_end,
                    role, status, deleted, created_at, updated_at
             FROM users
             WHERE tenant_id = #{tenantId} AND email = #{email} AND deleted = FALSE
@@ -32,7 +33,8 @@ public interface UserMapper {
      * 2중 조건 — 타 테넌트 userId는 null(호출부에서 404, 존재 비노출).
      */
     @Select("""
-            SELECT user_id, tenant_id, email, password_hash, name, depart_cd,
+            SELECT user_id, tenant_id, email, password_hash, password_changed_at, name, depart_cd,
+                   default_work_start, default_work_end,
                    role, status, deleted, created_at, updated_at
             FROM users
             WHERE tenant_id = #{tenantId} AND user_id = #{userId} AND deleted = FALSE
@@ -44,7 +46,8 @@ public interface UserMapper {
      * (V4 이관으로 DEFAULT 테넌트에 공존해도 TENANT_ADMIN에게 노출/조작 대상이 아님).
      */
     @Select("""
-            SELECT user_id, tenant_id, email, password_hash, name, depart_cd,
+            SELECT user_id, tenant_id, email, password_hash, password_changed_at, name, depart_cd,
+                   default_work_start, default_work_end,
                    role, status, deleted, created_at, updated_at
             FROM users
             WHERE tenant_id = #{tenantId} AND deleted = FALSE
@@ -54,14 +57,33 @@ public interface UserMapper {
     List<User> findByTenant(@Param("tenantId") long tenantId);
 
     @Insert("""
-            INSERT INTO users (tenant_id, email, password_hash, name, depart_cd, role, status)
-            VALUES (#{tenantId}, #{email}, #{passwordHash}, #{name}, #{departCd}, #{role}, #{status})
+            INSERT INTO users (tenant_id, email, password_hash, name, depart_cd,
+                               default_work_start, default_work_end, role, status)
+            VALUES (#{tenantId}, #{email}, #{passwordHash}, #{name}, #{departCd},
+                    #{defaultWorkStart}, #{defaultWorkEnd}, #{role}, #{status})
             """)
     @Options(useGeneratedKeys = true, keyProperty = "userId", keyColumn = "user_id")
     int insert(UserCreate user);
 
-    @Select("SELECT EXISTS(SELECT 1 FROM users WHERE tenant_id = #{tenantId} AND email = #{email})")
+    /**
+     * 활성 행 기준 중복 검사 — deleted 필터로 [E4] UNIQUE(email_key)와 판정 기준을 일치시킨다(CR3-8).
+     */
+    @Select("""
+            SELECT EXISTS(SELECT 1 FROM users
+                          WHERE tenant_id = #{tenantId} AND email = #{email} AND deleted = FALSE)
+            """)
     boolean existsByEmail(@Param("tenantId") long tenantId, @Param("email") String email);
+
+    /**
+     * 비밀번호 교체 — password_changed_at을 SQL에서 동시 세팅(시각 이원화 방지).
+     * 이 시각 이전 발급 세션은 SessionRevalidationInterceptor가 회수한다.
+     */
+    @Update("""
+            UPDATE users SET password_hash = #{passwordHash}, password_changed_at = NOW(6)
+            WHERE tenant_id = #{tenantId} AND user_id = #{userId} AND deleted = FALSE
+            """)
+    int updatePassword(@Param("tenantId") long tenantId, @Param("userId") long userId,
+            @Param("passwordHash") String passwordHash);
 
     /**
      * 활성 TENANT_ADMIN 수(마지막 관리자 보호용).
@@ -88,5 +110,26 @@ public interface UserMapper {
             """)
     int updateStatus(@Param("tenantId") long tenantId, @Param("userId") long userId,
             @Param("status") UserStatus status);
+
+    /**
+     * 개인 기본 근무 스케줄 수정 — 2중 조건(테넌트 전파 규약).
+     */
+    @Update("""
+            UPDATE users SET default_work_start = #{workStart}, default_work_end = #{workEnd}
+            WHERE tenant_id = #{tenantId} AND user_id = #{userId} AND deleted = FALSE
+            """)
+    int updateWorkSchedule(@Param("tenantId") long tenantId, @Param("userId") long userId,
+            @Param("workStart") java.time.LocalTime workStart,
+            @Param("workEnd") java.time.LocalTime workEnd);
+
+    /**
+     * 소프트 삭제 — 출결 기록 보존(FK user_id 잔존). email_key 생성 컬럼이 NULL이 되어
+     * 같은 이메일 재등록이 가능해진다(V7 [E4]).
+     */
+    @Update("""
+            UPDATE users SET deleted = TRUE
+            WHERE tenant_id = #{tenantId} AND user_id = #{userId} AND deleted = FALSE
+            """)
+    int softDelete(@Param("tenantId") long tenantId, @Param("userId") long userId);
 
 }

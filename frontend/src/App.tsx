@@ -6,6 +6,11 @@ import { DetailsScreen } from './screens/DetailsScreen'
 import { AdminScreen } from './screens/AdminScreen'
 import { TenantsScreen } from './screens/TenantsScreen'
 import { MembersScreen } from './screens/MembersScreen'
+import { PasswordSetupScreen } from './screens/PasswordSetupScreen'
+import { PasswordResetRequestScreen } from './screens/PasswordResetRequestScreen'
+import { MailTemplatesScreen } from './screens/MailTemplatesScreen'
+import { HolidaysScreen } from './screens/HolidaysScreen'
+import { TenantMailTemplatesScreen } from './screens/TenantMailTemplatesScreen'
 import type { Lang, ScreenCode } from './api/types'
 
 const LANGS: Lang[] = ['KOR', 'ENG', 'JPN']
@@ -31,6 +36,16 @@ function ScreenBody({ screen }: { screen: ScreenCode }) {
       return <TenantsScreen />
     case 'W009':
       return <MembersScreen />
+    case 'W010':
+      return <PasswordSetupScreen />
+    case 'W011':
+      return <PasswordResetRequestScreen />
+    case 'W012':
+      return <MailTemplatesScreen />
+    case 'W013':
+      return <HolidaysScreen />
+    case 'W014':
+      return <TenantMailTemplatesScreen />
     case 'W000':
     default:
       return <LandingScreen />
@@ -38,7 +53,8 @@ function ScreenBody({ screen }: { screen: ScreenCode }) {
 }
 
 export default function App() {
-  const { screen, userName, role, tenantName, lang, t, navigate, ready, navError } = useApp()
+  const { screen, userName, role, tenantName, lang, t, navigate, ready, navError, getPasswordToken } =
+    useApp()
 
   if (!ready) {
     //첫 navigation 응답 전에는 서버 텍스트가 없다 — 실패시에만 언어 중립(3개국어 병기) 재시도 화면
@@ -48,7 +64,8 @@ export default function App() {
           <p className="error" role="alert">
             서버에 연결할 수 없습니다 / Cannot reach the server / サーバーに接続できません
           </p>
-          <button className="primary" onClick={() => void navigate()}>
+          {/* 토큰 진입(메일 링크) 실패 재시도는 W010 의도를 유지한다 — 기본 화면으로 새지 않게 */}
+          <button className="primary" onClick={() => void navigate(getPasswordToken() ? 'W010' : undefined)}>
             재시도 / Retry / 再試行
           </button>
         </div>
@@ -67,11 +84,16 @@ export default function App() {
             <button onClick={() => void navigate('W005')}>{t('ATTEND')}</button>
           )}
           {role === 'TENANT_ADMIN' && (
-            <button onClick={() => void navigate('W009')}>{t('MEMBERS')}</button>
+            <>
+              <button onClick={() => void navigate('W009')}>{t('MEMBERS')}</button>
+              <button onClick={() => void navigate('W013')}>{t('HOLIDAYS')}</button>
+              <button onClick={() => void navigate('W014')}>{t('MAIL_TEMPLATES')}</button>
+            </>
           )}
           {role === 'SYSTEM_ADMIN' && (
             <>
               <button onClick={() => void navigate('W007')}>{t('TENANTS')}</button>
+              <button onClick={() => void navigate('W012')}>{t('MAIL_TEMPLATES')}</button>
               <button onClick={() => void navigate('W004')}>{t('ADMIN')}</button>
             </>
           )}

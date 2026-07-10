@@ -39,7 +39,7 @@ function fieldErrorMap(e: ApiError): Record<string, string> {
  * - 재입력 폼: 모든 필드가 빈 값에서 시작(마스킹 값을 초기값/placeholder로도 넣지 않는다).
  *   저장은 전체 필드 재입력 후 upsert(PUT) 1회.
  */
-export function TenantDetailScreen({ tenantId }: { tenantId: number }) {
+export function TenantDetailScreen({ tenantId, country }: { tenantId: number; country: ProfileCountry }) {
   const { t: commonT, lang } = useApp()
   const [texts, setTexts] = useState<Record<string, string>>({})
 
@@ -67,7 +67,6 @@ export function TenantDetailScreen({ tenantId }: { tenantId: number }) {
   const [profileEdit, setProfileEdit] = useState(false)
   const [profileError, setProfileError] = useState<string | null>(null)
   const [profileFieldErrors, setProfileFieldErrors] = useState<Record<string, string>>({})
-  const [country, setCountry] = useState<ProfileCountry>('KR')
   const [businessRegNo, setBusinessRegNo] = useState('')
   const [ceoName, setCeoName] = useState('')
   const [address, setAddress] = useState('')
@@ -121,8 +120,8 @@ export function TenantDetailScreen({ tenantId }: { tenantId: number }) {
   }, [load])
 
   function openProfileEdit() {
-    //전체 재입력: 항상 빈 값에서 시작(마스킹 문자열 재제출 사고 방지). 소재국만 기존값 유지
-    setCountry(profile?.country ?? 'KR')
+    //전체 재입력: 항상 빈 값에서 시작(마스킹 문자열 재제출 사고 방지)
+    //소재국은 tenant.country 승격으로 요청에서 제거 — 서버가 tenant에서 취득(holiday-plan §4-2)
     setBusinessRegNo('')
     setCeoName('')
     setAddress('')
@@ -140,7 +139,6 @@ export function TenantDetailScreen({ tenantId }: { tenantId: number }) {
     setProfileFieldErrors({})
     try {
       const saved = await systemTenantApi.upsertProfile(tenantId, {
-        country,
         businessRegNo: businessRegNo.trim(),
         ceoName: orNull(ceoName),
         address: orNull(address),
@@ -255,21 +253,12 @@ export function TenantDetailScreen({ tenantId }: { tenantId: number }) {
         {profileEdit && (
           <form onSubmit={submitProfile}>
             <p className="muted reenter-note">{t('REENTER_NOTE')}</p>
+            {/* 소재국은 표시 전용(tenant.country) — 입력·변경 불가(holiday-plan §4-3) */}
+            <p className="muted">
+              {t('COUNTRY')}: {t(`COUNTRY_${country}`)}
+            </p>
             <label>
-              {t('COUNTRY')}
-              <select
-                value={country}
-                onChange={(e) => setCountry(e.target.value as ProfileCountry)}
-              >
-                <option value="KR">{t('COUNTRY_KR')}</option>
-                <option value="JP">{t('COUNTRY_JP')}</option>
-              </select>
-              {profileFieldErrors.country && (
-                <span className="error">{profileFieldErrors.country}</span>
-              )}
-            </label>
-            <label>
-              {/* 식별번호 라벨은 선택한 소재국을 따라간다(KR=사업자등록번호, JP=法人番号) */}
+              {/* 식별번호 라벨은 테넌트 소재국(prop — 프로필 미등록이어도 정확)을 따라간다 */}
               {t(BIZ_REG_NO_LABEL_KEYS[country])}
               <input
                 value={businessRegNo}

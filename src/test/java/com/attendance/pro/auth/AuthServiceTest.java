@@ -47,12 +47,13 @@ class AuthServiceTest {
     }
 
     private static Tenant tenant(long id, String code, TenantStatus status) {
-        return new Tenant(id, code, code + "(주)", status, LocalDateTime.now());
+        return new Tenant(id, code, code + "(주)", "KR", status, LocalDateTime.now());
     }
 
     private static User user(long tenantId, String email, String rawPassword, Role role, UserStatus status) {
-        return new User(1L, tenantId, email, new BCryptPasswordEncoder().encode(rawPassword),
-                "홍길동", null, role, status, false, LocalDateTime.now(), LocalDateTime.now());
+        return new User(1L, tenantId, email, new BCryptPasswordEncoder().encode(rawPassword), null,
+                "홍길동", null, java.time.LocalTime.of(9, 0), java.time.LocalTime.of(18, 0),
+                role, status, false, LocalDateTime.now(), LocalDateTime.now());
     }
 
     private void expectLoginFailed(Runnable call) {
@@ -125,6 +126,31 @@ class AuthServiceTest {
                 .thenReturn(user(TENANT_A, "hong@example.com", PW_A, Role.MEMBER, UserStatus.DISABLED));
 
         expectLoginFailed(() -> service().authenticate("ACME", "hong@example.com", PW_A));
+    }
+
+    @Test
+    @DisplayName("INV-02(U): PENDING(초대 대기) 멤버의 유효 크리덴셜도 동일한 401 — ACTIVE만 로그인 허용")
+    void pendingUserRejected() {
+        when(tenantMapper.findByCode("ACME")).thenReturn(tenant(TENANT_A, "ACME", TenantStatus.ACTIVE));
+        when(userMapper.findByEmail(TENANT_A, "hong@example.com"))
+                .thenReturn(user(TENANT_A, "hong@example.com", PW_A, Role.MEMBER, UserStatus.PENDING));
+
+        expectLoginFailed(() -> service().authenticate("ACME", "hong@example.com", PW_A));
+    }
+
+    @Test
+    @DisplayName("세션 스냅샷에 유저의 password_changed_at이 그대로 실린다 — 재로그인 강제의 동등 비교 기준")
+    void sessionCarriesPasswordChangedAt() {
+        LocalDateTime changedAt = LocalDateTime.of(2026, 7, 9, 9, 0, 0, 123_000_000);
+        when(tenantMapper.findByCode("ACME")).thenReturn(tenant(TENANT_A, "ACME", TenantStatus.ACTIVE));
+        when(userMapper.findByEmail(TENANT_A, "hong@example.com")).thenReturn(
+                new User(1L, TENANT_A, "hong@example.com", new BCryptPasswordEncoder().encode(PW_A),
+                        changedAt, "홍길동", null, java.time.LocalTime.of(9, 0), java.time.LocalTime.of(18, 0),
+                        Role.MEMBER, UserStatus.ACTIVE, false, LocalDateTime.now(), LocalDateTime.now()));
+
+        SessionUser session = service().authenticate("ACME", "hong@example.com", PW_A);
+
+        assertThat(session.passwordChangedAt()).isEqualTo(changedAt);
     }
 
     @Test

@@ -30,9 +30,26 @@ interface AppState {
   ready: boolean
   /** 직전 navigate 실패 메시지(서버 텍스트 부재 시에도 표시 가능해야 하므로 원문 그대로) */
   navError: string | null
+  /** 기동 시 캡처한 비밀번호 설정 토큰(W010 전용 — 메모리에만 존재, 리렌더와 무관) */
+  getPasswordToken: () => string | null
+  /** W010 이탈/완료 시 즉시 폐기(민감 입력 클리어 정책 — D18) */
+  clearPasswordToken: () => void
 }
 
 const AppContext = createContext<AppState | null>(null)
+
+/**
+ * 기동 시 1회 — 메일 링크의 ?token= 캡처(email-onboarding §8.1).
+ * 주소창·히스토리에서 즉시 제거하고 메모리(ref)에만 보관한다(로그/Referer/히스토리 유출 방지).
+ * URL 라우팅 도입이 아니다 — 이 파라미터만 읽고 서버 주도 화면 전개(navigate)로 합류한다.
+ */
+function captureTokenFromUrl(): string | null {
+  const token = new URLSearchParams(window.location.search).get('token')
+  if (token !== null) {
+    history.replaceState(null, '', window.location.pathname)
+  }
+  return token
+}
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [screen, setScreen] = useState<ScreenCode>('W000')
@@ -49,6 +66,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const langRef = useRef<Lang>('KOR')
   /** 동시 navigate 경합 방지 — 최신 요청의 응답만 상태에 반영한다 */
   const navSeqRef = useRef(0)
+  /** 토큰은 state가 아닌 ref — 직렬화·리렌더 없이 W010에만 전달, 이탈/완료 시 클리어 */
+  const passwordTokenRef = useRef<string | null | undefined>(undefined)
+  if (passwordTokenRef.current === undefined) {
+    //첫 렌더에서 1회만 캡처(즉시 URL에서 제거되므로 재실행돼도 무해)
+    passwordTokenRef.current = captureTokenFromUrl()
+  }
 
   const navigate = useCallback(async (nextScreen?: ScreenCode, nextLang?: Lang) => {
     const seq = ++navSeqRef.current
@@ -89,10 +112,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     })
   }, [navigate])
 
-  //기동시: 서버에 화면 결정을 위임(로그인 상태면 홈, 아니면 랜딩)
+  //기동시: 토큰 진입이면 W010(비밀번호 설정 — 공개 화면이라 서버가 그대로 전개),
+  //아니면 서버에 화면 결정을 위임(로그인 상태면 홈, 아니면 랜딩)
   useEffect(() => {
-    void navigate()
+    void navigate(passwordTokenRef.current ? 'W010' : undefined)
   }, [navigate])
+
+  const getPasswordToken = useCallback(() => passwordTokenRef.current ?? null, [])
+  const clearPasswordToken = useCallback(() => {
+    passwordTokenRef.current = null
+  }, [])
 
   //테넌트명 뱃지: navigation 응답에는 tenantName이 없으므로 auth/me로 1회 취득
   //(SYSTEM_ADMIN은 뱃지 미표시 계약이라 취득 자체를 생략)
@@ -118,8 +147,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const t = useMemo(() => makeT({ ...headers, ...texts }), [texts, headers])
 
   const value = useMemo<AppState>(
-    () => ({ screen, userName, role, tenantName, hostTenantName, lang, data, t, navigate, ready, navError }),
-    [screen, userName, role, tenantName, hostTenantName, lang, data, t, navigate, ready, navError],
+    () => ({
+      screen, userName, role, tenantName, hostTenantName, lang, data, t, navigate, ready, navError,
+      getPasswordToken, clearPasswordToken,
+    }),
+    [screen, userName, role, tenantName, hostTenantName, lang, data, t, navigate, ready, navError,
+      getPasswordToken, clearPasswordToken],
   )
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>

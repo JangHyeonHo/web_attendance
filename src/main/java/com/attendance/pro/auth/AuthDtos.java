@@ -1,9 +1,14 @@
 package com.attendance.pro.auth;
 
+import java.time.LocalDateTime;
+
+import com.attendance.pro.user.MemberDtos;
 import com.attendance.pro.user.Role;
+import com.attendance.pro.user.TokenPurpose;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 /**
@@ -44,6 +49,56 @@ public final class AuthDtos {
             return new LoginResponse(user.userId(), user.email(), user.name(),
                     user.role(), user.tenantCode(), user.tenantName());
         }
+    }
+
+    @Schema(description = "schema.token-verify-request")
+    public record TokenVerifyRequest(
+            @Schema(description = "schema.field.token")
+            @NotBlank(message = "{validation.token.required}")
+            String token) {
+
+        @Override
+        public String toString() {  //토큰 로그 유출 방지(D-F 규약 확장)
+            return "TokenVerifyRequest[token=***]";
+        }
+    }
+
+    @Schema(description = "schema.token-verify-response")
+    public record TokenVerifyResponse(
+            @Schema(description = "schema.token-verify-response.purpose") TokenPurpose purpose, //W010 안내 분기
+            @Schema(description = "schema.field.name") String name,
+            @Schema(description = "schema.field.email-masked", example = "h***@acme.co.kr") String emailMasked,
+            @Schema(description = "schema.field.tenant-name") String tenantName,
+            @Schema(description = "schema.token-verify-response.expires-at") LocalDateTime expiresAt) {
+    }
+
+    @Schema(description = "schema.password-set-request")
+    public record PasswordSetRequest(
+            @Schema(description = "schema.field.token")
+            @NotBlank(message = "{validation.token.required}")
+            String token,
+
+            @Schema(description = "schema.field.password")
+            @NotBlank(message = "{validation.password.required}")
+            @Pattern(regexp = MemberDtos.PASSWORD_PATTERN, message = "{validation.password.pattern}")
+            String password) {
+
+        @Override
+        public String toString() {  //토큰·비밀번호 로그 유출 방지
+            return "PasswordSetRequest[token=***, password=***]";
+        }
+    }
+
+    @Schema(description = "schema.password-reset-request")
+    public record PasswordResetRequest(
+            //서브도메인 접속이면 생략 가능(호스트 우선 — D19), 루트 접속은 필수(컨트롤러 확인)
+            @Schema(description = "schema.field.tenant-code", example = "ACME")
+            @Size(max = 20, message = "{validation.tenant-code.size}")
+            String tenantCode,
+
+            @Schema(description = "schema.field.email", example = "hong@acme.co.kr")
+            @NotBlank(message = "{validation.email.required}")
+            String email) {
     }
 
 }

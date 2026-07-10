@@ -72,12 +72,19 @@ public class SessionRevalidationInterceptor implements HandlerInterceptor {
             invalidateKeepingLang(request, session);
             return true;
         }
+        //비밀번호가 로그인 시점 스냅샷과 달라짐 → 즉시 회수(재설정이 곧 세션 킬 스위치 — SES-01).
+        //동등 비교라 앱/DB 시계 오차·정밀도와 무관하다(리뷰 P3-6).
+        if (!java.util.Objects.equals(sessionUser.passwordChangedAt(), current.passwordChangedAt())) {
+            invalidateKeepingLang(request, session);
+            return true;
+        }
         if (current.role() != sessionUser.role()) {
-            //강등/승격 즉시 반영 — RoleInterceptor가 이 갱신된 스냅샷으로 인가한다
+            //강등/승격 즉시 반영 — RoleInterceptor가 이 갱신된 스냅샷으로 인가한다(SES-02)
             session.setAttribute(SessionUser.SESSION_KEY,
                     new SessionUser(sessionUser.userId(), sessionUser.tenantId(),
                             sessionUser.tenantCode(), sessionUser.tenantName(),
-                            sessionUser.email(), sessionUser.name(), current.role()));
+                            sessionUser.email(), sessionUser.name(), current.role(),
+                            sessionUser.passwordChangedAt()));
         }
         return true;
     }

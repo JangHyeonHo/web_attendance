@@ -14,6 +14,11 @@ export type ScreenCode =
   | 'W007' // 테넌트 관리 (SYSTEM_ADMIN)
   | 'W008' // 테넌트 상세(기업/결제, SYSTEM_ADMIN) — W007에 임베드 전개
   | 'W009' // 멤버 관리 (TENANT_ADMIN)
+  | 'W010' // 비밀번호 설정 (공개 — 토큰 필요)
+  | 'W011' // 비밀번호 재설정 요청 (공개)
+  | 'W012' // 메일 템플릿 관리 (SYSTEM_ADMIN)
+  | 'W013' // 공휴일 관리 (TENANT_ADMIN)
+  | 'W014' // 회사 메일 템플릿 (TENANT_ADMIN — 오버라이드, 기본은 전역)
   | 'W999' // 공통(헤더)
 
 export type Lang = 'KOR' | 'ENG' | 'JPN'
@@ -105,12 +110,43 @@ export interface UserResponse {
   status: UserStatus
 }
 
+// ---- auth: 비밀번호 설정/재설정 (W010/W011 — 공개 API, 토큰은 바디로만 수수) ----
+
+/** 토큰 용도 — 초대(INVITE) / 비밀번호 재설정(RESET). W010의 안내 문구 분기용 */
+export type TokenPurpose = 'INVITE' | 'RESET'
+
+export interface TokenVerifyRequest {
+  token: string
+}
+
+export interface TokenVerifyResponse {
+  purpose: TokenPurpose
+  name: string
+  /** 마스킹된 이메일(예: h***@acme.co.kr) — 서버 책임, 프론트는 표시만 */
+  emailMasked: string
+  tenantName: string
+  expiresAt: string
+}
+
+export interface PasswordSetRequest {
+  token: string
+  password: string
+}
+
+export interface PasswordResetRequest {
+  /** 테넌트 서브도메인 접속이면 null(호스트가 우선 확정) — 루트 도메인 접속은 필수 */
+  tenantCode: string | null
+  email: string
+}
+
 // ---- system: 테넌트 (W007) ----
 
 export interface TenantSummary {
   tenantId: number
   tenantCode: string
   name: string
+  /** 소재국(tenant.country 승격 — holiday-plan §1-1) */
+  country: ProfileCountry
   status: TenantStatus
   memberCount: number
   createdAt: string
@@ -119,20 +155,31 @@ export interface TenantSummary {
 export interface TenantCreateRequest {
   tenantCode: string
   name: string
+  /** 소재국 — 필수(공휴일 동기화·초대 메일 언어 결정. CR3-1) */
+  country: ProfileCountry
   adminEmail: string
   adminName: string
 }
 
-/** 평면(flat) record — 백엔드 컨벤션 1:1 */
+/**
+ * 평면(flat) record — 백엔드 컨벤션 1:1.
+ * 통합 최종 계약(이메일 온보딩 × 공휴일 병합 — CR3-5): initialPassword 폐지,
+ * 관리자는 PENDING으로 생성되고 초대 메일(mailSent)·공휴일 동기화(holidaysSynced) 결과가 동봉된다.
+ */
 export interface TenantCreateResponse {
   tenantId: number
   tenantCode: string
   name: string
+  country: ProfileCountry
   status: TenantStatus
   adminUserId: number
   adminEmail: string
-  /** 1회성 — 응답 이후 어디에도 저장하지 않는다 */
-  initialPassword: string
+  /** 항상 PENDING — 비밀번호는 초대 링크에서 본인이 설정 */
+  adminStatus: UserStatus
+  /** 초대 메일 발송 결과 — false면 [관리자 초대 재발송]으로 수습 */
+  mailSent: boolean
+  /** 당해·익년 공휴일 자동 동기화 결과 — false면 W013 수동 동기화 안내 */
+  holidaysSynced: boolean
 }
 
 export interface TenantStatusUpdateRequest {
@@ -141,12 +188,14 @@ export interface TenantStatusUpdateRequest {
 
 // ---- system: 기업/결제 정보 (W008) ----
 
-/** 전체 재입력(평문) — 부분 수정 없음 */
-/** 소재국 — 사업자 식별번호 체계 결정(KR=사업자등록번호, JP=法人番号) */
+/** 소재국 — 사업자 식별번호 체계·공휴일 동기화·메일 언어 결정(KR=사업자등록번호, JP=法人番号) */
 export type ProfileCountry = 'KR' | 'JP'
 
+/**
+ * 전체 재입력(평문) — 부분 수정 없음.
+ * country는 tenant.country 승격(holiday-plan §4-2)으로 요청에서 제거 — 서버가 tenant에서 취득한다.
+ */
 export interface TenantProfileUpsertRequest {
-  country: ProfileCountry
   businessRegNo: string
   ceoName: string | null
   address: string | null
@@ -197,6 +246,7 @@ export interface TenantBillingResponse {
 
 // ---- tenant: 멤버 (W009) ----
 
+/** MemberResponse — 통합 최종 필드 집합(이메일 온보딩 × 스케줄 병합, CR3-3) */
 export interface MemberSummary {
   userId: number
   email: string
@@ -206,15 +256,28 @@ export interface MemberSummary {
   role: Role
   status: UserStatus
   createdAt: string
+  /** 개인 기본 시업 시각("HH:mm") */
+  workStart: string
+  /** 개인 기본 종업 시각("HH:mm") */
+  workEnd: string
+  /** PENDING + 유효 INVITE 토큰이면 그 만료 시각, 아니면 null(만료/실패 → "재발송 필요" 표시) */
+  inviteExpiresAt: string | null
 }
 
 export interface MemberCreateRequest {
   email: string
   name: string
   departCd?: string | null
+  /** "HH:mm" — 미지정(null)은 09:00 */
+  workStart?: string | null
+  /** "HH:mm" — 미지정(null)은 18:00 */
+  workEnd?: string | null
 }
 
-/** 평면(flat) record — 백엔드 컨벤션 1:1 */
+/**
+ * 평면(flat) record — 백엔드 컨벤션 1:1.
+ * 통합 최종 계약(CR3-3): initialPassword 폐지 — 등록은 초대(PENDING + 메일 발송)로 전환.
+ */
 export interface MemberCreateResponse {
   userId: number
   email: string
@@ -222,9 +285,21 @@ export interface MemberCreateResponse {
   departCd: string | null
   /** 등록 시 항상 MEMBER (role은 별도 PUT /role로 변경) */
   role: Role
+  /** 항상 PENDING — 비밀번호는 초대 링크에서 본인이 설정 */
   status: UserStatus
-  /** 1회성 */
-  initialPassword: string
+  workStart: string
+  workEnd: string
+  /** 발송 실패해도 201(멤버는 생성됨) — false면 재발송 유도 */
+  mailSent: boolean
+  inviteExpiresAt: string
+}
+
+/** 초대 재발송(POST /members/{id}/invite, POST /system/tenants/{id}/admin-invite) 결과 */
+export interface InviteResponse {
+  userId: number
+  email: string
+  mailSent: boolean
+  inviteExpiresAt: string
 }
 
 export interface MemberStatusUpdateRequest {
@@ -233,6 +308,12 @@ export interface MemberStatusUpdateRequest {
 
 export interface MemberRoleUpdateRequest {
   role: Role // TENANT_ADMIN | MEMBER
+}
+
+/** PUT /members/{id}/schedule — 속성별 PUT(기존 /status·/role 패턴) */
+export interface MemberScheduleUpdateRequest {
+  workStart: string // "HH:mm"
+  workEnd: string // "HH:mm"
 }
 
 // ---- attendance ----
@@ -269,8 +350,12 @@ export interface StatusResponse {
   stampedAt: string | null
   alert: StatusAlert | null
   alertLabel: string | null
+  /** 오늘의 해석된 스케줄("HH:mm" — work_schedule > 개인 기본값). 휴일이면 null */
+  todayScheduleStart: string | null
+  todayScheduleEnd: string | null
 }
 
+/** 통합 최종 record — 현행 6필드 + holidayName + 근무 집계 3필드 = 10필드(CR3-7) */
 export interface DailyAttendance {
   date: string
   holiday: boolean
@@ -278,12 +363,95 @@ export interface DailyAttendance {
   scheduleEnd: string | null
   stampIn: string | null
   stampOut: string | null
+  /** 공휴일 명칭(NATIONAL/COMPANY). 개인 휴일(work_schedule.holiday)은 null → HOLIDAY 라벨 폴백 */
+  holidayName: string | null
+  /** 실휴식 합(분). 출근·퇴근 미확정이면 null */
+  breakMinutes: number | null
+  /** 법정휴게(분). 휴일이면 null, 근무일은 항상 산출(스케줄 기반) */
+  statutoryBreakMinutes: number | null
+  /** 총 근무시간(분) = max(0, 체류 − max(법정휴게, 실휴식)). 미확정이면 null */
+  workMinutes: number | null
 }
 
 export interface MonthlyResponse {
   year: number
   month: number
   days: DailyAttendance[]
+  /** 월 합계(분) = workMinutes non-null 합 */
+  totalWorkMinutes: number
+}
+
+// ---- admin: 메일 템플릿 (W012 — SYSTEM_ADMIN 글로벌 자산) ----
+
+/** 행 집합은 시드 6행(purpose×lang) 고정 — 생성/삭제 없음, 수정·미리보기만 */
+export interface MailTemplateResponse {
+  purpose: TokenPurpose
+  lang: Lang
+  subject: string
+  body: string
+  updatedAt: string
+}
+
+export interface MailTemplateUpdateRequest {
+  subject: string
+  body: string
+}
+
+/** 저장하지 않고 샘플 값 치환 결과만 반환 — 저장과 같은 변수 검증을 먼저 통과 가능 */
+export interface MailTemplatePreviewRequest {
+  purpose: TokenPurpose
+  lang: Lang
+  subject: string
+  body: string
+}
+
+export interface MailTemplatePreviewResponse {
+  subject: string
+  body: string
+}
+
+// ---- tenant: 회사별 메일 템플릿 오버라이드 (W014 — TENANT_ADMIN) ----
+
+/** 유효 템플릿(전역 6행 기준) — overridden=true면 회사 설정이 발송에 쓰인다 */
+export interface TenantMailTemplateResponse {
+  purpose: TokenPurpose
+  lang: Lang
+  subject: string
+  body: string
+  overridden: boolean
+  updatedAt: string
+}
+
+// ---- tenant: 공휴일 (W013 — TENANT_ADMIN 전용) ----
+
+/** NATIONAL=국가 공휴일(동기화 대상) / COMPANY=회사 지정(동기화 불가침) */
+export type HolidayType = 'NATIONAL' | 'COMPANY'
+
+export interface HolidayEntry {
+  holidayDate: string // yyyy-MM-dd (PK — 식별자는 날짜 자체)
+  holidayName: string
+  holidayType: HolidayType
+  updatedAt: string
+}
+
+export interface HolidaySyncResult {
+  year: number
+  country: string
+  fetched: number
+  inserted: number
+  deleted: number
+  skippedCompany: number
+}
+
+/** 수동 등록은 항상 COMPANY로 저장(요청에 type 없음 — holiday-plan §3-2) */
+export interface HolidayCreateRequest {
+  holidayDate: string
+  holidayName: string
+}
+
+/** 명칭만 수정 가능 — 유형 변경 불가(holiday-plan §3-3) */
+export interface HolidayUpdateRequest {
+  holidayName: string
 }
 
 // ---- i18n (언어 마스터) ----

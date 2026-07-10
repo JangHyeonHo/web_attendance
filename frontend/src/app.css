@@ -343,21 +343,100 @@ form button.primary {
   word-break: break-all;
 }
 
-.stamp-box.initial-pwd {
-  border-color: var(--accent);
-  background: #fff8f2;
-  max-width: 520px;
-}
-
-.stamp-box.initial-pwd code {
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  user-select: all;
-}
+/* 초기 비밀번호 패널(.initial-pwd)은 초대 플로우 전환으로 폐지(Phase 3) */
 
 .tenant-detail .panel {
   margin-top: 12px;
+}
+
+/* ---- 텍스트 링크형 버튼 (W001→W011 등 화면 전환 링크) ---- */
+
+button.link {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--accent-dark);
+  text-decoration: underline;
+  font-size: 13px;
+}
+
+button.link:hover {
+  background: none;
+  color: var(--accent);
+}
+
+/* ---- W009 발송 전 이메일 재확인(오송신 방지) ---- */
+
+.confirm-email {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  word-break: break-all;
+}
+
+/* ---- W006 근무 집계 열 ---- */
+
+/* 실휴식 > 법정 휴게 강조(총계 감소 사유의 시인성) */
+.detail-table td.break-over {
+  color: var(--error);
+  font-weight: 700;
+}
+
+.detail-table tfoot .month-total td {
+  font-weight: 700;
+  border-top: 2px solid var(--border);
+}
+
+.detail-table tfoot .month-total td:first-child {
+  text-align: right;
+}
+
+/* ---- W012 메일 템플릿 편집 ---- */
+
+form label textarea {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.tpl-edit {
+  margin-top: 16px;
+}
+
+.tpl-var {
+  margin-right: 6px;
+}
+
+.tpl-preview {
+  max-width: none;
+}
+
+.tpl-preview-body {
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-family: inherit;
+  font-size: 14px;
+  margin: 0;
+}
+
+/* ---- W013 공휴일 유형 뱃지 (NATIONAL=파란 계열 / COMPANY=초록 계열) ---- */
+
+.badge.badge-national {
+  background: rgba(46, 107, 192, 0.12);
+  color: #2e6bc0;
+  border-color: #2e6bc0;
+}
+
+.badge.badge-company {
+  background: rgba(46, 140, 90, 0.12);
+  color: #2e8c5a;
+  border-color: #2e8c5a;
 }
 
 /* ---- 랜딩 (W000) — 외부 리소스 없이 기존 토큰만 확장 ---- */

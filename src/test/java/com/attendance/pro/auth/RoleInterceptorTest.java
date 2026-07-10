@@ -24,7 +24,8 @@ class RoleInterceptorTest {
     private MockHttpServletRequest request(String uri, Role role) {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", uri);
         if (role != null) {
-            SessionUser user = new SessionUser(1L, 1L, "ACME", "에이크미(주)", "u@acme.co.kr", "유저", role);
+            SessionUser user = new SessionUser(1L, 1L, "ACME", "에이크미(주)", "u@acme.co.kr", "유저", role,
+                    java.time.LocalDateTime.now());
             request.getSession(true).setAttribute(SessionUser.SESSION_KEY, user);
         }
         return request;
@@ -39,10 +40,15 @@ class RoleInterceptorTest {
             "/api/v1/system/tenants/1/profile,  SYSTEM_ADMIN, allow",
             "/api/v1/system/tenants/1/profile,  TENANT_ADMIN, deny",
             "/api/v1/system/tenants/1/billing,  MEMBER,       deny",
-            //admin/i18n/** — SYSTEM_ADMIN만(TENANT_ADMIN도 403 — 언어 마스터는 글로벌 제품 자산)
+            //admin/** — SYSTEM_ADMIN만(TENANT_ADMIN도 403 — admin 하위는 전부 글로벌 제품 자산, TPL-01)
             "/api/v1/admin/i18n,                SYSTEM_ADMIN, allow",
             "/api/v1/admin/i18n,                TENANT_ADMIN, deny",
             "/api/v1/admin/i18n,                MEMBER,       deny",
+            "/api/v1/admin/mail-templates,      SYSTEM_ADMIN, allow",
+            "/api/v1/admin/mail-templates,      TENANT_ADMIN, deny",
+            "/api/v1/admin/mail-templates,      MEMBER,       deny",
+            "/api/v1/admin/mail-templates/INVITE/KOR, SYSTEM_ADMIN, allow",
+            "/api/v1/admin/mail-templates/preview,    MEMBER,       deny",
             //tenant/** — TENANT_ADMIN만(SYSTEM_ADMIN도 403)
             "/api/v1/tenant/members,            TENANT_ADMIN, allow",
             "/api/v1/tenant/members,            SYSTEM_ADMIN, deny",

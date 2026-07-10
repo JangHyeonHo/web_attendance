@@ -47,19 +47,20 @@ public class TenantProfileService {
     /**
      * 기업 정보 create-or-replace(마스킹값 표시 + 전체 재입력 방식).
      * 응답은 조회 경로를 재사용한다(마스킹 일원화).
+     * 검증·마스킹의 국가는 요청이 아닌 <b>tenant.country</b>에서 취득한다(V7 승격 — HOL-08).
      */
     @Transactional
     public TenantProfileResponse upsertProfile(long tenantId, TenantProfileRequest request) {
-        requireTenant(tenantId);
-        //사업자 식별번호 형식은 소재국이 결정한다(KR 사업자등록번호 / JP 法人番号)
-        ProfileCountry country = ProfileCountry.of(request.country());
+        Tenant tenant = requireTenant(tenantId);
+        //사업자 식별번호 형식은 소재국이 결정한다(KR 사업자등록번호 / JP 法人番号) — 미지원 값은 KR 방어
+        ProfileCountry country = ProfileCountry.of(tenant.country());
         if (country == null) {
-            throw ApiException.badRequest("COUNTRY_UNSUPPORTED", "validation.country.supported");
+            country = ProfileCountry.KR;
         }
         if (!country.isValidBizRegNo(request.businessRegNo())) {
             throw ApiException.badRequest("BIZ_REG_NO_FORMAT", country.formatMessageKey());
         }
-        tenantProfileMapper.upsert(tenantId, country.name(),
+        tenantProfileMapper.upsert(tenantId,
                 fieldCipher.encrypt(request.businessRegNo()),
                 request.ceoName(), request.address(), request.contactName(), request.contactEmail(),
                 fieldCipher.encrypt(request.contactPhone()));
@@ -95,10 +96,12 @@ public class TenantProfileService {
         return toResponse(tenantBillingMapper.findById(tenantId));
     }
 
-    private void requireTenant(long tenantId) {
-        if (tenantMapper.findById(tenantId) == null) {
+    private Tenant requireTenant(long tenantId) {
+        Tenant tenant = tenantMapper.findById(tenantId);
+        if (tenant == null) {
             throw ApiException.notFound("TENANT_NOT_FOUND", "tenant.not-found");
         }
+        return tenant;
     }
 
     private TenantProfileResponse toResponse(TenantProfile profile) {

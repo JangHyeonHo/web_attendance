@@ -47,8 +47,9 @@ public class AuthService {
                 || !passwordEncoder.matches(rawPassword, user.passwordHash())) {
             throw ApiException.unauthorized("auth.login.failed");
         }
+        //password_changed_at 스냅샷 — 이후 DB 값과 달라지면 재검증 인터셉터가 세션을 회수한다
         return new SessionUser(user.userId(), tenant.tenantId(), tenant.tenantCode(), tenant.name(),
-                user.email(), user.name(), user.role());
+                user.email(), user.name(), user.role(), user.passwordChangedAt());
     }
 
 }
