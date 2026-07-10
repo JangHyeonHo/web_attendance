@@ -279,6 +279,8 @@ export interface MemberSummary {
   workStart: string
   /** 개인 기본 종업 시각("HH:mm") */
   workEnd: string
+  /** 요일별 근무 플래그(월화수목금토일, '1'=근무 — V12) */
+  workDays: string
   /** PENDING + 유효 INVITE 토큰이면 그 만료 시각, 아니면 null(만료/실패 → "재발송 필요" 표시) */
   inviteExpiresAt: string | null
 }
@@ -333,6 +335,8 @@ export interface MemberRoleUpdateRequest {
 export interface MemberScheduleUpdateRequest {
   workStart: string // "HH:mm"
   workEnd: string // "HH:mm"
+  /** 요일별 근무 플래그(월~일, [01]{7} — 최소 1일 '1') */
+  workDays: string
 }
 
 // ---- attendance ----
@@ -374,10 +378,12 @@ export interface StatusResponse {
   todayScheduleEnd: string | null
 }
 
-/** 통합 최종 record — 현행 6필드 + holidayName + 근무 집계 3필드 = 10필드(CR3-7) */
+/** 현행 10필드(CR3-7) + Phase 5: dayOff·manual = 12필드 */
 export interface DailyAttendance {
   date: string
   holiday: boolean
+  /** 요일 휴무(work_days 플래그 0 && 일자 오버라이드 없음) — holiday와 상호배타 */
+  dayOff: boolean
   scheduleStart: string | null
   scheduleEnd: string | null
   stampIn: string | null
@@ -386,10 +392,44 @@ export interface DailyAttendance {
   holidayName: string | null
   /** 실휴식 합(분). 출근·퇴근 미확정이면 null */
   breakMinutes: number | null
-  /** 법정휴게(분). 휴일이면 null, 근무일은 항상 산출(스케줄 기반) */
+  /** 법정휴게(분). 근무일=스케줄 기반, 휴일·휴무 근무=실체류 기반, 그 외 null */
   statutoryBreakMinutes: number | null
   /** 총 근무시간(분) = max(0, 체류 − max(법정휴게, 실휴식)). 미확정이면 null */
   workMinutes: number | null
+  /** 그 날에 수동 정정 스탬프 존재(상세는 daily API) */
+  manual: boolean
+}
+
+// ---- 수동 정정 + 일자 이력 (Phase 5) ----
+
+/** 스탬프 등록 경로 — 버튼(자동)/정정 등록(수동) */
+export type StampSource = 'AUTO' | 'MANUAL'
+
+/** 수동 정정 사유 코드 — OTHER는 reasonText 필수 */
+export type ManualReason = 'FORGOT' | 'DEVICE' | 'OFFSITE' | 'OTHER'
+
+export interface ManualStampRequest {
+  date: string // yyyy-MM-dd
+  time: string // HH:mm
+  /** BREAK 제외(서버 400) */
+  type: AttendanceType
+  reasonCode: ManualReason
+  reasonText?: string | null
+}
+
+/** 일자 스탬프 이력 1건 — attendance는 append-only(중복 스탬프도 전부 나온다) */
+export interface DailyStampEntry {
+  stampedAt: string
+  type: AttendanceType
+  breakEnd: boolean
+  source: StampSource
+  reasonCode: string | null
+  reasonText: string | null
+}
+
+export interface DailyResponse {
+  date: string
+  stamps: DailyStampEntry[]
 }
 
 export interface MonthlyResponse {

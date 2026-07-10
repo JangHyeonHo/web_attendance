@@ -4,6 +4,7 @@ import { authApi, tenantMemberApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { Modal } from '../components/Modal'
+import { localeOf } from '../i18n/lang'
 import type { MemberSummary, Role, UserStatus } from '../api/types'
 
 const ROLE_LABEL_KEYS: Partial<Record<Role, string>> = {
@@ -27,12 +28,13 @@ interface PendingAction {
   action: 'DISABLE' | 'DEMOTE' | 'DELETE'
 }
 
-/** 행별 스케줄 수정 모달 상태(PENDING 행 포함 — 입사 전 준비, CR3-6) */
+/** 행별 스케줄 수정 모달 상태(PENDING 행 포함 — 입사 전 준비, CR3-6). workDays는 월~일 [01]{7} */
 interface ScheduleEdit {
   userId: number
   name: string
   workStart: string
   workEnd: string
+  workDays: string
 }
 
 /** 등록 결과 안내(초대 메일 발송됨 / 발송 실패 — 멤버는 PENDING으로 존재) */
@@ -49,7 +51,13 @@ interface CreatedNotice {
  * 행 아래 인라인 표시는 에러만 남긴다.
  */
 export function MembersScreen() {
-  const { t } = useApp()
+  const { t, lang } = useApp()
+
+  //요일 라벨(월~일)은 사전 없이 Intl로 생성 — 2024-01-01이 월요일
+  const weekdayLabels = (() => {
+    const format = new Intl.DateTimeFormat(localeOf(lang), { weekday: 'short' })
+    return Array.from({ length: 7 }, (_, i) => format.format(new Date(2024, 0, 1 + i)))
+  })()
   const [members, setMembers] = useState<MemberSummary[]>([])
   const [listError, setListError] = useState<string | null>(null)
   /** 자기 자신 행의 강등/비활성/삭제 버튼은 렌더하지 않는다(세션 파괴 사고 방지) */
@@ -207,6 +215,7 @@ export function MembersScreen() {
       await tenantMemberApi.updateSchedule(scheduleEdit.userId, {
         workStart: scheduleEdit.workStart,
         workEnd: scheduleEdit.workEnd,
+        workDays: scheduleEdit.workDays,
       })
       setScheduleEdit(null)
       await reload()
@@ -359,11 +368,36 @@ export function MembersScreen() {
               />
             </label>
           </div>
+          {/* 근무 요일(월~일) — 토·일 근무 유무를 멤버별로 설정(manual-attendance §2) */}
+          <span className="field-label">{t('WORK_DAYS')}</span>
+          <div className="weekday-row" role="group" aria-label={t('WORK_DAYS')}>
+            {weekdayLabels.map((label, index) => {
+              const on = scheduleEdit.workDays.charAt(index) === '1'
+              return (
+                <label key={index} className={`weekday-chip${on ? ' on' : ''}`}>
+                  <input
+                    type="checkbox"
+                    checked={on}
+                    onChange={() => {
+                      const chars = scheduleEdit.workDays.split('')
+                      chars[index] = on ? '0' : '1'
+                      setScheduleEdit({ ...scheduleEdit, workDays: chars.join('') })
+                    }}
+                  />
+                  {label}
+                </label>
+              )
+            })}
+          </div>
           <div className="btn-row">
             <button
               className="primary"
               onClick={() => void saveSchedule()}
-              disabled={!scheduleEdit.workStart || !scheduleEdit.workEnd}
+              disabled={
+                !scheduleEdit.workStart ||
+                !scheduleEdit.workEnd ||
+                !scheduleEdit.workDays.includes('1') //전 요일 휴무는 서버도 400
+              }
             >
               {t('SUBMIT')}
             </button>
@@ -475,6 +509,7 @@ export function MembersScreen() {
                               name: member.name,
                               workStart: member.workStart,
                               workEnd: member.workEnd,
+                              workDays: member.workDays,
                             })
                           }
                         >

@@ -29,28 +29,28 @@ class MonthlyAttendanceAssemblerTest {
     private static final LocalDate D3 = LocalDate.of(2026, 7, 3);
 
     private AttendanceStamp stamp(AttendanceType type, LocalDateTime at) {
-        return new AttendanceStamp(idSeq.getAndIncrement(), 1L, type.code(), 0, at);
+        return new AttendanceStamp(idSeq.getAndIncrement(), 1L, type.code(), 0, at, StampSource.AUTO, null, null);
     }
 
     private AttendanceStamp breakStart(LocalDateTime at) {
         return new AttendanceStamp(idSeq.getAndIncrement(), 1L, AttendanceType.BREAK.code(),
-                AttendanceStamp.STATUS_ACTIVE, at);
+                AttendanceStamp.STATUS_ACTIVE, at, StampSource.AUTO, null, null);
     }
 
     private AttendanceStamp breakEnd(LocalDateTime at) {
         return new AttendanceStamp(idSeq.getAndIncrement(), 1L, AttendanceType.BREAK.code(),
-                AttendanceStamp.STATUS_BREAK_ENDED, at);
+                AttendanceStamp.STATUS_BREAK_ENDED, at, StampSource.AUTO, null, null);
     }
 
     private List<DailyAttendance> assemble(List<AttendanceStamp> stamps) {
         return assembler.assemble(List.of(D1, D2, D3), Map.of(), Map.of(), stamps,
-                null, null, BreakPolicy.KR);
+                null, null, null, BreakPolicy.KR);
     }
 
     private List<DailyAttendance> assembleKr(Map<LocalDate, WorkSchedule> schedules,
             List<AttendanceStamp> stamps) {
         return assembler.assemble(List.of(D1, D2, D3), schedules, Map.of(), stamps,
-                null, null, BreakPolicy.KR);
+                null, null, null, BreakPolicy.KR);
     }
 
     @Nested
@@ -138,7 +138,7 @@ class MonthlyAttendanceAssemblerTest {
                     Map.of(D2, personalHoliday),
                     Map.of(D1, "삼일절"),
                     List.of(stamp(AttendanceType.GO_TO_WORK, D3.atTime(9, 0))),
-                    null, null, BreakPolicy.KR);
+                    null, null, null, BreakPolicy.KR);
 
             assertThat(days.get(0).holiday()).isTrue();
             assertThat(days.get(0).scheduleStart()).isNull();
@@ -156,7 +156,7 @@ class MonthlyAttendanceAssemblerTest {
             WorkSchedule override = new WorkSchedule(1L, 1L, D1, LocalTime.of(10, 30), LocalTime.of(19, 30), false);
             List<DailyAttendance> days = assembler.assemble(
                     List.of(D1, D2), Map.of(D1, override), Map.of(), List.of(),
-                    null, null, BreakPolicy.KR);
+                    null, null, null, BreakPolicy.KR);
 
             assertThat(days.get(0).scheduleStart()).isEqualTo("10:30");
             assertThat(days.get(0).scheduleEnd()).isEqualTo("19:30");
@@ -230,7 +230,7 @@ class MonthlyAttendanceAssemblerTest {
                             breakStart(D1.atTime(12, 0)),
                             breakEnd(D1.atTime(12, 20)),
                             stamp(AttendanceType.OFF_WORK, D1.atTime(15, 0))),
-                    null, null, BreakPolicy.JP);
+                    null, null, null, BreakPolicy.JP);
 
             assertThat(days.get(0).statutoryBreakMinutes()).isEqualTo(0);
             assertThat(days.get(0).breakMinutes()).isEqualTo(20);
@@ -274,7 +274,7 @@ class MonthlyAttendanceAssemblerTest {
                     List.of(
                             stamp(AttendanceType.GO_TO_WORK, D1.atTime(10, 0)),
                             stamp(AttendanceType.OFF_WORK, D1.atTime(19, 0))),
-                    LocalTime.of(10, 0), LocalTime.of(19, 0), BreakPolicy.KR);
+                    LocalTime.of(10, 0), LocalTime.of(19, 0), null, BreakPolicy.KR);
 
             assertThat(days.get(0).scheduleStart()).isEqualTo("10:00");
             assertThat(days.get(0).scheduleEnd()).isEqualTo("19:00");
@@ -390,7 +390,7 @@ class MonthlyAttendanceAssemblerTest {
                     Map.of(D2, personalHoliday),
                     Map.of(D1, "삼일절"),
                     List.of(),
-                    null, null, BreakPolicy.KR);
+                    null, null, null, BreakPolicy.KR);
 
             assertThat(days.get(0).holiday()).isTrue();
             assertThat(days.get(0).holidayName()).isEqualTo("삼일절");

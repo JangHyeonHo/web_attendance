@@ -955,6 +955,116 @@ button.link:hover {
   }
 }
 
+/* ---- 11.5 W006 일자 상세 / 정정 등록 / W009 근무 요일 (Phase 5) ---- */
+
+/* 행 클릭으로 일자 상세를 연다 — 클릭 가능함을 커서로만 조용히 알림 */
+.detail-table tbody tr.day-row {
+  cursor: pointer;
+}
+
+/* 수동 정정 마커(날짜 셀·이력 행) */
+.mini-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent-dark);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  background: var(--accent-soft);
+  vertical-align: 1px;
+}
+
+/* 일자 상세 모달의 스탬프 이력 목록 */
+.stamp-list {
+  list-style: none;
+  margin: 4px 0 8px;
+  padding: 0;
+}
+
+.stamp-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 2px;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+
+.stamp-list li:last-child {
+  border-bottom: none;
+}
+
+.stamp-time {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  min-width: 48px;
+}
+
+.stamp-type {
+  font-weight: 600;
+}
+
+.stamp-source {
+  font-size: 12px;
+}
+
+.stamp-reason {
+  flex-basis: 100%;
+  font-size: 13px;
+  padding-left: 58px;
+}
+
+/* 근무 요일 선택(월~일 칩) */
+.field-label {
+  display: block;
+  margin: 4px 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.weekday-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.weekday-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  min-height: 36px;
+  padding: 4px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  background: var(--surface);
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.weekday-chip input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.weekday-chip.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+}
+
 /* ---- 12. W012 메일 템플릿 편집 ---- */
 
 .tpl-edit {

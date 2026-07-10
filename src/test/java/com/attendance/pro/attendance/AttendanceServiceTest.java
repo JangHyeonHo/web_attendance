@@ -79,7 +79,7 @@ class AttendanceServiceTest {
     }
 
     private AttendanceStamp stamp(AttendanceType type, int status, LocalDateTime at) {
-        return new AttendanceStamp(1L, USER_ID, type.code(), status, at);
+        return new AttendanceStamp(1L, USER_ID, type.code(), status, at, StampSource.AUTO, null, null);
     }
 
     @Nested
@@ -262,7 +262,7 @@ class AttendanceServiceTest {
 
             final int[] insertedStatus = new int[]{-1};
             when(attendanceMapper.insert(eq(TENANT_ID), anyLong(), eq(AttendanceType.BREAK.code()), anyInt(),
-                    any(), any(), any(), any(), any())).thenAnswer(inv -> {
+                    any(), any(), any(), any(), any(), any(), any(), any())).thenAnswer(inv -> {
                         insertedStatus[0] = inv.getArgument(3);
                         return 1;
                     });
@@ -296,7 +296,7 @@ class AttendanceServiceTest {
                     .thenReturn(java.util.List.of());
             when(holidayMapper.findHolidaysBetween(eq(TENANT_ID), any(), any())).thenReturn(java.util.List.of());
             when(scheduleMapper.findWorkDefaults(TENANT_ID, USER_ID))
-                    .thenReturn(new WorkDefaults(java.time.LocalTime.of(10, 0), java.time.LocalTime.of(19, 0)));
+                    .thenReturn(new WorkDefaults(java.time.LocalTime.of(10, 0), java.time.LocalTime.of(19, 0), "1111100"));
             when(attendanceMapper.findLatest(TENANT_ID, USER_ID)).thenReturn(null);
 
             StatusResponse response = service.status(TENANT_ID, USER_ID);
@@ -417,13 +417,13 @@ class AttendanceServiceTest {
             when(attendanceMapper.findBetween(eq(TENANT_ID), eq(USER_ID), any(), any()))
                     .thenReturn(java.util.List.of(
                             new AttendanceStamp(1L, USER_ID, AttendanceType.GO_TO_WORK.code(), 0,
-                                    LocalDateTime.of(2026, 7, 1, 9, 0)),
+                                    LocalDateTime.of(2026, 7, 1, 9, 0), StampSource.AUTO, null, null),
                             new AttendanceStamp(2L, USER_ID, AttendanceType.OFF_WORK.code(), 0,
-                                    LocalDateTime.of(2026, 7, 1, 18, 0)),
+                                    LocalDateTime.of(2026, 7, 1, 18, 0), StampSource.AUTO, null, null),
                             new AttendanceStamp(3L, USER_ID, AttendanceType.GO_TO_WORK.code(), 0,
-                                    LocalDateTime.of(2026, 7, 2, 9, 0)),
+                                    LocalDateTime.of(2026, 7, 2, 9, 0), StampSource.AUTO, null, null),
                             new AttendanceStamp(4L, USER_ID, AttendanceType.OFF_WORK.code(), 0,
-                                    LocalDateTime.of(2026, 7, 2, 13, 0))));
+                                    LocalDateTime.of(2026, 7, 2, 13, 0), StampSource.AUTO, null, null)));
 
             var response = service.monthly(TENANT_ID, USER_ID, 2026, 7);
 
@@ -456,7 +456,7 @@ class AttendanceServiceTest {
                     TENANT_ID, "ACME", "에이크미(주)", "JP",
                     com.attendance.pro.tenant.TenantStatus.ACTIVE, LocalDateTime.now()));
             when(scheduleMapper.findWorkDefaults(TENANT_ID, USER_ID))
-                    .thenReturn(new WorkDefaults(java.time.LocalTime.of(9, 0), java.time.LocalTime.of(15, 0)));
+                    .thenReturn(new WorkDefaults(java.time.LocalTime.of(9, 0), java.time.LocalTime.of(15, 0), "1111100"));
 
             var response = service.monthly(TENANT_ID, USER_ID, 2026, 7);
 
@@ -507,7 +507,7 @@ class AttendanceServiceTest {
             verify(attendanceMapper).findCheckHash(eq(TENANT_ID), anyString(), eq(USER_ID));
             verify(attendanceMapper).deleteCheck(eq(TENANT_ID), anyString(), eq(USER_ID));
             verify(attendanceMapper).insert(eq(TENANT_ID), eq(USER_ID), anyInt(), anyInt(),
-                    any(), any(), any(), any(), any());
+                    any(), any(), any(), any(), any(), eq(StampSource.AUTO), any(), any());
         }
 
         @Test

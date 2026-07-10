@@ -23,6 +23,9 @@ import com.attendance.pro.attendance.AttendanceDtos.CheckRequest;
 import com.attendance.pro.attendance.AttendanceDtos.CheckResponse;
 import com.attendance.pro.attendance.AttendanceDtos.ConfirmRequest;
 import com.attendance.pro.attendance.AttendanceDtos.DailyAttendance;
+import com.attendance.pro.attendance.AttendanceDtos.DailyResponse;
+import com.attendance.pro.attendance.AttendanceDtos.DailyStampEntry;
+import com.attendance.pro.attendance.AttendanceDtos.ManualStampRequest;
 import com.attendance.pro.attendance.AttendanceDtos.MonthlyResponse;
 import com.attendance.pro.attendance.AttendanceDtos.StampResponse;
 import com.attendance.pro.attendance.AttendanceDtos.StatusAlert;
@@ -113,12 +116,76 @@ public class AttendanceService {
         }
         LocalDateTime now = LocalDateTime.now();
         attendanceMapper.insert(tenantId, userId, request.type().code(), status, now,
-                request.latitude(), request.longitude(), request.placeInfo(), request.terminal());
+                request.latitude(), request.longitude(), request.placeInfo(), request.terminal(),
+                StampSource.AUTO, null, null);
         log.debug("attendance stamped: userId={}, type={}, status={}", userId, request.type(), status);
 
         String message = messages.get("attendance.stamp.success",
                 now.format(DateTimeFormatter.ofPattern("HH:mm")), messages.get(request.type().labelKey()));
         return new StampResponse(request.type(), now, message);
+    }
+
+    /** 수동 정정으로 소급 등록 가능한 최대 일수 */
+    private static final long MANUAL_MAX_DAYS = 90;
+
+    /**
+     * 수동 정정 등록(Phase 5 — manual-attendance §3).
+     * 상태머신 검사 없음(정정 목적) — attendance는 append-only라 원래 스탬프도 행으로 남고,
+     * 채용 규칙(마지막 값 우선)은 월별 조립기의 기존 규칙을 그대로 따른다.
+     * BREAK는 시작/종료 페어링 정합성 문제로 대상 외(400).
+     */
+    @Transactional
+    public StampResponse manual(long tenantId, long userId, ManualStampRequest request) {
+        if (request.type() == AttendanceType.BREAK) {
+            throw ApiException.badRequest("MANUAL_TYPE_INVALID", "attendance.manual.type.invalid");
+        }
+        ManualReason reason = ManualReason.of(request.reasonCode());
+        if (reason == null) {
+            throw ApiException.badRequest("MANUAL_REASON_UNSUPPORTED", "attendance.manual.reason.unsupported");
+        }
+        String reasonText = request.reasonText() == null ? null : request.reasonText().trim();
+        if (reasonText != null && reasonText.isEmpty()) {
+            reasonText = null;
+        }
+        if (reason == ManualReason.OTHER && reasonText == null) {
+            //기타는 자유 텍스트가 곧 사유 — 없으면 정정 근거가 남지 않는다
+            throw ApiException.badRequest("MANUAL_REASON_TEXT_REQUIRED", "attendance.manual.reason.text-required");
+        }
+        LocalDateTime stampedAt = LocalDateTime.of(request.date(),
+                java.time.LocalTime.parse(request.time()));
+        LocalDateTime now = LocalDateTime.now();
+        if (stampedAt.isAfter(now)) {
+            throw ApiException.badRequest("MANUAL_FUTURE", "attendance.manual.future");
+        }
+        if (request.date().isBefore(now.toLocalDate().minusDays(MANUAL_MAX_DAYS))) {
+            throw ApiException.badRequest("MANUAL_TOO_OLD", "attendance.manual.too-old");
+        }
+        //좌표·장소 없음 — 위치는 자동 스탬프의 무결성 장치이지 정정의 입력이 아니다(§3)
+        attendanceMapper.insert(tenantId, userId, request.type().code(), AttendanceStamp.STATUS_ACTIVE,
+                stampedAt, null, null, null, "manual", StampSource.MANUAL, reason.name(), reasonText);
+        log.info("manual attendance stamped: userId={}, type={}, at={}, reason={}",
+                userId, request.type(), stampedAt, reason);
+
+        String message = messages.get("attendance.manual.success",
+                stampedAt.format(DateTimeFormatter.ofPattern("MM-dd HH:mm")),
+                messages.get(request.type().labelKey()));
+        return new StampResponse(request.type(), stampedAt, message);
+    }
+
+    /**
+     * 일자 스탬프 이력(본인) — 그 달력 날짜의 전 스탬프.
+     * attendance는 append-only이므로 중복 스탬프(출근 2번 등)·수동 정정이 전부 나온다(§3).
+     */
+    @Transactional(readOnly = true)
+    public DailyResponse daily(long tenantId, long userId, LocalDate date) {
+        List<DailyStampEntry> entries = attendanceMapper
+                .findBetween(tenantId, userId, date, date.plusDays(1)).stream()
+                .map(stamp -> new DailyStampEntry(stamp.stampedAt(), stamp.type(),
+                        stamp.type() == AttendanceType.BREAK
+                                && stamp.status() == AttendanceStamp.STATUS_BREAK_ENDED,
+                        stamp.source(), stamp.reasonCode(), stamp.reasonText()))
+                .toList();
+        return new DailyResponse(date, entries);
     }
 
     /**
@@ -250,6 +317,11 @@ public class AttendanceService {
             return TodaySchedule.HOLIDAY;
         }
         WorkDefaults defaults = scheduleMapper.findWorkDefaults(tenantId, userId);
+        //요일 휴무(일자 오버라이드 없음)는 휴일과 동일 표시 — 스탬프 자체는 휴일처럼 가능(§4)
+        if (override == null && defaults != null
+                && !WorkDefaults.worksOn(defaults.workDays(), today.getDayOfWeek())) {
+            return TodaySchedule.HOLIDAY;
+        }
         java.time.LocalTime baseStart = defaults != null && defaults.start() != null
                 ? defaults.start() : MonthlyAttendanceAssembler.DEFAULT_START;
         java.time.LocalTime baseEnd = defaults != null && defaults.end() != null
@@ -302,6 +374,7 @@ public class AttendanceService {
         List<DailyAttendance> days = assembler.assemble(monthDays, schedules, holidays, stamps,
                 defaults == null ? null : defaults.start(),
                 defaults == null ? null : defaults.end(),
+                defaults == null ? null : defaults.workDays(),
                 policy);
         int totalWorkMinutes = days.stream()
                 .map(DailyAttendance::workMinutes)
