@@ -8,13 +8,13 @@ import type { Lang, LanguageEntry, UiThemeSetting } from '../api/types'
 
 const LANGS: Lang[] = ['KOR', 'ENG', 'JPN']
 
-/** 테마 선택지 — 라벨 키(W004 시드)와 스와치 클래스. AUTO가 기본 권장이라 선두 */
-const THEME_OPTIONS: { value: UiThemeSetting; labelKey: string; swatch: string; icon: string }[] = [
-  { value: 'AUTO', labelKey: 'THEME_AUTO', swatch: 'auto', icon: '🔄' },
-  { value: 'SPRING', labelKey: 'THEME_SPRING', swatch: 'spring', icon: '🌸' },
-  { value: 'SUMMER', labelKey: 'THEME_SUMMER', swatch: 'summer', icon: '🌊' },
-  { value: 'AUTUMN', labelKey: 'THEME_AUTUMN', swatch: 'autumn', icon: '🍂' },
-  { value: 'WINTER', labelKey: 'THEME_WINTER', swatch: 'winter', icon: '❄️' },
+/** 테마 선택지 — 라벨 키(W004 시드)와 스와치 클래스(색으로만 계절 표현). AUTO가 기본 권장이라 선두 */
+const THEME_OPTIONS: { value: UiThemeSetting; labelKey: string; swatch: string }[] = [
+  { value: 'AUTO', labelKey: 'THEME_AUTO', swatch: 'auto' },
+  { value: 'SPRING', labelKey: 'THEME_SPRING', swatch: 'spring' },
+  { value: 'SUMMER', labelKey: 'THEME_SUMMER', swatch: 'summer' },
+  { value: 'AUTUMN', labelKey: 'THEME_AUTUMN', swatch: 'autumn' },
+  { value: 'WINTER', labelKey: 'THEME_WINTER', swatch: 'winter' },
 ]
 
 /** W004 관리자 — 테마 설정(Phase 4) + 언어 마스터 관리(v1의 /lang_mst 화면 계승) */
@@ -113,9 +113,7 @@ export function AdminScreen() {
                 disabled={themeSetting === null}
                 onChange={() => void onSelectTheme(option.value)}
               />
-              <span className={`theme-swatch ${option.swatch}`} aria-hidden="true">
-                {option.icon}
-              </span>
+              <span className={`theme-swatch ${option.swatch}`} aria-hidden="true" />
               {t(option.labelKey)}
             </label>
           ))}

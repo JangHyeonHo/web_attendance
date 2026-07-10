@@ -81,10 +81,16 @@ export default function App() {
   return (
     <div className="app">
       <header className="header">
+        <span className="brand" aria-hidden="true">
+          Web<em>Attendance</em>
+        </span>
         <nav>
-          <button aria-current={current('W000')} onClick={() => void navigate('W000')}>
-            {t('HOME')}
-          </button>
+          {/* 로그인 상태에서 '홈'은 자기 홈으로 재전개될 뿐이라 비로그인일 때만 노출(모바일 탭 수 절약) */}
+          {!userName && (
+            <button aria-current={current('W000')} onClick={() => void navigate('W000')}>
+              {t('HOME')}
+            </button>
+          )}
           {!userName && (
             <button aria-current={current('W001')} onClick={() => void navigate('W001')}>
               {t('LOGIN')}

@@ -14,14 +14,6 @@ const TYPE_LABEL_KEYS: Record<AttendanceType, string> = {
   BREAK: 'BREAKTIME',
 }
 
-/** 스탬프 버튼 아이콘(텍스트 라벨 보조 — 모바일 시인성) */
-const TYPE_ICONS: Record<AttendanceType, string> = {
-  GO_TO_WORK: '🌅',
-  OFF_WORK: '🌙',
-  EARLY_DEPARTURE: '🏃',
-  BREAK: '☕',
-}
-
 /** 위치 취득 결과 + 선택한 타입(등록 패널 상태) */
 interface PendingStamp {
   type: AttendanceType
@@ -175,10 +167,12 @@ export function AttendanceScreen() {
 
       <div className="stamp-grid">
         {(Object.keys(TYPE_LABEL_KEYS) as AttendanceType[]).map((type) => (
-          <button key={type} onClick={() => selectType(type)}>
-            <span className="stamp-icon" aria-hidden="true">
-              {TYPE_ICONS[type]}
-            </span>
+          //주 동작(출근)만 채움 버튼 — 나머지는 조용한 아웃라인
+          <button
+            key={type}
+            className={type === 'GO_TO_WORK' ? 'primary' : ''}
+            onClick={() => selectType(type)}
+          >
             {t(TYPE_LABEL_KEYS[type])}
           </button>
         ))}
