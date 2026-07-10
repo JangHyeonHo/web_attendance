@@ -135,8 +135,8 @@ export function DetailsScreen() {
     }
   }
 
-  function openManual(date?: string) {
-    setManualDate(date ?? new Date().toISOString().slice(0, 10))
+  function openManual(date: string) {
+    setManualDate(date)
     setManualTime('09:00')
     setManualType('GO_TO_WORK')
     setReasonCode('FORGOT')
@@ -157,7 +157,8 @@ export function DetailsScreen() {
         time: manualTime,
         type: manualType,
         reasonCode,
-        reasonText: reasonText.trim() || null,
+        //사유는 한 컬럼 — 직접 입력(OTHER)을 골랐을 때만 텍스트가 사유가 된다
+        reasonText: reasonCode === 'OTHER' ? reasonText.trim() : null,
       })
       setManualOpen(false)
       setManualNotice(response.message)
@@ -190,11 +191,9 @@ export function DetailsScreen() {
               </option>
             ))}
           </select>
-          <button className="primary" onClick={() => openManual()}>
-            {t('MANUAL_ADD')}
-          </button>
         </div>
       </div>
+      {/* 정정 진입은 날짜 클릭 → 일자 상세 → [정정 등록] 단일 동선(날짜가 먼저 정해지는 UX) */}
       {manualNotice && (
         <div className="banner" role="status">
           <p className="success">{manualNotice}</p>
@@ -353,7 +352,10 @@ export function DetailsScreen() {
               {t('REASON')}
               <select
                 value={reasonCode}
-                onChange={(e) => setReasonCode(e.target.value as ManualReason)}
+                onChange={(e) => {
+                  setReasonCode(e.target.value as ManualReason)
+                  setReasonText('') //직접 입력에서 벗어나면 텍스트 폐기(한 컬럼 원칙)
+                }}
               >
                 {REASONS.map((reason) => (
                   <option key={reason.code} value={reason.code}>
@@ -361,15 +363,17 @@ export function DetailsScreen() {
                   </option>
                 ))}
               </select>
-            </label>
-            <label>
-              {t('REASON_TEXT')}
-              <input
-                value={reasonText}
-                maxLength={200}
-                onChange={(e) => setReasonText(e.target.value)}
-                required={reasonCode === 'OTHER'} //기타는 상세 사유가 곧 사유(서버도 400)
-              />
+              {/* 직접 입력을 골랐을 때만 입력란이 나타난다 — 사유는 하나의 값 */}
+              {reasonCode === 'OTHER' && (
+                <input
+                  value={reasonText}
+                  maxLength={200}
+                  placeholder={t('REASON_TEXT')}
+                  onChange={(e) => setReasonText(e.target.value)}
+                  required
+                  autoFocus
+                />
+              )}
             </label>
             {manualError && <p className="error" role="alert">{manualError}</p>}
             <button type="submit" className="primary" disabled={submitting}>
