@@ -86,6 +86,8 @@ public final class AttendanceDtos {
     /** 일자 스탬프 이력 1건 — attendance는 append-only라 중복 스탬프(출근 2번 등)도 전부 나온다 */
     @Schema(description = "schema.daily-stamp")
     public record DailyStampEntry(
+            //수동 정정 삭제(잘못 입력 복구)의 대상 식별자 — MANUAL 행만 삭제 가능
+            @Schema(description = "schema.daily-stamp.attendance-id") long attendanceId,
             @Schema(description = "schema.stamp-response.stamped-at") LocalDateTime stampedAt,
             @Schema(description = "schema.attendance-type") AttendanceType type,
             @Schema(description = "schema.daily-stamp.break-end") boolean breakEnd,

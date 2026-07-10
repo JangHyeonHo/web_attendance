@@ -1437,3 +1437,177 @@ button.cta:hover {
     padding-right: 16px;
   }
 }
+
+/* ---- 15. 전용 폼 컴포넌트 (Phase 5.1 — 네이티브 select/time 대체) ---- */
+
+.field-select {
+  position: relative;
+  width: 100%;
+}
+
+.field-select.compact {
+  width: auto;
+  min-width: 72px;
+}
+
+.field-select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  font-weight: 400;
+  padding: 10px 12px;
+}
+
+/* CSS 셰브런 — 글리프/이모지 없이 */
+.field-select-chevron {
+  width: 8px;
+  height: 8px;
+  border-right: 1.5px solid var(--muted);
+  border-bottom: 1.5px solid var(--muted);
+  transform: rotate(45deg) translateY(-2px);
+  flex-shrink: 0;
+}
+
+.field-select-trigger[aria-expanded='true'] .field-select-chevron {
+  transform: rotate(-135deg) translateY(-2px);
+}
+
+.field-select-list {
+  position: absolute;
+  z-index: 60;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 100%;
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-2);
+  padding: 4px;
+}
+
+.field-select-list button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  padding: 9px 12px;
+  min-height: 0;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.field-select-list button:hover {
+  background: var(--surface-alt);
+  color: var(--text);
+}
+
+.field-select-list button.selected {
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+  font-weight: 600;
+}
+
+.time-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.time-colon {
+  font-weight: 700;
+  color: var(--muted);
+}
+
+/* 정정 모달: 출근/퇴근 토글 섹션 */
+.manual-section {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 10px;
+}
+
+.toggle-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  min-height: 38px;
+  padding: 6px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  background: var(--surface);
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.toggle-chip input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.toggle-chip.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.reason-input {
+  display: block;
+  width: 100%;
+  margin: 8px 0 4px;
+}
+
+/* W006 날짜 진입 버튼(행 전체 클릭 폐지 — 오조작 방지) */
+button.day-link {
+  border: none;
+  background: none;
+  padding: 2px 4px;
+  min-height: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--border-strong);
+}
+
+button.day-link:hover {
+  color: var(--accent-dark);
+  text-decoration-color: var(--accent);
+  background: none;
+}
+
+/* 일자 상세의 행 조작(삭제 + 2단계 확인) */
+.stamp-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.stamp-actions button {
+  padding: 3px 10px;
+  min-height: 28px;
+  font-size: 12px;
+}
+
+.stamp-actions .error {
+  font-size: 12px;
+}

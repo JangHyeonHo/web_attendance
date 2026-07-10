@@ -147,4 +147,18 @@ class ManualAttendanceServiceTest {
         assertThat(response.stamps().get(2).reasonCode()).isEqualTo("FORGOT");
     }
 
+
+    @Test
+    @DisplayName("deleteManual: 본인 MANUAL 행이면 삭제, 조건 불일치(자동/타인/미존재)는 404")
+    void deleteManual() {
+        when(attendanceMapper.deleteManual(TENANT_ID, USER_ID, 7L)).thenReturn(1);
+        service().deleteManual(TENANT_ID, USER_ID, 7L);
+        verify(attendanceMapper).deleteManual(TENANT_ID, USER_ID, 7L);
+
+        when(attendanceMapper.deleteManual(TENANT_ID, USER_ID, 8L)).thenReturn(0);
+        assertThatThrownBy(() -> service().deleteManual(TENANT_ID, USER_ID, 8L))
+                .isInstanceOf(ApiException.class)
+                .hasFieldOrPropertyWithValue("code", "MANUAL_NOT_FOUND");
+    }
+
 }

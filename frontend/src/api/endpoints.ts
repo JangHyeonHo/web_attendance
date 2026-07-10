@@ -159,6 +159,9 @@ export const attendanceApi = {
     post<StampResponse>('/api/v1/attendance/manual', request),
   /** 일자 스탬프 이력 — 중복 스탬프(출근 2번 등)·수동 정정 전부 포함 */
   daily: (date: string) => get<DailyResponse>(`/api/v1/attendance/daily?date=${date}`),
+  /** 수동 정정 삭제(잘못 입력 복구) — 본인 MANUAL 행만(자동 기록은 불변) */
+  manualDelete: (attendanceId: number) =>
+    del<void>(`/api/v1/attendance/manual/${attendanceId}`),
 }
 
 export const languageApi = {

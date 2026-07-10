@@ -180,12 +180,26 @@ public class AttendanceService {
     public DailyResponse daily(long tenantId, long userId, LocalDate date) {
         List<DailyStampEntry> entries = attendanceMapper
                 .findBetween(tenantId, userId, date, date.plusDays(1)).stream()
-                .map(stamp -> new DailyStampEntry(stamp.stampedAt(), stamp.type(),
+                .map(stamp -> new DailyStampEntry(stamp.attendanceId(), stamp.stampedAt(), stamp.type(),
                         stamp.type() == AttendanceType.BREAK
                                 && stamp.status() == AttendanceStamp.STATUS_BREAK_ENDED,
                         stamp.source(), stamp.reasonCode(), stamp.reasonText()))
                 .toList();
         return new DailyResponse(date, entries);
+    }
+
+    /**
+     * 수동 정정 스탬프 삭제(잘못 입력 복구 — manual-attendance §3).
+     * 본인 + MANUAL 행만. AUTO 행·타인 행·미존재는 동일하게 404(존재 비노출).
+     * 채용 규칙이 "마지막 값 우선"이라 잘못 넣은 늦은 시각은 재등록으로 못 고친다 — 삭제가 유일한 복구 경로.
+     */
+    @Transactional
+    public void deleteManual(long tenantId, long userId, long attendanceId) {
+        int deleted = attendanceMapper.deleteManual(tenantId, userId, attendanceId);
+        if (deleted == 0) {
+            throw ApiException.notFound("MANUAL_NOT_FOUND", "attendance.manual.not-found");
+        }
+        log.info("manual attendance deleted: userId={}, attendanceId={}", userId, attendanceId);
     }
 
     /**
