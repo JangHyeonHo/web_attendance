@@ -637,7 +637,7 @@ form button.primary {
 }
 
 .modal-body form button.primary {
-  margin-top: 6px;
+  margin-top: 24px;
 }
 
 @keyframes overlay-in {
@@ -1519,7 +1519,7 @@ button.cta:hover {
 .reason-input {
   display: block;
   width: 100%;
-  margin: 8px 0 4px;
+  margin: 10px 0 0;
 }
 
 /* W006 날짜 진입 버튼(행 전체 클릭 폐지 — 오조작 방지) */
