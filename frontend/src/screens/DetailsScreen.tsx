@@ -97,6 +97,7 @@ export function DetailsScreen() {
       {error && <p className="error center">{error}</p>}
       {loading && <p className="muted center">{commonT('LOADING')}</p>}
       {monthly && !loading && (
+        <div className="table-wrap">
         <table className="detail-table">
           <thead>
             <tr>
@@ -157,6 +158,7 @@ export function DetailsScreen() {
             </tr>
           </tfoot>
         </table>
+        </div>
       )}
     </div>
   )

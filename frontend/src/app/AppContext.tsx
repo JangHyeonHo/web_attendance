@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { authApi, navigationApi } from '../api/endpoints'
 import { setUnauthorizedHandler } from '../api/client'
 import { makeT } from '../i18n/lang'
-import type { Lang, Role, ScreenCode } from '../api/types'
+import type { Lang, Role, ScreenCode, UiTheme } from '../api/types'
 
 /**
  * 서버 주도 화면 전개의 클라이언트 측 절반.
@@ -22,6 +22,10 @@ interface AppState {
   /** 테넌트 서브도메인 접속 시 그 테넌트명 — 로그인 화면이 코드 입력란을 숨기고 회사명을 표시 */
   hostTenantName: string | null
   lang: Lang
+  /** 화면 적용 확정 테마(navigation 응답 — 첫 응답 전에는 null=기본 토큰) */
+  theme: UiTheme | null
+  /** 테마 즉시 반영(W004 설정 저장 직후 — 다음 navigation 응답이 오면 서버값으로 재동기화) */
+  applyTheme: (theme: UiTheme) => void
   /** 화면 초기 데이터(출결 화면이면 StatusResponse) */
   data: unknown
   /** 텍스트 해석: 서버 언어 마스터 > 키 이름 */
@@ -58,6 +62,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [tenantName, setTenantName] = useState<string | null>(null)
   const [hostTenantName, setHostTenantName] = useState<string | null>(null)
   const [lang, setLang] = useState<Lang>('KOR')
+  const [theme, setTheme] = useState<UiTheme | null>(null)
   const [texts, setTexts] = useState<Record<string, string>>({})
   const [headers, setHeaders] = useState<Record<string, string>>({})
   const [data, setData] = useState<unknown>(null)
@@ -89,6 +94,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       langRef.current = appliedLang
       setLang(appliedLang)
       setScreen(response.screen)
+      setTheme(response.theme)
       setUserName(response.userName)
       setRole(response.role)
       setHostTenantName(response.hostTenantName)
@@ -103,6 +109,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setNavError(e instanceof Error ? e.message : String(e))
       }
     }
+  }, [])
+
+  //확정 테마를 문서 루트에 반영 — CSS [data-theme=...] 토큰 오버라이드의 스위치
+  useEffect(() => {
+    if (theme) {
+      document.documentElement.dataset.theme = theme
+    }
+  }, [theme])
+
+  const applyTheme = useCallback((next: UiTheme) => {
+    setTheme(next)
   }, [])
 
   //세션 만료(401) → 로그인 화면 전개
@@ -148,11 +165,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<AppState>(
     () => ({
-      screen, userName, role, tenantName, hostTenantName, lang, data, t, navigate, ready, navError,
-      getPasswordToken, clearPasswordToken,
+      screen, userName, role, tenantName, hostTenantName, lang, theme, applyTheme, data, t,
+      navigate, ready, navError, getPasswordToken, clearPasswordToken,
     }),
-    [screen, userName, role, tenantName, hostTenantName, lang, data, t, navigate, ready, navError,
-      getPasswordToken, clearPasswordToken],
+    [screen, userName, role, tenantName, hostTenantName, lang, theme, applyTheme, data, t,
+      navigate, ready, navError, getPasswordToken, clearPasswordToken],
   )
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>

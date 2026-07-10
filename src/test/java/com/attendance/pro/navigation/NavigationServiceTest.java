@@ -13,6 +13,7 @@ import com.attendance.pro.auth.SessionUser;
 import com.attendance.pro.language.LanguageService;
 import com.attendance.pro.navigation.NavigationDtos.NavigationReason;
 import com.attendance.pro.navigation.NavigationService.Decision;
+import com.attendance.pro.setting.UiThemeService;
 import com.attendance.pro.user.Role;
 
 /**
@@ -28,8 +29,11 @@ class NavigationServiceTest {
     @Mock
     private AttendanceService attendanceService;
 
+    @Mock
+    private UiThemeService uiThemeService;
+
     private NavigationService service() {
-        return new NavigationService(languageService, attendanceService);
+        return new NavigationService(languageService, attendanceService, uiThemeService);
     }
 
     private static final SessionUser MEMBER =

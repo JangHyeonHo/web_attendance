@@ -124,6 +124,7 @@ export function TenantMailTemplatesScreen() {
       {listError && <p className="error" role="alert">{listError}</p>}
       {rowError && <p className="error" role="alert">{rowError}</p>}
 
+      <div className="table-wrap">
       <table className="detail-table">
         <thead>
           <tr>
@@ -149,7 +150,7 @@ export function TenantMailTemplatesScreen() {
                     {template.overridden ? t('TPL_OVERRIDDEN') : t('TPL_DEFAULT')}
                   </span>
                 </td>
-                <td>{template.subject}</td>
+                <td className="wrap">{template.subject}</td>
                 <td>{template.updatedAt.replace('T', ' ').slice(0, 16)}</td>
                 <td>
                   <div className="row-actions">
@@ -174,6 +175,7 @@ export function TenantMailTemplatesScreen() {
           })}
         </tbody>
       </table>
+      </div>
 
       {target && (
         <div className="tpl-edit">

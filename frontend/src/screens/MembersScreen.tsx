@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { authApi, tenantMemberApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
+import { Modal } from '../components/Modal'
 import type { MemberSummary, Role, UserStatus } from '../api/types'
 
 const ROLE_LABEL_KEYS: Partial<Record<Role, string>> = {
@@ -19,15 +20,17 @@ const STATUS_LABEL_KEYS: Record<UserStatus, string> = {
 const DEFAULT_WORK_START = '09:00'
 const DEFAULT_WORK_END = '18:00'
 
-/** 파괴적 조작(비활성/관리자 해제/삭제)은 인라인 확인 패널 경유 */
+/** 파괴적 조작(비활성/관리자 해제/삭제)은 확인 모달 경유 */
 interface PendingAction {
   userId: number
+  name: string
   action: 'DISABLE' | 'DEMOTE' | 'DELETE'
 }
 
-/** 행별 스케줄 인라인 수정 상태(PENDING 행 포함 — 입사 전 준비, CR3-6) */
+/** 행별 스케줄 수정 모달 상태(PENDING 행 포함 — 입사 전 준비, CR3-6) */
 interface ScheduleEdit {
   userId: number
+  name: string
   workStart: string
   workEnd: string
 }
@@ -40,10 +43,10 @@ interface CreatedNotice {
 
 /**
  * W009 멤버 관리 — TENANT_ADMIN 전용.
- * 등록은 초대 플로우(email-onboarding §8.3): 폼 제출 → 발송 전 이메일 재확인 인라인 패널 →
+ * 등록은 초대 플로우(email-onboarding §8.3): 등록 모달 → 발송 전 이메일 재확인 모달 →
  * [발송]에서 비로소 POST(근무 스케줄 필드 동봉). 초기 비밀번호 방식은 폐지.
- * 목록: 상태(PENDING=초대 대기 + 만료 표시)·근무 시작/종료 컬럼, 재발송(즉시)·삭제(인라인 확인)·
- * 스케줄 인라인 수정. 마지막 관리자 보호 등 가드는 서버 단일 책임 — 에러는 행 아래 인라인 표시.
+ * Phase 4: 등록 폼·스케줄 수정·파괴적 확인을 전부 모달로 이전(테이블 내 확장 행 폐지),
+ * 행 아래 인라인 표시는 에러만 남긴다.
  */
 export function MembersScreen() {
   const { t } = useApp()
@@ -52,7 +55,8 @@ export function MembersScreen() {
   /** 자기 자신 행의 강등/비활성/삭제 버튼은 렌더하지 않는다(세션 파괴 사고 방지) */
   const [myUserId, setMyUserId] = useState<number | null>(null)
 
-  //등록 폼(이메일/이름/부서 + 근무 시작/종료 — CR3-6 합성 레이아웃)
+  //등록 모달(이메일/이름/부서 + 근무 시작/종료 — CR3-6 합성 레이아웃)
+  const [formOpen, setFormOpen] = useState(false)
   const [email, setEmail] = useState('')
   const [name, setName] = useState('')
   const [departCd, setDepartCd] = useState('')
@@ -61,7 +65,7 @@ export function MembersScreen() {
   const [formError, setFormError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
-  /** 발송 전 이메일 재확인 패널(오송신 방지 UX) — 취소하면 폼 값은 유지 */
+  /** 발송 전 이메일 재확인 모달(오송신 방지 UX) — 취소하면 등록 모달로 복귀(폼 값 유지) */
   const [confirmSend, setConfirmSend] = useState(false)
   const [created, setCreated] = useState<CreatedNotice | null>(null)
 
@@ -98,16 +102,17 @@ export function MembersScreen() {
     }
   }, [])
 
-  /** 폼 제출 = 즉시 발송하지 않는다 — 입력 이메일 재확인 패널을 먼저 연다 */
+  /** 등록 모달 제출 = 즉시 발송하지 않는다 — 입력 이메일 재확인 모달로 전환 */
   function onFormSubmit(event: FormEvent) {
     event.preventDefault()
     setFormError(null)
     setFieldErrors({})
     setCreated(null)
+    setFormOpen(false)
     setConfirmSend(true)
   }
 
-  /** 확인 패널의 [발송]에서 비로소 POST(스케줄 필드 동봉) */
+  /** 확인 모달의 [발송]에서 비로소 POST(스케줄 필드 동봉) */
   async function sendInvite() {
     setConfirmSend(false)
     setSubmitting(true)
@@ -128,7 +133,8 @@ export function MembersScreen() {
       setWorkEnd(DEFAULT_WORK_END)
       await reload()
     } catch (e) {
-      //오류 시 폼 값은 유지(오타 수정 후 재시도)
+      //오류 시 폼 값을 유지한 채 등록 모달을 다시 연다(오타 수정 후 재시도)
+      setFormOpen(true)
       if (e instanceof ApiError) {
         setFormError(e.message)
         if (e.fieldErrors) {
@@ -205,11 +211,12 @@ export function MembersScreen() {
       setScheduleEdit(null)
       await reload()
     } catch (e) {
-      //400 WORK_TIME_INVALID_RANGE 등 — 서버 메시지 그대로
+      //400 WORK_TIME_INVALID_RANGE 등 — 서버 메시지 그대로(모달은 닫고 행 아래 표시)
       setRowError({
         userId: scheduleEdit.userId,
         message: e instanceof ApiError ? e.message : String(e),
       })
+      setScheduleEdit(null)
     }
   }
 
@@ -232,252 +239,274 @@ export function MembersScreen() {
 
   return (
     <div className="panel">
-      <h2>{t('MEMBERS_TITLE')}</h2>
+      <div className="toolbar">
+        <h2>{t('MEMBERS_TITLE')}</h2>
+        <div className="toolbar-actions">
+          <button className="primary" onClick={() => setFormOpen(true)} disabled={submitting}>
+            {t('MEMBER_CREATE')}
+          </button>
+        </div>
+      </div>
 
-      <form className="inline-form" onSubmit={onFormSubmit}>
-        <label>
-          {t('EMAIL')}
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          {fieldErrors.email && <span className="error">{fieldErrors.email}</span>}
-        </label>
-        <label>
-          {t('NAME')}
-          <input value={name} onChange={(e) => setName(e.target.value)} required />
-          {fieldErrors.name && <span className="error">{fieldErrors.name}</span>}
-        </label>
-        <label>
-          {t('DEPART')}
-          <input value={departCd} onChange={(e) => setDepartCd(e.target.value)} />
-          {fieldErrors.departCd && <span className="error">{fieldErrors.departCd}</span>}
-        </label>
-        <label>
-          {t('WORK_START')}
-          <input
-            type="time"
-            value={workStart}
-            onChange={(e) => setWorkStart(e.target.value)}
-            required
-          />
-          {fieldErrors.workStart && <span className="error">{fieldErrors.workStart}</span>}
-        </label>
-        <label>
-          {t('WORK_END')}
-          <input
-            type="time"
-            value={workEnd}
-            onChange={(e) => setWorkEnd(e.target.value)}
-            required
-          />
-          {fieldErrors.workEnd && <span className="error">{fieldErrors.workEnd}</span>}
-        </label>
-        <button type="submit" className="primary" disabled={submitting || confirmSend}>
-          {t('MEMBER_CREATE')}
-        </button>
-      </form>
-      {formError && <p className="error" role="alert">{formError}</p>}
+      {created && (
+        <div className={`banner${created.mailSent ? '' : ' banner-error'}`} role="status">
+          <p className={created.mailSent ? 'success' : 'error'}>
+            {created.email} — {created.mailSent ? t('INVITE_SENT') : t('MAIL_FAILED')}
+          </p>
+          <button onClick={() => setCreated(null)}>{t('CLOSE')}</button>
+        </div>
+      )}
+
+      {formError && !formOpen && <p className="error" role="alert">{formError}</p>}
+      {listError && <p className="error" role="alert">{listError}</p>}
+
+      {formOpen && (
+        <Modal title={t('MEMBER_CREATE')} onClose={() => setFormOpen(false)}>
+          <form onSubmit={onFormSubmit}>
+            <label>
+              {t('EMAIL')}
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              {fieldErrors.email && <span className="error">{fieldErrors.email}</span>}
+            </label>
+            <label>
+              {t('NAME')}
+              <input value={name} onChange={(e) => setName(e.target.value)} required />
+              {fieldErrors.name && <span className="error">{fieldErrors.name}</span>}
+            </label>
+            <label>
+              {t('DEPART')}
+              <input value={departCd} onChange={(e) => setDepartCd(e.target.value)} />
+              {fieldErrors.departCd && <span className="error">{fieldErrors.departCd}</span>}
+            </label>
+            <div className="field-row">
+              <label>
+                {t('WORK_START')}
+                <input
+                  type="time"
+                  value={workStart}
+                  onChange={(e) => setWorkStart(e.target.value)}
+                  required
+                />
+                {fieldErrors.workStart && <span className="error">{fieldErrors.workStart}</span>}
+              </label>
+              <label>
+                {t('WORK_END')}
+                <input
+                  type="time"
+                  value={workEnd}
+                  onChange={(e) => setWorkEnd(e.target.value)}
+                  required
+                />
+                {fieldErrors.workEnd && <span className="error">{fieldErrors.workEnd}</span>}
+              </label>
+            </div>
+            {formError && <p className="error" role="alert">{formError}</p>}
+            <button type="submit" className="primary" disabled={submitting}>
+              {t('MEMBER_CREATE')}
+            </button>
+          </form>
+        </Modal>
+      )}
 
       {confirmSend && (
-        <div className="stamp-box confirm" role="alertdialog">
+        <Modal
+          title={t('MEMBER_CREATE')}
+          onClose={() => {
+            //취소 = 등록 모달로 복귀(폼 값 유지 — 오타 수정)
+            setConfirmSend(false)
+            setFormOpen(true)
+          }}
+          danger
+        >
           {/* 오송신 방지 — 입력 이메일을 강조 재표시하고 발송 여부를 재확인한다 */}
-          <p>
-            <strong className="confirm-email">{email.trim()}</strong>
-          </p>
-          <p>{t('CONFIRM_SEND_DESC')}</p>
+          <strong className="confirm-email">{email.trim()}</strong>
+          <p className="center">{t('CONFIRM_SEND_DESC')}</p>
           <div className="btn-row">
             <button className="primary" onClick={() => void sendInvite()} disabled={submitting}>
               {t('SEND_INVITE')}
             </button>
-            <button onClick={() => setConfirmSend(false)}>{t('CANCEL')}</button>
+            <button
+              onClick={() => {
+                setConfirmSend(false)
+                setFormOpen(true)
+              }}
+            >
+              {t('CANCEL')}
+            </button>
           </div>
-        </div>
+        </Modal>
       )}
 
-      {created && (
-        <div className="stamp-box" role="status">
-          <p className={created.mailSent ? 'success' : 'error'}>
-            {created.email} — {created.mailSent ? t('INVITE_SENT') : t('MAIL_FAILED')}
-          </p>
+      {scheduleEdit && (
+        <Modal title={`${scheduleEdit.name} — ${t('EDIT_SCHEDULE')}`} onClose={() => setScheduleEdit(null)}>
+          <div className="field-row">
+            <label>
+              {t('WORK_START')}
+              <input
+                type="time"
+                value={scheduleEdit.workStart}
+                onChange={(e) => setScheduleEdit({ ...scheduleEdit, workStart: e.target.value })}
+                required
+              />
+            </label>
+            <label>
+              {t('WORK_END')}
+              <input
+                type="time"
+                value={scheduleEdit.workEnd}
+                onChange={(e) => setScheduleEdit({ ...scheduleEdit, workEnd: e.target.value })}
+                required
+              />
+            </label>
+          </div>
           <div className="btn-row">
-            <button onClick={() => setCreated(null)}>{t('CLOSE')}</button>
+            <button
+              className="primary"
+              onClick={() => void saveSchedule()}
+              disabled={!scheduleEdit.workStart || !scheduleEdit.workEnd}
+            >
+              {t('SUBMIT')}
+            </button>
+            <button onClick={() => setScheduleEdit(null)}>{t('CANCEL')}</button>
           </div>
-        </div>
+        </Modal>
       )}
 
-      {listError && <p className="error" role="alert">{listError}</p>}
+      {pending && (
+        <Modal title={confirmLabel(pending.action)} onClose={() => setPending(null)} danger>
+          <p className="center">
+            {pending.name} — {confirmLabel(pending.action)}
+          </p>
+          {pending.action === 'DELETE' && <p className="hint center">{t('DELETE_CONFIRM')}</p>}
+          <div className="btn-row">
+            <button
+              className="primary"
+              onClick={() => {
+                if (pending.action === 'DISABLE') {
+                  void updateStatus(pending.userId, 'DISABLED')
+                } else if (pending.action === 'DEMOTE') {
+                  void updateRole(pending.userId, 'MEMBER')
+                } else {
+                  void removeMember(pending.userId)
+                }
+              }}
+            >
+              {t('SUBMIT')}
+            </button>
+            <button onClick={() => setPending(null)}>{t('CANCEL')}</button>
+          </div>
+        </Modal>
+      )}
 
-      <table className="detail-table">
-        <thead>
-          <tr>
-            <th>{t('NAME')}</th>
-            <th>{t('EMAIL')}</th>
-            <th>{t('DEPART')}</th>
-            <th>{t('ROLE')}</th>
-            <th>{t('STATUS')}</th>
-            <th>{t('WORK_START')}</th>
-            <th>{t('WORK_END')}</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {members.map((member) => {
-            const self = myUserId !== null && member.userId === myUserId
-            const isPending = member.status === 'PENDING'
-            return (
-              <Fragment key={member.userId}>
-                <tr>
-                  <td>{member.name}</td>
-                  <td>{member.email}</td>
-                  <td>{member.departCd ?? '-'}</td>
-                  <td>{t(ROLE_LABEL_KEYS[member.role] ?? member.role)}</td>
-                  <td>
-                    {t(STATUS_LABEL_KEYS[member.status])}
-                    {isPending && (
-                      <span className="hint">{inviteExpiryLabel(member)}</span>
-                    )}
-                  </td>
-                  <td>{member.workStart}</td>
-                  <td>{member.workEnd}</td>
-                  <td>
-                    <div className="row-actions">
-                      {isPending ? (
-                        //초대 대기 행: 재발송(즉시)·삭제 — 상태 변경은 서버도 400으로 거부(§4.2)
-                        <button onClick={() => void resendInvite(member.userId)}>
-                          {t('RESEND')}
-                        </button>
-                      ) : (
-                        <>
-                          {member.role === 'MEMBER' && (
-                            <button onClick={() => void updateRole(member.userId, 'TENANT_ADMIN')}>
-                              {t('PROMOTE')}
-                            </button>
-                          )}
-                          {member.role === 'TENANT_ADMIN' && !self && (
-                            <button
-                              onClick={() => setPending({ userId: member.userId, action: 'DEMOTE' })}
-                            >
-                              {t('DEMOTE')}
-                            </button>
-                          )}
-                          {member.status === 'ACTIVE' && !self && (
-                            <button
-                              onClick={() => setPending({ userId: member.userId, action: 'DISABLE' })}
-                            >
-                              {t('DISABLE')}
-                            </button>
-                          )}
-                          {member.status === 'DISABLED' && (
-                            <button onClick={() => void updateStatus(member.userId, 'ACTIVE')}>
-                              {t('ENABLE')}
-                            </button>
-                          )}
-                        </>
-                      )}
-                      <button
-                        onClick={() =>
-                          setScheduleEdit({
-                            userId: member.userId,
-                            workStart: member.workStart,
-                            workEnd: member.workEnd,
-                          })
-                        }
-                      >
-                        {t('EDIT_SCHEDULE')}
-                      </button>
-                      {!self && (
+      <div className="table-wrap">
+        <table className="detail-table">
+          <thead>
+            <tr>
+              <th>{t('NAME')}</th>
+              <th>{t('EMAIL')}</th>
+              <th>{t('DEPART')}</th>
+              <th>{t('ROLE')}</th>
+              <th>{t('STATUS')}</th>
+              <th>{t('WORK_START')}</th>
+              <th>{t('WORK_END')}</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {members.map((member) => {
+              const self = myUserId !== null && member.userId === myUserId
+              const isPending = member.status === 'PENDING'
+              return (
+                <Fragment key={member.userId}>
+                  <tr>
+                    <td>{member.name}</td>
+                    <td>{member.email}</td>
+                    <td>{member.departCd ?? '-'}</td>
+                    <td>{t(ROLE_LABEL_KEYS[member.role] ?? member.role)}</td>
+                    <td>
+                      {t(STATUS_LABEL_KEYS[member.status])}
+                      {isPending && <span className="hint">{inviteExpiryLabel(member)}</span>}
+                    </td>
+                    <td>{member.workStart}</td>
+                    <td>{member.workEnd}</td>
+                    <td>
+                      <div className="row-actions">
+                        {isPending ? (
+                          //초대 대기 행: 재발송(즉시)·삭제 — 상태 변경은 서버도 400으로 거부(§4.2)
+                          <button onClick={() => void resendInvite(member.userId)}>
+                            {t('RESEND')}
+                          </button>
+                        ) : (
+                          <>
+                            {member.role === 'MEMBER' && (
+                              <button onClick={() => void updateRole(member.userId, 'TENANT_ADMIN')}>
+                                {t('PROMOTE')}
+                              </button>
+                            )}
+                            {member.role === 'TENANT_ADMIN' && !self && (
+                              <button
+                                onClick={() =>
+                                  setPending({ userId: member.userId, name: member.name, action: 'DEMOTE' })
+                                }
+                              >
+                                {t('DEMOTE')}
+                              </button>
+                            )}
+                            {member.status === 'ACTIVE' && !self && (
+                              <button
+                                onClick={() =>
+                                  setPending({ userId: member.userId, name: member.name, action: 'DISABLE' })
+                                }
+                              >
+                                {t('DISABLE')}
+                              </button>
+                            )}
+                            {member.status === 'DISABLED' && (
+                              <button onClick={() => void updateStatus(member.userId, 'ACTIVE')}>
+                                {t('ENABLE')}
+                              </button>
+                            )}
+                          </>
+                        )}
                         <button
-                          onClick={() => setPending({ userId: member.userId, action: 'DELETE' })}
+                          onClick={() =>
+                            setScheduleEdit({
+                              userId: member.userId,
+                              name: member.name,
+                              workStart: member.workStart,
+                              workEnd: member.workEnd,
+                            })
+                          }
                         >
-                          {t('DELETE')}
+                          {t('EDIT_SCHEDULE')}
                         </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-                {scheduleEdit?.userId === member.userId && (
-                  <tr>
-                    <td colSpan={8}>
-                      <div className="stamp-box confirm" role="alertdialog">
-                        <div className="inline-form schedule-edit">
-                          <label>
-                            {t('WORK_START')}
-                            <input
-                              type="time"
-                              value={scheduleEdit.workStart}
-                              onChange={(e) =>
-                                setScheduleEdit({ ...scheduleEdit, workStart: e.target.value })
-                              }
-                              required
-                            />
-                          </label>
-                          <label>
-                            {t('WORK_END')}
-                            <input
-                              type="time"
-                              value={scheduleEdit.workEnd}
-                              onChange={(e) =>
-                                setScheduleEdit({ ...scheduleEdit, workEnd: e.target.value })
-                              }
-                              required
-                            />
-                          </label>
-                        </div>
-                        <div className="btn-row">
+                        {!self && (
                           <button
-                            className="primary"
-                            onClick={() => void saveSchedule()}
-                            disabled={!scheduleEdit.workStart || !scheduleEdit.workEnd}
+                            onClick={() =>
+                              setPending({ userId: member.userId, name: member.name, action: 'DELETE' })
+                            }
                           >
-                            {t('SUBMIT')}
+                            {t('DELETE')}
                           </button>
-                          <button onClick={() => setScheduleEdit(null)}>{t('CANCEL')}</button>
-                        </div>
+                        )}
                       </div>
                     </td>
                   </tr>
-                )}
-                {pending?.userId === member.userId && (
-                  <tr>
-                    <td colSpan={8}>
-                      <div className="stamp-box confirm" role="alertdialog">
-                        <p>
-                          {member.name} — {confirmLabel(pending.action)}
+                  {rowError?.userId === member.userId && (
+                    <tr>
+                      <td colSpan={8} className="row-note">
+                        <p className="error" role="alert">
+                          {rowError.message}
                         </p>
-                        {pending.action === 'DELETE' && <p className="hint">{t('DELETE_CONFIRM')}</p>}
-                        <div className="btn-row">
-                          <button
-                            className="primary"
-                            onClick={() => {
-                              if (pending.action === 'DISABLE') {
-                                void updateStatus(member.userId, 'DISABLED')
-                              } else if (pending.action === 'DEMOTE') {
-                                void updateRole(member.userId, 'MEMBER')
-                              } else {
-                                void removeMember(member.userId)
-                              }
-                            }}
-                          >
-                            {t('SUBMIT')}
-                          </button>
-                          <button onClick={() => setPending(null)}>{t('CANCEL')}</button>
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-                {rowError?.userId === member.userId && (
-                  <tr>
-                    <td colSpan={8}>
-                      <p className="error" role="alert">
-                        {rowError.message}
-                      </p>
-                    </td>
-                  </tr>
-                )}
-              </Fragment>
-            )
-          })}
-        </tbody>
-      </table>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
