@@ -1671,3 +1671,15 @@ button.day-link:hover {
   color: var(--accent-contrast);
   font-weight: 600;
 }
+
+/* 정정 모달: 휴식 시작~종료 구분자 + 수정 모드 휴식 라벨 */
+.time-sep {
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.manual-row .row-label {
+  font-size: 15px;
+  font-weight: 600;
+  min-width: 96px;
+}

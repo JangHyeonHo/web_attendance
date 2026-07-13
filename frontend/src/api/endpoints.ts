@@ -4,6 +4,7 @@ import type {
   CheckResponse,
   ConfirmRequest,
   DailyResponse,
+  ManualBreakRequest,
   ManualStampRequest,
   HolidayCreateRequest,
   HolidayEntry,
@@ -157,6 +158,9 @@ export const attendanceApi = {
   /** 수동 정정 등록(사유 필수) — MANUAL로 기록되어 버튼 스탬프와 구분 */
   manual: (request: ManualStampRequest) =>
     post<StampResponse>('/api/v1/attendance/manual', request),
+  /** 휴식 시간 정정 등록 — 시작·종료 쌍 */
+  manualBreak: (request: ManualBreakRequest) =>
+    post<StampResponse>('/api/v1/attendance/manual/break', request),
   /** 일자 스탬프 이력 — 중복 스탬프(출근 2번 등)·수동 정정 전부 포함 */
   daily: (date: string) => get<DailyResponse>(`/api/v1/attendance/daily?date=${date}`),
   /** 수동 정정 수정(잘못 입력 복구 — 시각/구분/사유 변경) — 본인 MANUAL 행만(자동 기록은 불변) */

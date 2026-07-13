@@ -156,6 +156,7 @@ public class MonthlyAttendanceAssembler {
             Integer statutory = offDuty ? null
                     : (int) breakPolicy.requiredBreak(Duration.between(resolvedStart, resolvedEnd)).toMinutes();
             Integer breakMinutes = null;
+            Integer recognizedBreak = null;
             Integer workMinutes = null;
             if (inAt != null && outAt != null && !outAt.isBefore(inAt)) {
                 long stay = Duration.between(inAt, outAt).toMinutes();
@@ -164,12 +165,15 @@ public class MonthlyAttendanceAssembler {
                 }
                 long actualBreak = sumBreaks(stamps, inAt, outAt);
                 breakMinutes = (int) actualBreak;
-                workMinutes = (int) Math.max(0L, stay - Math.max(statutory, actualBreak));
+                //인정 휴게 = max(법정, 실휴식). 휴식 미기록(실0)이면 법정으로 자동 인정, 초과 기록이면 실측(§req2)
+                long recognized = Math.max(statutory, actualBreak);
+                recognizedBreak = (int) recognized;
+                workMinutes = (int) Math.max(0L, stay - recognized);
             }
             result.add(new DailyAttendance(day, holiday, dayOff,
                     format(resolvedStart), format(resolvedEnd),
                     stampIn, stampOut, holiday ? holidays.get(day) : null,
-                    breakMinutes, statutory, workMinutes,
+                    breakMinutes, statutory, recognizedBreak, workMinutes,
                     manualDays.contains(day)));
         }
         return result;

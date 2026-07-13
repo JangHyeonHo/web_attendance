@@ -83,6 +83,32 @@ public final class AttendanceDtos {
             @Size(max = 200, message = "{validation.attendance.reason.size}") String reasonText) {
     }
 
+    //휴식 시간 수동 정정(Phase 5.3) — 시작·종료를 쌍으로 등록(단일 스탬프 정합성 문제 회피).
+    //등록만 이 요청, 시각 정정은 개별 휴식 스탬프의 updateManual(시각·사유만)로 처리한다.
+    @Schema(description = "schema.manual-break-request")
+    public record ManualBreakRequest(
+            @Schema(description = "schema.manual-stamp-request.date", example = "2026-07-09")
+            @NotNull(message = "{validation.attendance.date.required}") LocalDate date,
+
+            @Schema(description = "schema.manual-break-request.start", example = "12:00")
+            @NotBlank(message = "{validation.work-time.required}")
+            @jakarta.validation.constraints.Pattern(regexp = "^([01]\\d|2[0-3]):[0-5]\\d$",
+                    message = "{validation.work-time.format}")
+            String startTime,
+
+            @Schema(description = "schema.manual-break-request.end", example = "13:00")
+            @NotBlank(message = "{validation.work-time.required}")
+            @jakarta.validation.constraints.Pattern(regexp = "^([01]\\d|2[0-3]):[0-5]\\d$",
+                    message = "{validation.work-time.format}")
+            String endTime,
+
+            @Schema(description = "schema.manual-stamp-request.reason-code", example = "FORGOT")
+            @NotBlank(message = "{validation.attendance.reason.required}") String reasonCode,
+
+            @Schema(description = "schema.manual-stamp-request.reason-text", example = "휴식 종료 미기록")
+            @Size(max = 200, message = "{validation.attendance.reason.size}") String reasonText) {
+    }
+
     /** 일자 스탬프 이력 1건 — attendance는 append-only라 중복 스탬프(출근 2번 등)도 전부 나온다 */
     @Schema(description = "schema.daily-stamp")
     public record DailyStampEntry(
@@ -174,6 +200,10 @@ public final class AttendanceDtos {
             Integer breakMinutes,          //실휴식 합(분). 출근·퇴근 미확정이면 null
             @Schema(description = "schema.daily-attendance.statutory-break-minutes", example = "60")
             Integer statutoryBreakMinutes, //법정휴게(분). 근무일=스케줄 기반, 휴일·휴무 근무=실체류 기반, 그 외 null
+            //인정 휴게(분) = max(법정, 실휴식) — 총근무에서 실제 차감되는 값(§req2).
+            //휴식 미기록이어도 근무일이면 법정휴게로 자동 인정. 출근·퇴근 미확정이면 null
+            @Schema(description = "schema.daily-attendance.recognized-break-minutes", example = "60")
+            Integer recognizedBreakMinutes,
             @Schema(description = "schema.daily-attendance.work-minutes", example = "470")
             Integer workMinutes,           //총 근무시간(분). 출근·퇴근 미확정이면 null
             //그 날에 수동 정정 스탬프가 존재하는가(상세는 daily API — 테이블에는 마커만)
