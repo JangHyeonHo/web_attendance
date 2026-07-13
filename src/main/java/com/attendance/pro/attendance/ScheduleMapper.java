@@ -33,7 +33,7 @@ public interface ScheduleMapper {
      * 스케줄 매퍼 소유(attendance→user 패키지 의존 회피).
      */
     @Select("""
-            SELECT default_work_start AS `start`, default_work_end AS `end`
+            SELECT default_work_start AS `start`, default_work_end AS `end`, work_days
             FROM users
             WHERE tenant_id = #{tenantId} AND user_id = #{userId} AND deleted = FALSE
             """)

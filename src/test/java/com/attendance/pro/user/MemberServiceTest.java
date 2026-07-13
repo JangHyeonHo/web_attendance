@@ -53,7 +53,7 @@ class MemberServiceTest {
 
     private static User user(long userId, Role role, UserStatus status) {
         return new User(userId, TENANT_ID, "user" + userId + "@acme.co.kr", "hash", null,
-                "유저" + userId, null, LocalTime.of(9, 0), LocalTime.of(18, 0),
+                "유저" + userId, null, LocalTime.of(9, 0), LocalTime.of(18, 0), "1111100",
                 role, status, false, LocalDateTime.now(), LocalDateTime.now());
     }
 
@@ -519,10 +519,10 @@ class MemberServiceTest {
                     .thenReturn(user(TARGET_ID, Role.MEMBER, UserStatus.PENDING));
             when(userTokenService.findActiveInviteExpiries(TENANT_ID)).thenReturn(Map.of());
 
-            service().updateSchedule(TENANT_ID, TARGET_ID, new MemberScheduleRequest("10:00", "19:00"));
+            service().updateSchedule(TENANT_ID, TARGET_ID, new MemberScheduleRequest("10:00", "19:00", "1111100"));
 
             verify(userMapper).updateWorkSchedule(TENANT_ID, TARGET_ID,
-                    LocalTime.of(10, 0), LocalTime.of(19, 0));
+                    LocalTime.of(10, 0), LocalTime.of(19, 0), "1111100");
         }
 
         @Test
@@ -532,10 +532,10 @@ class MemberServiceTest {
                     .thenReturn(user(TARGET_ID, Role.MEMBER, UserStatus.ACTIVE));
 
             assertThatThrownBy(() -> service().updateSchedule(TENANT_ID, TARGET_ID,
-                    new MemberScheduleRequest("19:00", "10:00")))
+                    new MemberScheduleRequest("19:00", "10:00", "1111100")))
                     .isInstanceOf(ApiException.class)
                     .satisfies(e -> assertThat(((ApiException) e).getCode()).isEqualTo("WORK_TIME_INVALID_RANGE"));
-            verify(userMapper, never()).updateWorkSchedule(anyLong(), anyLong(), any(), any());
+            verify(userMapper, never()).updateWorkSchedule(anyLong(), anyLong(), any(), any(), any());
         }
 
         @Test
@@ -543,14 +543,14 @@ class MemberServiceTest {
         void crossTenantOrSystemAdminHidden() {
             when(userMapper.findById(TENANT_ID, 999L)).thenReturn(null);
             assertThatThrownBy(() -> service().updateSchedule(TENANT_ID, 999L,
-                    new MemberScheduleRequest("09:00", "18:00")))
+                    new MemberScheduleRequest("09:00", "18:00", "1111100")))
                     .isInstanceOf(ApiException.class)
                     .satisfies(e -> assertThat(((ApiException) e).getCode()).isEqualTo("MEMBER_NOT_FOUND"));
 
             when(userMapper.findById(TENANT_ID, TARGET_ID))
                     .thenReturn(user(TARGET_ID, Role.SYSTEM_ADMIN, UserStatus.ACTIVE));
             assertThatThrownBy(() -> service().updateSchedule(TENANT_ID, TARGET_ID,
-                    new MemberScheduleRequest("09:00", "18:00")))
+                    new MemberScheduleRequest("09:00", "18:00", "1111100")))
                     .isInstanceOf(ApiException.class)
                     .satisfies(e -> assertThat(((ApiException) e).getCode()).isEqualTo("MEMBER_NOT_FOUND"));
         }

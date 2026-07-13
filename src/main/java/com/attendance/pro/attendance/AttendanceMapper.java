@@ -9,6 +9,7 @@ import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 /**
  * attendance / attendance_check 테이블 매퍼.
@@ -24,7 +25,8 @@ public interface AttendanceMapper {
      * 최근 48시간 이내의 가장 최신 출결 스탬프.
      */
     @Select("""
-            SELECT attendance_id, user_id, type AS type_code, status, stamped_at
+            SELECT attendance_id, user_id, type AS type_code, status, stamped_at,
+                   source, reason_code, reason_text
             FROM attendance
             WHERE tenant_id = #{tenantId}
               AND user_id = #{userId}
@@ -38,7 +40,8 @@ public interface AttendanceMapper {
      * 최근 30일 이내의 가장 최신 출근 스탬프.
      */
     @Select("""
-            SELECT attendance_id, user_id, type AS type_code, status, stamped_at
+            SELECT attendance_id, user_id, type AS type_code, status, stamped_at,
+                   source, reason_code, reason_text
             FROM attendance
             WHERE tenant_id = #{tenantId}
               AND user_id = #{userId}
@@ -57,7 +60,8 @@ public interface AttendanceMapper {
      *  필터 제거는 기존 표시 동작 불변 + BREAK 행 추가만.)
      */
     @Select("""
-            SELECT attendance_id, user_id, type AS type_code, status, stamped_at
+            SELECT attendance_id, user_id, type AS type_code, status, stamped_at,
+                   source, reason_code, reason_text
             FROM attendance
             WHERE tenant_id = #{tenantId}
               AND user_id = #{userId}
@@ -72,9 +76,11 @@ public interface AttendanceMapper {
 
     @Insert("""
             INSERT INTO attendance (tenant_id, user_id, type, status, stamped_at,
-                                    latitude, longitude, place_info, terminal)
+                                    latitude, longitude, place_info, terminal,
+                                    source, reason_code, reason_text)
             VALUES (#{tenantId}, #{userId}, #{typeCode}, #{status}, #{stampedAt},
-                    #{latitude}, #{longitude}, #{placeInfo}, #{terminal})
+                    #{latitude}, #{longitude}, #{placeInfo}, #{terminal},
+                    #{source}, #{reasonCode}, #{reasonText})
             """)
     int insert(@Param("tenantId") long tenantId,
             @Param("userId") long userId,
@@ -84,7 +90,31 @@ public interface AttendanceMapper {
             @Param("latitude") Double latitude,
             @Param("longitude") Double longitude,
             @Param("placeInfo") String placeInfo,
-            @Param("terminal") String terminal);
+            @Param("terminal") String terminal,
+            @Param("source") StampSource source,
+            @Param("reasonCode") String reasonCode,
+            @Param("reasonText") String reasonText);
+
+    /**
+     * 수동 정정 스탬프 수정(잘못 입력 복구 — 본인 + MANUAL 행만, 시각/구분/사유 변경).
+     * AUTO 행은 불변 — 조건 불일치는 0행(호출부에서 404, 존재 비노출).
+     */
+    @Update("""
+            UPDATE attendance
+            SET type = #{typeCode}, stamped_at = #{stampedAt},
+                reason_code = #{reasonCode}, reason_text = #{reasonText}
+            WHERE attendance_id = #{attendanceId}
+              AND tenant_id = #{tenantId}
+              AND user_id = #{userId}
+              AND source = 'MANUAL'
+            """)
+    int updateManual(@Param("tenantId") long tenantId,
+            @Param("userId") long userId,
+            @Param("attendanceId") long attendanceId,
+            @Param("typeCode") int typeCode,
+            @Param("stampedAt") LocalDateTime stampedAt,
+            @Param("reasonCode") String reasonCode,
+            @Param("reasonText") String reasonText);
 
     // ---- attendance_check (변조 방지 토큰) ----
 

@@ -54,7 +54,7 @@ class SessionRevalidationInterceptorTest {
 
     private static User dbUser(Role role, UserStatus status, LocalDateTime passwordChangedAt) {
         return new User(USER_ID, TENANT_ID, "ta@acme.co.kr", "hash", passwordChangedAt, "김관리", null,
-                java.time.LocalTime.of(9, 0), java.time.LocalTime.of(18, 0),
+                java.time.LocalTime.of(9, 0), java.time.LocalTime.of(18, 0), "1111100",
                 role, status, false, LocalDateTime.now(), LocalDateTime.now());
     }
 

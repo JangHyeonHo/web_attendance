@@ -180,7 +180,11 @@ public class MemberService {
         LocalTime workStart = LocalTime.parse(request.workStart());
         LocalTime workEnd = LocalTime.parse(request.workEnd());
         validateWorkRange(workStart, workEnd);
-        userMapper.updateWorkSchedule(tenantId, userId, workStart, workEnd);
+        //전 요일 휴무는 거부 — 집계상 매일이 dayOff가 되어 근무 기록이 전부 휴무 표시가 된다
+        if (!request.workDays().contains("1")) {
+            throw ApiException.badRequest("WORK_DAYS_EMPTY", "member.work-days.empty");
+        }
+        userMapper.updateWorkSchedule(tenantId, userId, workStart, workEnd, request.workDays());
         return toResponse(tenantId, userMapper.findById(tenantId, userId));
     }
 

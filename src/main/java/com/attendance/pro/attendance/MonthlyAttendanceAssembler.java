@@ -7,6 +7,8 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import com.attendance.pro.attendance.AttendanceDtos.DailyAttendance;
 
@@ -21,14 +23,20 @@ import com.attendance.pro.attendance.AttendanceDtos.DailyAttendance;
  *   <li>출근 후 다음날 48시간 이내의 퇴근/조퇴는 야근으로 보고 24를 더한 시각(예: 25:10)으로 표시</li>
  *   <li>출근 후 48시간 넘게 퇴근이 없으면 미퇴근(퇴근 공란) 처리</li>
  *   <li>출근이 연달아 찍히면 앞의 출근은 미퇴근 처리</li>
- *   <li>휴일은 스케쥴/스탬프 모두 공란(공휴일은 holidayName 동봉)</li>
  * </ul>
- * 신규 계산(정본 공식 — work-schedule §1-1):
+ * 휴게 계산(정본 공식 — work-schedule §1-1):
  * <ul>
  *   <li>법정휴게 = BreakPolicy(스케줄 근무구간 길이) — 근무일은 항상 산출(스케줄 기반)</li>
  *   <li>실휴식 = 창(inAt~outAt 실시각) 안의 BREAK 시작→종료 짝 합산(§4 페어링).
  *       미종료 휴식은 퇴근까지 간주(부풀리기 방지), 시작 없는 종료·창 밖은 무시</li>
  *   <li>총 근무시간 = max(0, 체류 − max(법정휴게, 실휴식)). 출근·퇴근 미확정이면 null</li>
+ * </ul>
+ * Phase 5 변경(manual-attendance §4):
+ * <ul>
+ *   <li>공휴일·개인휴일·요일 휴무(dayOff)에도 스탬프를 채용한다(구현은 공란 스킵이었음).
+ *       스케줄이 없으므로 법정휴게는 실체류 기반 {@code policy.requiredBreak(체류)} — 월 합계 포함</li>
+ *   <li>dayOff = work_days 요일 플래그 '0' && 일자 오버라이드 없음(오버라이드가 있으면 근무일)</li>
+ *   <li>manual = 그 달력 날짜에 MANUAL 스탬프 존재(테이블 마커용 — 상세는 daily API)</li>
  * </ul>
  */
 public class MonthlyAttendanceAssembler {
@@ -44,6 +52,7 @@ public class MonthlyAttendanceAssembler {
      * @param stamps       전 타입 스탬프(시각 오름차순, 다음달 1일치 야근 포함 — BREAK 포함)
      * @param defaultStart 개인 기본 시업(users.default_work_start — null이면 상수 폴백)
      * @param defaultEnd   개인 기본 종업
+     * @param workDays     요일별 근무 플래그(월~일 '1'=근무). null이면 전 요일 근무(방어)
      * @param breakPolicy  테넌트 소재국 법정 휴게 정책
      */
     public List<DailyAttendance> assemble(List<LocalDate> monthDays,
@@ -52,10 +61,17 @@ public class MonthlyAttendanceAssembler {
             List<AttendanceStamp> stamps,
             LocalTime defaultStart,
             LocalTime defaultEnd,
+            String workDays,
             BreakPolicy breakPolicy) {
 
         LocalTime baseStart = defaultStart != null ? defaultStart : DEFAULT_START;
         LocalTime baseEnd = defaultEnd != null ? defaultEnd : DEFAULT_END;
+
+        //수동 정정 마커(달력 날짜 단위) — 채용 여부와 무관하게 "그 날에 정정이 있었다"를 표시
+        Set<LocalDate> manualDays = stamps.stream()
+                .filter(AttendanceStamp::manual)
+                .map(stamp -> stamp.stampedAt().toLocalDate())
+                .collect(Collectors.toSet());
 
         List<DailyAttendance> result = new ArrayList<>(monthDays.size());
         boolean attending = false;
@@ -64,17 +80,16 @@ public class MonthlyAttendanceAssembler {
         for (LocalDate day : monthDays) {
             WorkSchedule schedule = schedules.get(day);
             boolean holiday = holidays.containsKey(day) || (schedule != null && schedule.holiday());
-            if (holiday) {
-                //휴일은 전부 공란(신규 3필드도 null — X8). 공휴일이면 명칭 동봉(개인 휴일은 null)
-                result.add(new DailyAttendance(day, true, null, null, null, null,
-                        holidays.get(day), null, null, null));
-                continue;
-            }
-            //우선순위: work_schedule(필드 단위) > 개인 기본값 > 상수 — §3-1
-            LocalTime resolvedStart =
-                    schedule != null && schedule.startTime() != null ? schedule.startTime() : baseStart;
-            LocalTime resolvedEnd =
-                    schedule != null && schedule.endTime() != null ? schedule.endTime() : baseEnd;
+            //요일 휴무 — 일자 오버라이드가 있으면 그날은 근무일(오버라이드 우선)
+            boolean dayOff = !holiday && schedule == null
+                    && !WorkDefaults.worksOn(workDays, day.getDayOfWeek());
+            boolean offDuty = holiday || dayOff;
+
+            //우선순위: work_schedule(필드 단위) > 개인 기본값 > 상수 — §3-1. 휴일·휴무는 스케줄 없음
+            LocalTime resolvedStart = offDuty ? null
+                    : (schedule != null && schedule.startTime() != null ? schedule.startTime() : baseStart);
+            LocalTime resolvedEnd = offDuty ? null
+                    : (schedule != null && schedule.endTime() != null ? schedule.endTime() : baseEnd);
 
             String stampIn = null;
             String stampOut = null;
@@ -136,19 +151,26 @@ public class MonthlyAttendanceAssembler {
                 }
             }
 
-            //법정휴게는 스케줄 구간 기반이라 근무일은 항상 산출(X2 — 미퇴근이어도 표시)
-            int statutory = (int) breakPolicy
-                    .requiredBreak(Duration.between(resolvedStart, resolvedEnd)).toMinutes();
+            //법정휴게: 근무일은 스케줄 구간 기반이라 항상 산출(X2 — 미퇴근이어도 표시),
+            //휴일·휴무는 스케줄이 없으므로 출퇴근이 확정된 날만 실체류 기반으로 산출
+            Integer statutory = offDuty ? null
+                    : (int) breakPolicy.requiredBreak(Duration.between(resolvedStart, resolvedEnd)).toMinutes();
             Integer breakMinutes = null;
             Integer workMinutes = null;
             if (inAt != null && outAt != null && !outAt.isBefore(inAt)) {
                 long stay = Duration.between(inAt, outAt).toMinutes();
+                if (offDuty) {
+                    statutory = (int) breakPolicy.requiredBreak(Duration.between(inAt, outAt)).toMinutes();
+                }
                 long actualBreak = sumBreaks(stamps, inAt, outAt);
                 breakMinutes = (int) actualBreak;
                 workMinutes = (int) Math.max(0L, stay - Math.max(statutory, actualBreak));
             }
-            result.add(new DailyAttendance(day, false, format(resolvedStart), format(resolvedEnd),
-                    stampIn, stampOut, null, breakMinutes, statutory, workMinutes));
+            result.add(new DailyAttendance(day, holiday, dayOff,
+                    format(resolvedStart), format(resolvedEnd),
+                    stampIn, stampOut, holiday ? holidays.get(day) : null,
+                    breakMinutes, statutory, workMinutes,
+                    manualDays.contains(day)));
         }
         return result;
     }
@@ -189,7 +211,7 @@ public class MonthlyAttendanceAssembler {
     }
 
     private String format(LocalTime time) {
-        return String.format("%02d:%02d", time.getHour(), time.getMinute());
+        return time == null ? null : String.format("%02d:%02d", time.getHour(), time.getMinute());
     }
 
 }

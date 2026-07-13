@@ -6,7 +6,7 @@ import java.time.LocalTime;
 /**
  * 회원(users 테이블).
  * passwordChangedAt은 재로그인 강제 기준(NULL=이력 없음, 기존 유저).
- * defaultWorkStart/End는 개인 기본 근무 스케줄(V7 [S-1]).
+ * defaultWorkStart/End는 개인 기본 근무 스케줄(V7 [S-1]), workDays는 요일별 근무 플래그(V12).
  */
 public record User(
         Long userId,
@@ -18,6 +18,7 @@ public record User(
         String departCd,
         LocalTime defaultWorkStart,
         LocalTime defaultWorkEnd,
+        String workDays,
         Role role,
         UserStatus status,
         boolean deleted,

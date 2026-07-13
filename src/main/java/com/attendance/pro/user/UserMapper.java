@@ -22,7 +22,7 @@ public interface UserMapper {
 
     @Select("""
             SELECT user_id, tenant_id, email, password_hash, password_changed_at, name, depart_cd,
-                   default_work_start, default_work_end,
+                   default_work_start, default_work_end, work_days,
                    role, status, deleted, created_at, updated_at
             FROM users
             WHERE tenant_id = #{tenantId} AND email = #{email} AND deleted = FALSE
@@ -34,7 +34,7 @@ public interface UserMapper {
      */
     @Select("""
             SELECT user_id, tenant_id, email, password_hash, password_changed_at, name, depart_cd,
-                   default_work_start, default_work_end,
+                   default_work_start, default_work_end, work_days,
                    role, status, deleted, created_at, updated_at
             FROM users
             WHERE tenant_id = #{tenantId} AND user_id = #{userId} AND deleted = FALSE
@@ -47,7 +47,7 @@ public interface UserMapper {
      */
     @Select("""
             SELECT user_id, tenant_id, email, password_hash, password_changed_at, name, depart_cd,
-                   default_work_start, default_work_end,
+                   default_work_start, default_work_end, work_days,
                    role, status, deleted, created_at, updated_at
             FROM users
             WHERE tenant_id = #{tenantId} AND deleted = FALSE
@@ -115,12 +115,14 @@ public interface UserMapper {
      * 개인 기본 근무 스케줄 수정 — 2중 조건(테넌트 전파 규약).
      */
     @Update("""
-            UPDATE users SET default_work_start = #{workStart}, default_work_end = #{workEnd}
+            UPDATE users SET default_work_start = #{workStart}, default_work_end = #{workEnd},
+                             work_days = #{workDays}
             WHERE tenant_id = #{tenantId} AND user_id = #{userId} AND deleted = FALSE
             """)
     int updateWorkSchedule(@Param("tenantId") long tenantId, @Param("userId") long userId,
             @Param("workStart") java.time.LocalTime workStart,
-            @Param("workEnd") java.time.LocalTime workEnd);
+            @Param("workEnd") java.time.LocalTime workEnd,
+            @Param("workDays") String workDays);
 
     /**
      * 소프트 삭제 — 출결 기록 보존(FK user_id 잔존). email_key 생성 컬럼이 NULL이 되어

@@ -61,6 +61,47 @@ public final class AttendanceDtos {
         }
     }
 
+    //수동 정정 등록(Phase 5) — 사유 필수(선택 코드 + OTHER는 자유 텍스트 필수). BREAK는 대상 외
+    @Schema(description = "schema.manual-stamp-request")
+    public record ManualStampRequest(
+            @Schema(description = "schema.manual-stamp-request.date", example = "2026-07-09")
+            @NotNull(message = "{validation.attendance.date.required}") LocalDate date,
+
+            @Schema(description = "schema.manual-stamp-request.time", example = "09:00")
+            @NotBlank(message = "{validation.work-time.required}")
+            @jakarta.validation.constraints.Pattern(regexp = "^([01]\\d|2[0-3]):[0-5]\\d$",
+                    message = "{validation.work-time.format}")
+            String time,
+
+            @Schema(description = "schema.attendance-type")
+            @NotNull(message = "{validation.attendance.type.required}") AttendanceType type,
+
+            @Schema(description = "schema.manual-stamp-request.reason-code", example = "FORGOT")
+            @NotBlank(message = "{validation.attendance.reason.required}") String reasonCode,
+
+            @Schema(description = "schema.manual-stamp-request.reason-text", example = "출근 시 단말 미지참")
+            @Size(max = 200, message = "{validation.attendance.reason.size}") String reasonText) {
+    }
+
+    /** 일자 스탬프 이력 1건 — attendance는 append-only라 중복 스탬프(출근 2번 등)도 전부 나온다 */
+    @Schema(description = "schema.daily-stamp")
+    public record DailyStampEntry(
+            //수동 정정 삭제(잘못 입력 복구)의 대상 식별자 — MANUAL 행만 삭제 가능
+            @Schema(description = "schema.daily-stamp.attendance-id") long attendanceId,
+            @Schema(description = "schema.stamp-response.stamped-at") LocalDateTime stampedAt,
+            @Schema(description = "schema.attendance-type") AttendanceType type,
+            @Schema(description = "schema.daily-stamp.break-end") boolean breakEnd,
+            @Schema(description = "schema.daily-stamp.source") StampSource source,
+            @Schema(description = "schema.daily-stamp.reason-code") String reasonCode,
+            @Schema(description = "schema.daily-stamp.reason-text") String reasonText) {
+    }
+
+    @Schema(description = "schema.daily-response")
+    public record DailyResponse(
+            @Schema(description = "schema.daily-attendance.date") LocalDate date,
+            @Schema(description = "schema.daily-response.stamps") List<DailyStampEntry> stamps) {
+    }
+
     @Schema(description = "schema.stamp-response")
     public record StampResponse(
             @Schema(description = "schema.attendance-type") AttendanceType type,
@@ -116,11 +157,13 @@ public final class AttendanceDtos {
             String todayScheduleEnd) {
     }
 
-    //통합 최종 record = 현행 6필드 + holidayName + 휴게 3필드 = 10필드(CR3-7)
+    //현행 10필드(CR3-7) + Phase 5: dayOff(요일 휴무)·manual(수동 정정 존재) = 12필드
     @Schema(description = "schema.daily-attendance")
     public record DailyAttendance(
             @Schema(description = "schema.daily-attendance.date") LocalDate date,
             @Schema(description = "schema.daily-attendance.holiday") boolean holiday,
+            //요일 휴무(work_days 플래그 0 && 일자 오버라이드 없음). holiday와 상호배타
+            @Schema(description = "schema.daily-attendance.day-off") boolean dayOff,
             @Schema(description = "schema.daily-attendance.schedule-start", example = "09:00") String scheduleStart,
             @Schema(description = "schema.daily-attendance.schedule-end", example = "18:00") String scheduleEnd,
             @Schema(description = "schema.daily-attendance.stamp-in", example = "09:12") String stampIn,
@@ -130,9 +173,11 @@ public final class AttendanceDtos {
             @Schema(description = "schema.daily-attendance.break-minutes", example = "70")
             Integer breakMinutes,          //실휴식 합(분). 출근·퇴근 미확정이면 null
             @Schema(description = "schema.daily-attendance.statutory-break-minutes", example = "60")
-            Integer statutoryBreakMinutes, //법정휴게(분). 휴일이면 null, 근무일은 항상 산출(스케줄 기반)
+            Integer statutoryBreakMinutes, //법정휴게(분). 근무일=스케줄 기반, 휴일·휴무 근무=실체류 기반, 그 외 null
             @Schema(description = "schema.daily-attendance.work-minutes", example = "470")
-            Integer workMinutes) {         //총 근무시간(분). 출근·퇴근 미확정이면 null
+            Integer workMinutes,           //총 근무시간(분). 출근·퇴근 미확정이면 null
+            //그 날에 수동 정정 스탬프가 존재하는가(상세는 daily API — 테이블에는 마커만)
+            @Schema(description = "schema.daily-attendance.manual") boolean manual) {
     }
 
     @Schema(description = "schema.monthly-response")

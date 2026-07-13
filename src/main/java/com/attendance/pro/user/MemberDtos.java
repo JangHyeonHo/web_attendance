@@ -82,6 +82,8 @@ public final class MemberDtos {
             Role role, UserStatus status, LocalDateTime createdAt,
             @Schema(description = "schema.field.work-start") String workStart,
             @Schema(description = "schema.field.work-end") String workEnd,
+            //요일별 근무 플래그(월화수목금토일, '1'=근무 — V12)
+            @Schema(description = "schema.field.work-days", example = "1111100") String workDays,
             //PENDING+유효 INVITE 토큰이면 그 만료시각, 아니면 null(만료/실패 → "재발송 필요" 표시)
             @Schema(description = "schema.field.invite-expires-at") LocalDateTime inviteExpiresAt) {
 
@@ -89,7 +91,7 @@ public final class MemberDtos {
             return new MemberResponse(user.userId(), user.email(), user.name(),
                     user.departCd(), user.role(), user.status(), user.createdAt(),
                     formatTime(user.defaultWorkStart()), formatTime(user.defaultWorkEnd()),
-                    inviteExpiresAt);
+                    user.workDays(), inviteExpiresAt);
         }
     }
 
@@ -113,7 +115,13 @@ public final class MemberDtos {
             @Schema(description = "schema.field.work-end", example = "18:00")
             @NotBlank(message = "{validation.work-time.required}")
             @Pattern(regexp = TIME_PATTERN, message = "{validation.work-time.format}")
-            String workEnd) {
+            String workEnd,
+
+            //요일별 근무 플래그(월~일). 최소 1일 근무는 서비스에서 검증
+            @Schema(description = "schema.field.work-days", example = "1111100")
+            @NotBlank(message = "{validation.work-days.required}")
+            @Pattern(regexp = "^[01]{7}$", message = "{validation.work-days.format}")
+            String workDays) {
     }
 
 }
