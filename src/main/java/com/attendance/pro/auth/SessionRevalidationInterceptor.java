@@ -3,6 +3,8 @@ package com.attendance.pro.auth;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
+import com.attendance.pro.audit.AuditEvent;
+import com.attendance.pro.audit.AuditService;
 import com.attendance.pro.config.LocaleConfig;
 import com.attendance.pro.tenant.Tenant;
 import com.attendance.pro.tenant.TenantHostResolver;
@@ -38,12 +40,14 @@ public class SessionRevalidationInterceptor implements HandlerInterceptor {
     private final UserMapper userMapper;
     private final TenantMapper tenantMapper;
     private final TenantHostResolver tenantHostResolver;
+    private final AuditService auditService;
 
     public SessionRevalidationInterceptor(UserMapper userMapper, TenantMapper tenantMapper,
-            TenantHostResolver tenantHostResolver) {
+            TenantHostResolver tenantHostResolver, AuditService auditService) {
         this.userMapper = userMapper;
         this.tenantMapper = tenantMapper;
         this.tenantHostResolver = tenantHostResolver;
+        this.auditService = auditService;
     }
 
     @Override
@@ -60,7 +64,7 @@ public class SessionRevalidationInterceptor implements HandlerInterceptor {
         if (hostTenant.claimsTenant()
                 && (hostTenant.tenant() == null
                         || hostTenant.tenant().tenantId() != sessionUser.tenantId())) {
-            invalidateKeepingLang(request, session);
+            invalidateKeepingLang(request, session, sessionUser, "HOST_TENANT_MISMATCH");
             return true;
         }
 
@@ -69,13 +73,14 @@ public class SessionRevalidationInterceptor implements HandlerInterceptor {
         boolean userRevoked = current == null || current.status() != UserStatus.ACTIVE;
         boolean tenantRevoked = tenant == null || tenant.status() == TenantStatus.SUSPENDED;
         if (userRevoked || tenantRevoked) {
-            invalidateKeepingLang(request, session);
+            invalidateKeepingLang(request, session, sessionUser,
+                    userRevoked ? "USER_INACTIVE" : "TENANT_SUSPENDED");
             return true;
         }
         //비밀번호가 로그인 시점 스냅샷과 달라짐 → 즉시 회수(재설정이 곧 세션 킬 스위치 — SES-01).
         //동등 비교라 앱/DB 시계 오차·정밀도와 무관하다(리뷰 P3-6).
         if (!java.util.Objects.equals(sessionUser.passwordChangedAt(), current.passwordChangedAt())) {
-            invalidateKeepingLang(request, session);
+            invalidateKeepingLang(request, session, sessionUser, "PASSWORD_CHANGED");
             return true;
         }
         if (current.role() != sessionUser.role()) {
@@ -89,8 +94,11 @@ public class SessionRevalidationInterceptor implements HandlerInterceptor {
         return true;
     }
 
-    /** 로그아웃과 동일하게 언어 설정만 새 세션으로 이월하고 무효화한다. */
-    private void invalidateKeepingLang(HttpServletRequest request, HttpSession session) {
+    /** 로그아웃과 동일하게 언어 설정만 새 세션으로 이월하고 무효화한다(회수 사유를 감사 기록). */
+    private void invalidateKeepingLang(HttpServletRequest request, HttpSession session,
+            SessionUser sessionUser, String reason) {
+        auditService.record(AuditEvent.SESSION_REVOKED, sessionUser.tenantId(),
+                sessionUser.userId(), sessionUser.email(), reason, request);
         Object lang = session.getAttribute(LocaleConfig.SESSION_LANG_KEY);
         session.invalidate();
         if (lang != null) {

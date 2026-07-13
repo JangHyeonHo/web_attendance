@@ -41,11 +41,13 @@ class SessionRevalidationInterceptorTest {
     private UserMapper userMapper;
     @Mock
     private TenantMapper tenantMapper;
+    @Mock
+    private com.attendance.pro.audit.AuditService auditService;
 
     private SessionRevalidationInterceptor interceptor() {
         //base-domain "webatt.example"로 호스트 일치 검증까지 활성화(기본 요청 호스트 localhost는 NONE)
         return new SessionRevalidationInterceptor(userMapper, tenantMapper,
-                new TenantHostResolver(tenantMapper, "webatt.example"));
+                new TenantHostResolver(tenantMapper, "webatt.example"), auditService);
     }
 
     private static User dbUser(Role role, UserStatus status) {

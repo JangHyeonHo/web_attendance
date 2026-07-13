@@ -8,6 +8,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.attendance.pro.audit.AuditEvent;
+import com.attendance.pro.audit.AuditService;
 import com.attendance.pro.auth.AuthDtos.LoginRequest;
 import com.attendance.pro.auth.AuthDtos.LoginResponse;
 import com.attendance.pro.common.ApiException;
@@ -34,12 +36,14 @@ public class AuthController {
     private final AuthService authService;
     private final LoginRateLimiter loginRateLimiter;
     private final TenantHostResolver tenantHostResolver;
+    private final AuditService auditService;
 
     public AuthController(AuthService authService, LoginRateLimiter loginRateLimiter,
-            TenantHostResolver tenantHostResolver) {
+            TenantHostResolver tenantHostResolver, AuditService auditService) {
         this.authService = authService;
         this.loginRateLimiter = loginRateLimiter;
         this.tenantHostResolver = tenantHostResolver;
+        this.auditService = auditService;
     }
 
     @Operation(summary = "api.auth.login.summary", description = "api.auth.login.description")
@@ -61,6 +65,9 @@ public class AuthController {
             user = authService.authenticate(tenantCode, request.email(), request.password());
         } catch (ApiException e) {
             loginRateLimiter.recordFailure(tenantCode, request.email(), clientIp);
+            //감사: 로그인 실패(존재 비노출 원칙상 user_id 없음 — 시도 이메일·테넌트·사유코드만)
+            auditService.record(AuditEvent.LOGIN_FAIL, null, null, request.email(),
+                    "tenant=" + tenantCode + " code=" + e.getCode(), httpRequest);
             throw e;
         }
         loginRateLimiter.reset(tenantCode, request.email());
@@ -77,6 +84,8 @@ public class AuthController {
         if (lang != null) {
             newSession.setAttribute(LocaleConfig.SESSION_LANG_KEY, lang);
         }
+        auditService.record(AuditEvent.LOGIN_SUCCESS, user.tenantId(), user.userId(), user.email(),
+                null, httpRequest);
         return LoginResponse.from(user);
     }
 
@@ -110,6 +119,12 @@ public class AuthController {
     public void logout(HttpServletRequest httpRequest) {
         HttpSession session = httpRequest.getSession(false);
         if (session != null) {
+            //감사: 로그아웃(세션 무효화 전 스냅샷에서 행위자 식별)
+            Object su = session.getAttribute(SessionUser.SESSION_KEY);
+            if (su instanceof SessionUser user) {
+                auditService.record(AuditEvent.LOGOUT, user.tenantId(), user.userId(), user.email(),
+                        null, httpRequest);
+            }
             //언어 설정은 로그아웃 후에도 유지한다
             Object lang = session.getAttribute(LocaleConfig.SESSION_LANG_KEY);
             session.invalidate();
