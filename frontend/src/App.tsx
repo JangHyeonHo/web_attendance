@@ -11,6 +11,8 @@ import { PasswordResetRequestScreen } from './screens/PasswordResetRequestScreen
 import { MailTemplatesScreen } from './screens/MailTemplatesScreen'
 import { HolidaysScreen } from './screens/HolidaysScreen'
 import { TenantMailTemplatesScreen } from './screens/TenantMailTemplatesScreen'
+import { LeaveScreen } from './screens/LeaveScreen'
+import { AdminLeaveScreen } from './screens/AdminLeaveScreen'
 import type { Lang, ScreenCode } from './api/types'
 
 const LANGS: Lang[] = ['KOR', 'ENG', 'JPN']
@@ -46,6 +48,10 @@ function ScreenBody({ screen }: { screen: ScreenCode }) {
       return <HolidaysScreen />
     case 'W014':
       return <TenantMailTemplatesScreen />
+    case 'W015':
+      return <LeaveScreen />
+    case 'W016':
+      return <AdminLeaveScreen />
     case 'W000':
     default:
       return <LandingScreen />
@@ -96,12 +102,18 @@ export default function App() {
               {t('LOGIN')}
             </button>
           )}
-          {(role === 'MEMBER' || role === 'TENANT_ADMIN') && (
-            <button aria-current={current('W005')} onClick={() => void navigate('W005')}>
-              {t('ATTEND')}
-            </button>
+          {(role === 'MEMBER' || role === 'HR_ADMIN' || role === 'TENANT_ADMIN') && (
+            <>
+              <button aria-current={current('W005')} onClick={() => void navigate('W005')}>
+                {t('ATTEND')}
+              </button>
+              <button aria-current={current('W015')} onClick={() => void navigate('W015')}>
+                {t('LEAVE')}
+              </button>
+            </>
           )}
-          {role === 'TENANT_ADMIN' && (
+          {/* 멤버·공휴일·휴가관리는 인사관리자+총관리자 공통 */}
+          {(role === 'HR_ADMIN' || role === 'TENANT_ADMIN') && (
             <>
               <button aria-current={current('W009')} onClick={() => void navigate('W009')}>
                 {t('MEMBERS')}
@@ -109,10 +121,16 @@ export default function App() {
               <button aria-current={current('W013')} onClick={() => void navigate('W013')}>
                 {t('HOLIDAYS')}
               </button>
-              <button aria-current={current('W014')} onClick={() => void navigate('W014')}>
-                {t('MAIL_TEMPLATES')}
+              <button aria-current={current('W016')} onClick={() => void navigate('W016')}>
+                {t('LEAVE_ADMIN')}
               </button>
             </>
+          )}
+          {/* 회사 메일 템플릿은 총관리자 전용(직권 분산) */}
+          {role === 'TENANT_ADMIN' && (
+            <button aria-current={current('W014')} onClick={() => void navigate('W014')}>
+              {t('MAIL_TEMPLATES')}
+            </button>
           )}
           {role === 'SYSTEM_ADMIN' && (
             <>

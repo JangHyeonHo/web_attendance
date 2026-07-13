@@ -42,6 +42,9 @@ class NavigationServiceTest {
     private static final SessionUser TENANT_ADMIN =
             new SessionUser(2L, 10L, "ACME", "에이크미(주)", "ta@acme.co.kr", "김관리", Role.TENANT_ADMIN,
                     java.time.LocalDateTime.now());
+    private static final SessionUser HR_ADMIN =
+            new SessionUser(4L, 10L, "ACME", "에이크미(주)", "hr@acme.co.kr", "이인사", Role.HR_ADMIN,
+                    java.time.LocalDateTime.now());
     private static final SessionUser SYSTEM_ADMIN =
             new SessionUser(3L, 1L, "DEFAULT", "기본 테넌트", "admin@attendance.local", "관리자", Role.SYSTEM_ADMIN,
                     java.time.LocalDateTime.now());
@@ -192,6 +195,43 @@ class NavigationServiceTest {
                 .isEqualTo(new Decision(Screen.ATTENDANCE, NavigationReason.ROLE_DENIED, false));
         assertThat(service.decide("W013", SYSTEM_ADMIN, false))
                 .isEqualTo(new Decision(Screen.SYSTEM_TENANTS, NavigationReason.ROLE_DENIED, false));
+    }
+
+    @Test
+    @DisplayName("HR_ADMIN(인사관리자): 홈=출결, 멤버(W009)·공휴일(W013)·출결(W005/W006) 허용")
+    void hrAdminAllowedScreens() {
+        NavigationService service = service();
+        assertThat(service.decide("W000", HR_ADMIN, false))
+                .isEqualTo(new Decision(Screen.ATTENDANCE, NavigationReason.ALREADY_LOGGED_IN, false));
+        assertThat(service.decide("W005", HR_ADMIN, false)).isEqualTo(new Decision(Screen.ATTENDANCE, null, false));
+        assertThat(service.decide("W006", HR_ADMIN, false)).isEqualTo(new Decision(Screen.ATT_DETAILS, null, false));
+        assertThat(service.decide("W009", HR_ADMIN, false)).isEqualTo(new Decision(Screen.MEMBERS, null, false));
+        assertThat(service.decide("W013", HR_ADMIN, false)).isEqualTo(new Decision(Screen.HOLIDAYS, null, false));
+        assertThat(service.decide("W015", HR_ADMIN, false)).isEqualTo(new Decision(Screen.LEAVE, null, false));
+        assertThat(service.decide("W016", HR_ADMIN, false))
+                .isEqualTo(new Decision(Screen.LEAVE_ADMIN, null, false));
+    }
+
+    @Test
+    @DisplayName("휴가 화면: 멤버는 W015(휴가) 허용·W016(휴가 관리)은 홈+ROLE_DENIED")
+    void leaveScreensAccess() {
+        NavigationService service = service();
+        assertThat(service.decide("W015", MEMBER, false)).isEqualTo(new Decision(Screen.LEAVE, null, false));
+        assertThat(service.decide("W015", TENANT_ADMIN, false)).isEqualTo(new Decision(Screen.LEAVE, null, false));
+        assertThat(service.decide("W016", MEMBER, false))
+                .isEqualTo(new Decision(Screen.ATTENDANCE, NavigationReason.ROLE_DENIED, false));
+        assertThat(service.decide("W016", TENANT_ADMIN, false))
+                .isEqualTo(new Decision(Screen.LEAVE_ADMIN, null, false));
+    }
+
+    @Test
+    @DisplayName("HR_ADMIN 배제: 회사 메일 템플릿(W014)·언어 마스터(W004)는 홈 + ROLE_DENIED")
+    void hrAdminDeniedScreens() {
+        NavigationService service = service();
+        assertThat(service.decide("W014", HR_ADMIN, false))
+                .isEqualTo(new Decision(Screen.ATTENDANCE, NavigationReason.ROLE_DENIED, false));
+        assertThat(service.decide("W004", HR_ADMIN, false))
+                .isEqualTo(new Decision(Screen.ATTENDANCE, NavigationReason.ROLE_DENIED, false));
     }
 
     @Test

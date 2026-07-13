@@ -19,6 +19,8 @@ export type ScreenCode =
   | 'W012' // 메일 템플릿 관리 (SYSTEM_ADMIN)
   | 'W013' // 공휴일 관리 (TENANT_ADMIN)
   | 'W014' // 회사 메일 템플릿 (TENANT_ADMIN — 오버라이드, 기본은 전역)
+  | 'W015' // 휴가 (멤버 — 잔여·신청)
+  | 'W016' // 휴가 관리 (인사관리자+총관리자 — 결재·부여·종류)
   | 'W999' // 공통(헤더)
 
 export type Lang = 'KOR' | 'ENG' | 'JPN'
@@ -71,7 +73,7 @@ export type NavigationReason =
 
 // ---- tenancy 공통 ----
 
-export type Role = 'SYSTEM_ADMIN' | 'TENANT_ADMIN' | 'MEMBER'
+export type Role = 'SYSTEM_ADMIN' | 'TENANT_ADMIN' | 'HR_ADMIN' | 'MEMBER'
 export type UserStatus = 'PENDING' | 'ACTIVE' | 'DISABLED'
 export type TenantStatus = 'ACTIVE' | 'SUSPENDED'
 export type BillingMethod = 'INVOICE' | 'CARD'
@@ -540,6 +542,119 @@ export interface LanguageUpsertRequest {
   langKey: string
   lang: Lang
   langValue: string
+}
+
+// ---- 휴가 (Phase 6-2) ----
+
+export type LeaveUnit = 'DAY' | 'HOUR'
+export type LeaveStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELED' | 'CANCEL_REQUESTED'
+
+export interface LeaveType {
+  leaveTypeId: number
+  code: string
+  name: string
+  paid: boolean
+  unit: LeaveUnit
+  requiresApproval: boolean
+  isAnnual: boolean
+  active: boolean
+  sortOrder: number
+}
+
+export interface LeaveTypeCreateRequest {
+  code: string
+  name: string
+  paid: boolean
+  unit: LeaveUnit
+  requiresApproval: boolean
+  sortOrder: number
+}
+
+export interface LeaveTypeUpdateRequest {
+  name: string
+  paid: boolean
+  unit: LeaveUnit
+  requiresApproval: boolean
+  active: boolean
+  sortOrder: number
+}
+
+/** 종류별 잔여 — 분 단위 + 1일 환산(standardDayMinutes) */
+export interface LeaveBalance {
+  leaveTypeId: number
+  code: string
+  name: string
+  unit: LeaveUnit
+  isAnnual: boolean
+  grantedMinutes: number
+  usedMinutes: number
+  pendingMinutes: number
+  remainingMinutes: number
+  standardDayMinutes: number
+}
+
+export interface LeaveApplyRequest {
+  leaveTypeId: number
+  dayUnit: boolean
+  startDate?: string | null
+  endDate?: string | null
+  halfDay?: boolean
+  startTime?: string | null
+  endTime?: string | null
+  reason?: string | null
+}
+
+export interface LeaveRequestItem {
+  leaveRequestId: number
+  userId: number
+  userName: string
+  leaveTypeId: number
+  typeName: string
+  unit: LeaveUnit
+  startAt: string
+  endAt: string
+  minutes: number
+  dayUnit: boolean
+  halfDay: boolean
+  reason: string | null
+  status: LeaveStatus
+  decidedAt: string | null
+  decisionNote: string | null
+  cancelReason: string | null
+  createdAt: string
+}
+
+export interface LeaveDecisionRequest {
+  approve: boolean
+  note?: string | null
+}
+
+export interface LeaveGrantRequest {
+  userId: number
+  leaveTypeId: number
+  days: number
+  expiresOn?: string | null
+  memo?: string | null
+}
+
+export interface MemberLeaveSummary {
+  userId: number
+  name: string
+  hireDate: string | null
+  annualRemainingMinutes: number | null
+  /** 법정 제안(미리보기 — 자동 부여 아님). 관리자가 확인 후 적용 */
+  suggestedAnnualMinutes: number | null
+  standardDayMinutes: number
+}
+
+export interface MemberLeaveDetail {
+  userId: number
+  name: string
+  hireDate: string | null
+  standardDayMinutes: number
+  suggestedAnnualMinutes: number | null
+  balances: LeaveBalance[]
+  requests: LeaveRequestItem[]
 }
 
 // ---- error ----

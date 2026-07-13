@@ -49,14 +49,34 @@ class RoleInterceptorTest {
             "/api/v1/admin/mail-templates,      MEMBER,       deny",
             "/api/v1/admin/mail-templates/INVITE/KOR, SYSTEM_ADMIN, allow",
             "/api/v1/admin/mail-templates/preview,    MEMBER,       deny",
-            //tenant/** — TENANT_ADMIN만(SYSTEM_ADMIN도 403)
+            //tenant/** — 멤버·공휴일은 인사관리자+총관리자(SYSTEM_ADMIN도 403)
             "/api/v1/tenant/members,            TENANT_ADMIN, allow",
+            "/api/v1/tenant/members,            HR_ADMIN,     allow",
             "/api/v1/tenant/members,            SYSTEM_ADMIN, deny",
             "/api/v1/tenant/members,            MEMBER,       deny",
-            "/api/v1/tenant/members/5/role,     TENANT_ADMIN, allow",
+            "/api/v1/tenant/holidays,           HR_ADMIN,     allow",
+            "/api/v1/tenant/members/5/status,   HR_ADMIN,     allow",
             "/api/v1/tenant/members/5/status,   SYSTEM_ADMIN, deny",
-            //attendance/** — TENANT_ADMIN|MEMBER(SYSTEM_ADMIN 명시 배제 — ISO-11/ROLE-03~05)
+            //역할 지정·회사 메일은 총관리자 전용(인사관리자 403 — 직권 분산 Phase 6)
+            "/api/v1/tenant/members/5/role,     TENANT_ADMIN, allow",
+            "/api/v1/tenant/members/5/role,     HR_ADMIN,     deny",
+            "/api/v1/tenant/mail-templates,     TENANT_ADMIN, allow",
+            "/api/v1/tenant/mail-templates,     HR_ADMIN,     deny",
+            "/api/v1/tenant/mail-templates/INVITE/KOR, HR_ADMIN, deny",
+            //휴가(관리자) — 인사관리자+총관리자(직권 분산 밖 — 인사 업무), SYSTEM_ADMIN 배제
+            "/api/v1/tenant/leave/requests/pending, HR_ADMIN,     allow",
+            "/api/v1/tenant/leave/requests/pending, TENANT_ADMIN, allow",
+            "/api/v1/tenant/leave/requests/pending, MEMBER,       deny",
+            "/api/v1/tenant/leave/types,        HR_ADMIN,     allow",
+            "/api/v1/tenant/leave/members/5/recompute, HR_ADMIN, allow",
+            //휴가(멤버) — 회사 구성원 전원, SYSTEM_ADMIN 배제
+            "/api/v1/attendance/leave/balances, MEMBER,       allow",
+            "/api/v1/attendance/leave/balances, HR_ADMIN,     allow",
+            "/api/v1/attendance/leave/requests, TENANT_ADMIN, allow",
+            "/api/v1/attendance/leave/balances, SYSTEM_ADMIN, deny",
+            //attendance/** — 회사 구성원 전원(SYSTEM_ADMIN 명시 배제 — ISO-11/ROLE-03~05)
             "/api/v1/attendance/status,         MEMBER,       allow",
+            "/api/v1/attendance/status,         HR_ADMIN,     allow",
             "/api/v1/attendance/status,         TENANT_ADMIN, allow",
             "/api/v1/attendance/status,         SYSTEM_ADMIN, deny",
             "/api/v1/attendance/check,          SYSTEM_ADMIN, deny",

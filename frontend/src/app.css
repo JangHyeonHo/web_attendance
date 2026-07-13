@@ -1683,3 +1683,129 @@ button.day-link:hover {
   font-weight: 600;
   min-width: 96px;
 }
+
+/* ---- 휴가 (Phase 6-2) ---- */
+.balance-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 16px 0 8px;
+}
+.balance-card {
+  flex: 1 1 180px;
+  min-width: 160px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.balance-name {
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.balance-remaining {
+  font-size: 26px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.balance-remaining em {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  margin-left: 4px;
+  font-style: normal;
+}
+.balance-sub {
+  font-size: 12px;
+}
+
+.seg-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  overflow: hidden;
+  margin: 8px 0 12px;
+}
+.seg-toggle button {
+  border: none;
+  background: var(--surface);
+  padding: 7px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+}
+.seg-toggle button.active {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.section-head {
+  margin: 20px 0 8px;
+  font-size: 15px;
+  font-weight: 700;
+}
+.check-inline {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+.check-inline input {
+  width: auto;
+}
+.field-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  margin-bottom: 12px;
+}
+.field-group > label {
+  flex: 1 1 auto;
+}
+.detail-table td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.detail-table.compact th,
+.detail-table.compact td {
+  padding: 6px 10px;
+}
+
+.badge.leave-pending {
+  color: var(--muted);
+}
+.badge.leave-approved {
+  color: var(--accent-dark);
+  border-color: var(--accent);
+}
+.badge.leave-rejected {
+  color: #b23350;
+}
+.badge.leave-canceled {
+  color: var(--muted);
+  opacity: 0.7;
+}
+
+.suggest-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  margin: 4px 0 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-alt);
+}
+.suggest-row strong {
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+.suggest-row button {
+  margin-left: auto;
+}

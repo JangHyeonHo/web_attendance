@@ -153,8 +153,9 @@ public class MemberService {
     }
 
     /**
-     * 멤버 역할 변경(TENANT_ADMIN/MEMBER — SYSTEM_ADMIN 지정은 400).
-     * 마지막 활성 TENANT_ADMIN 강등은 409.
+     * 멤버 역할 변경(TENANT_ADMIN·HR_ADMIN·MEMBER — SYSTEM_ADMIN 지정은 400).
+     * 총관리자를 그 외 역할(인사관리자·멤버)로 바꾸면 총관리자 수가 줄므로, 마지막 활성 총관리자 강등은 409.
+     * 호출 경로는 총관리자 전용(RoleInterceptor의 members role 규칙) — 직권 분산.
      */
     @Transactional
     public MemberResponse updateRole(long tenantId, long userId, Role role) {
@@ -162,7 +163,7 @@ public class MemberService {
             throw ApiException.badRequest("MEMBER_ROLE_INVALID", "member.role.invalid");
         }
         User target = requireManageableMember(tenantId, userId);
-        if (role == Role.MEMBER && target.role() == Role.TENANT_ADMIN
+        if (role != Role.TENANT_ADMIN && target.role() == Role.TENANT_ADMIN
                 && target.status() == UserStatus.ACTIVE) {
             guardLastTenantAdmin(tenantId);
         }

@@ -14,6 +14,16 @@ import type {
   LanguageEntry,
   LanguageUpsertRequest,
   Lang,
+  LeaveApplyRequest,
+  LeaveBalance,
+  LeaveDecisionRequest,
+  LeaveGrantRequest,
+  LeaveRequestItem,
+  LeaveType,
+  LeaveTypeCreateRequest,
+  LeaveTypeUpdateRequest,
+  MemberLeaveDetail,
+  MemberLeaveSummary,
   LoginRequest,
   LoginResponse,
   MailTemplatePreviewRequest,
@@ -166,6 +176,46 @@ export const attendanceApi = {
   /** 수동 정정 수정(잘못 입력 복구 — 시각/구분/사유 변경) — 본인 MANUAL 행만(자동 기록은 불변) */
   manualUpdate: (attendanceId: number, request: ManualStampRequest) =>
     put<StampResponse>(`/api/v1/attendance/manual/${attendanceId}`, request),
+}
+
+/** 멤버 휴가 — 본인 잔여·신청·취소 (/attendance/leave) */
+export const leaveApi = {
+  types: () => get<LeaveType[]>('/api/v1/attendance/leave/types'),
+  balances: () => get<LeaveBalance[]>('/api/v1/attendance/leave/balances'),
+  myRequests: () => get<LeaveRequestItem[]>('/api/v1/attendance/leave/requests'),
+  apply: (request: LeaveApplyRequest) =>
+    post<LeaveRequestItem>('/api/v1/attendance/leave/requests', request),
+  cancel: (requestId: number) =>
+    post<void>(`/api/v1/attendance/leave/requests/${requestId}/cancel`),
+  requestCancel: (requestId: number, reason: string) =>
+    post<void>(`/api/v1/attendance/leave/requests/${requestId}/cancel-request`, { reason }),
+}
+
+/** 관리자 휴가 — 종류·결재·부여·멤버 잔여 (/tenant/leave, 인사관리자+총관리자) */
+export const tenantLeaveApi = {
+  types: () => get<LeaveType[]>('/api/v1/tenant/leave/types'),
+  createType: (request: LeaveTypeCreateRequest) =>
+    post<LeaveType>('/api/v1/tenant/leave/types', request),
+  updateType: (leaveTypeId: number, request: LeaveTypeUpdateRequest) =>
+    put<LeaveType>(`/api/v1/tenant/leave/types/${leaveTypeId}`, request),
+  pending: () => get<LeaveRequestItem[]>('/api/v1/tenant/leave/requests/pending'),
+  decide: (requestId: number, request: LeaveDecisionRequest) =>
+    post<void>(`/api/v1/tenant/leave/requests/${requestId}/decision`, request),
+  cancelRequests: () =>
+    get<LeaveRequestItem[]>('/api/v1/tenant/leave/requests/cancel-requests'),
+  cancel: (requestId: number, reason: string) =>
+    post<void>(`/api/v1/tenant/leave/requests/${requestId}/cancel`, { reason }),
+  rejectCancel: (requestId: number, note: string) =>
+    post<void>(`/api/v1/tenant/leave/requests/${requestId}/cancel-reject`, { note }),
+  grant: (request: LeaveGrantRequest) => post<void>('/api/v1/tenant/leave/grants', request),
+  recompute: (userId: number) =>
+    post<void>(`/api/v1/tenant/leave/members/${userId}/recompute`),
+  recomputeAll: () => post<{ count: number }>('/api/v1/tenant/leave/recompute'),
+  members: () => get<MemberLeaveSummary[]>('/api/v1/tenant/leave/members'),
+  memberDetail: (userId: number) =>
+    get<MemberLeaveDetail>(`/api/v1/tenant/leave/members/${userId}`),
+  updateHireDate: (userId: number, hireDate: string) =>
+    put<void>(`/api/v1/tenant/leave/members/${userId}/hire-date`, { hireDate }),
 }
 
 export const languageApi = {
