@@ -25,7 +25,7 @@ class RoleInterceptorTest {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", uri);
         if (role != null) {
             SessionUser user = new SessionUser(1L, 1L, "ACME", "에이크미(주)", "u@acme.co.kr", "유저", role,
-                    java.time.LocalDateTime.now());
+                    java.time.LocalDateTime.now(), null);
             request.getSession(true).setAttribute(SessionUser.SESSION_KEY, user);
         }
         return request;

@@ -47,9 +47,12 @@ public class AuthService {
                 || !passwordEncoder.matches(rawPassword, user.passwordHash())) {
             throw ApiException.unauthorized("auth.login.failed");
         }
-        //password_changed_at 스냅샷 — 이후 DB 값과 달라지면 재검증 인터셉터가 세션을 회수한다
+        //단일 세션 강제: 로그인마다 새 토큰을 발급·저장해 이전 기기 세션을 무효화(마지막 로그인만 유효)
+        String sessionToken = java.util.UUID.randomUUID().toString();
+        userMapper.updateSessionToken(tenant.tenantId(), user.userId(), sessionToken);
+        //password_changed_at·session_token 스냅샷 — 이후 DB 값과 달라지면 재검증 인터셉터가 회수한다
         return new SessionUser(user.userId(), tenant.tenantId(), tenant.tenantCode(), tenant.name(),
-                user.email(), user.name(), user.role(), user.passwordChangedAt());
+                user.email(), user.name(), user.role(), user.passwordChangedAt(), sessionToken);
     }
 
 }

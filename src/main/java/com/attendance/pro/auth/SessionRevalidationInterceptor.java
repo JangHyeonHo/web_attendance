@@ -83,13 +83,19 @@ public class SessionRevalidationInterceptor implements HandlerInterceptor {
             invalidateKeepingLang(request, session, sessionUser, "PASSWORD_CHANGED");
             return true;
         }
+        //단일 세션 강제: DB의 현재 토큰과 스냅샷 토큰이 다르면(= 다른 기기에서 새 로그인) 회수한다.
+        String currentToken = userMapper.findSessionToken(sessionUser.tenantId(), sessionUser.userId());
+        if (!java.util.Objects.equals(sessionUser.sessionToken(), currentToken)) {
+            invalidateKeepingLang(request, session, sessionUser, "SESSION_SUPERSEDED");
+            return true;
+        }
         if (current.role() != sessionUser.role()) {
             //강등/승격 즉시 반영 — RoleInterceptor가 이 갱신된 스냅샷으로 인가한다(SES-02)
             session.setAttribute(SessionUser.SESSION_KEY,
                     new SessionUser(sessionUser.userId(), sessionUser.tenantId(),
                             sessionUser.tenantCode(), sessionUser.tenantName(),
                             sessionUser.email(), sessionUser.name(), current.role(),
-                            sessionUser.passwordChangedAt()));
+                            sessionUser.passwordChangedAt(), sessionUser.sessionToken()));
         }
         return true;
     }

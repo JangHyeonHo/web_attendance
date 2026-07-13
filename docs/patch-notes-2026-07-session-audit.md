@@ -26,8 +26,17 @@ Phase 6 이후 후속. 로그인 세션을 모바일 편의에 맞게 늘리고,
 - 테넌트명·행위자명을 LEFT JOIN(널 이벤트 보존)해 사람이 읽을 수 있게 표시. 화면 **W017**: 시각·분류(뱃지)·이벤트·테넌트·행위자·IP·경로·상세 + 인증/에러 필터 + 새로고침. SA 헤더에 "감사 로그" 메뉴 추가.
 - (테넌트 관리자용 자사 감사 화면은 매퍼 `findRecentByTenant`로 후속 확장 가능.)
 
+## D59. 단일 세션 강제(session_token, V21)
+
+- `users.session_token` 신설(V21). **로그인 성공 시마다 새 토큰(UUID) 발급·저장**(`AuthService.authenticate`), `SessionUser` 스냅샷에 포함.
+- `SessionRevalidationInterceptor`가 매 요청 스냅샷 토큰 vs DB `session_token`을 비교(비밀번호 킬스위치와 동일 위치·패턴, `Objects.equals` 널 안전) → 불일치면 세션 회수(`SESSION_REVOKED` / detail `SESSION_SUPERSEDED`).
+- 효과: **새 기기 로그인이 이전 기기 세션을 다음 요청에 자동으로 밀어냄(마지막 로그인만 유효)** — 7일 장기 세션의 필수 안전장치. 로그인 실패는 토큰을 바꾸지 않아 기존 세션을 밀어내지 않는다(비밀번호 검증 통과 후에만 교체).
+- 최소 침습: `User` 레코드는 미변경, 재검증은 `findSessionToken`(PK 조회 1건)만 추가.
+- ⚠ "모든 기기 로그아웃"은 `session_token`을 임의 값으로 바꾸면 즉시 전 세션 회수 — 후속 버튼으로 노출 가능.
+
 ## 검증
 
-- `mvn test` **361건 그린**(AuditService 절단·실패삼킴·컨텍스트 3건 신규, SessionRevalidation 감사 인자 반영).
+- `mvn test` **369건 그린**(AuditService 3건 + 단일 세션 토큰 회수/유지·발급 3건 신규, SessionRevalidation 감사·토큰 반영).
+- 단일 세션 라이브 스모크: 기기 A 로그인→/me 200 → 기기 B 로그인(토큰 교체) → **A 재요청 401(킥)·B 200(유지)** → 감사 `SESSION_REVOKED/SESSION_SUPERSEDED` 기록.
 - 실 DB 라이브 스모크: 로그인 성공 시 **쿠키 `Max-Age=604800`(7일)** + `LOGIN_SUCCESS` 기록 / 실패 → `LOGIN_FAIL`(user NULL, 사유코드) / 로그아웃 → `LOGOUT` / 잘못된 JSON → 500 + `APP_ERROR`(예외명·경로) 기록. 전부 IP·UA·경로 포함.
 - V1→V19 마이그레이션 적용.

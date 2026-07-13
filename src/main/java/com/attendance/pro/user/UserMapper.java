@@ -125,6 +125,24 @@ public interface UserMapper {
             @Param("workDays") String workDays);
 
     /**
+     * 로그인 성공 시 현재 유효 세션 토큰 교체(단일 세션 강제) — 이전 세션 스냅샷 토큰과 달라져
+     * 다음 요청에 SessionRevalidationInterceptor가 이전 세션을 회수한다.
+     */
+    @Update("""
+            UPDATE users SET session_token = #{sessionToken}
+            WHERE tenant_id = #{tenantId} AND user_id = #{userId} AND deleted = FALSE
+            """)
+    int updateSessionToken(@Param("tenantId") long tenantId, @Param("userId") long userId,
+            @Param("sessionToken") String sessionToken);
+
+    /** 현재 유효 세션 토큰(재검증 비교용). 미식별/토큰 없음은 null. */
+    @Select("""
+            SELECT session_token FROM users
+            WHERE tenant_id = #{tenantId} AND user_id = #{userId} AND deleted = FALSE
+            """)
+    String findSessionToken(@Param("tenantId") long tenantId, @Param("userId") long userId);
+
+    /**
      * 입사일 수정(연차 자동계산 기산 보정) — 2중 조건. 휴가 관리 화면에서 관리자가 조정.
      */
     @Update("""

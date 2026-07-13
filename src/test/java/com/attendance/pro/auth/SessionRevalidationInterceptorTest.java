@@ -35,7 +35,8 @@ class SessionRevalidationInterceptorTest {
     /** 로그인 시점의 password_changed_at 스냅샷 — DB 현재 값과 다르면(방향 무관) 세션 회수 */
     private static final LocalDateTime PW_CHANGED_AT = LocalDateTime.of(2026, 7, 9, 9, 0);
     private static final SessionUser SNAPSHOT = new SessionUser(
-            USER_ID, TENANT_ID, "ACME", "에이크미", "ta@acme.co.kr", "김관리", Role.TENANT_ADMIN, PW_CHANGED_AT);
+            USER_ID, TENANT_ID, "ACME", "에이크미", "ta@acme.co.kr", "김관리", Role.TENANT_ADMIN,
+            PW_CHANGED_AT, null);
 
     @Mock
     private UserMapper userMapper;
@@ -162,11 +163,50 @@ class SessionRevalidationInterceptorTest {
         assertThat(request.getSession(false).getAttribute(SessionUser.SESSION_KEY)).isNull();
     }
 
+    private MockHttpServletRequest requestWithToken(String snapshotToken) {
+        SessionUser snap = new SessionUser(USER_ID, TENANT_ID, "ACME", "에이크미", "ta@acme.co.kr",
+                "김관리", Role.TENANT_ADMIN, PW_CHANGED_AT, snapshotToken);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpSession session = new MockHttpSession();
+        session.setAttribute(SessionUser.SESSION_KEY, snap);
+        session.setAttribute(LocaleConfig.SESSION_LANG_KEY, "JPN");
+        request.setSession(session);
+        return request;
+    }
+
+    @Test
+    @DisplayName("SES-03(U): 다른 기기에서 새 로그인(세션 토큰 불일치) → 이전 세션 즉시 무효화")
+    void supersededSessionInvalidates() {
+        when(userMapper.findById(TENANT_ID, USER_ID)).thenReturn(dbUser(Role.TENANT_ADMIN, UserStatus.ACTIVE));
+        when(tenantMapper.findById(TENANT_ID)).thenReturn(dbTenant(TenantStatus.ACTIVE));
+        when(userMapper.findSessionToken(TENANT_ID, USER_ID)).thenReturn("token-NEW");
+        MockHttpServletRequest request = requestWithToken("token-OLD");
+
+        interceptor().preHandle(request, new MockHttpServletResponse(), new Object());
+
+        assertThat(request.getSession(false).getAttribute(SessionUser.SESSION_KEY)).isNull();
+        assertThat(request.getSession(false).getAttribute(LocaleConfig.SESSION_LANG_KEY)).isEqualTo("JPN");
+    }
+
+    @Test
+    @DisplayName("SES-04(U): 세션 토큰 일치(같은 기기) → 세션 유지")
+    void matchingTokenKeepsSession() {
+        when(userMapper.findById(TENANT_ID, USER_ID)).thenReturn(dbUser(Role.TENANT_ADMIN, UserStatus.ACTIVE));
+        when(tenantMapper.findById(TENANT_ID)).thenReturn(dbTenant(TenantStatus.ACTIVE));
+        when(userMapper.findSessionToken(TENANT_ID, USER_ID)).thenReturn("token-SAME");
+        MockHttpServletRequest request = requestWithToken("token-SAME");
+
+        assertThat(interceptor().preHandle(request, new MockHttpServletResponse(), new Object())).isTrue();
+        SessionUser kept =
+                (SessionUser) request.getSession(false).getAttribute(SessionUser.SESSION_KEY);
+        assertThat(kept.sessionToken()).isEqualTo("token-SAME");
+    }
+
     @Test
     @DisplayName("password_changed_at이 NULL(이력 없음 — 기존 유저)이고 스냅샷도 NULL이면 세션 유지")
     void nullPasswordChangedAtKeepsSession() {
         SessionUser legacySnapshot = new SessionUser(USER_ID, TENANT_ID, "ACME", "에이크미",
-                "ta@acme.co.kr", "김관리", Role.TENANT_ADMIN, null);
+                "ta@acme.co.kr", "김관리", Role.TENANT_ADMIN, null, null);
         when(userMapper.findById(TENANT_ID, USER_ID))
                 .thenReturn(dbUser(Role.TENANT_ADMIN, UserStatus.ACTIVE, null));
         when(tenantMapper.findById(TENANT_ID)).thenReturn(dbTenant(TenantStatus.ACTIVE));
