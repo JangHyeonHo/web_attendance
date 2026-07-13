@@ -14,7 +14,7 @@ import type {
   MemberLeaveSummary,
 } from '../api/types'
 
-type Tab = 'approvals' | 'members' | 'types'
+type Tab = 'approvals' | 'cancels' | 'members' | 'types'
 
 /** t()로 단위 라벨을 채운 수량 포매터를 만든다(각 탭 컴포넌트에서 사용). */
 function useAmountFormatter(t: (key: string) => string) {
@@ -44,6 +44,9 @@ export function AdminLeaveScreen() {
         <button className={tab === 'approvals' ? 'active' : ''} onClick={() => setTab('approvals')}>
           {t('TAB_APPROVALS')}
         </button>
+        <button className={tab === 'cancels' ? 'active' : ''} onClick={() => setTab('cancels')}>
+          {t('TAB_CANCELS')}
+        </button>
         <button className={tab === 'members' ? 'active' : ''} onClick={() => setTab('members')}>
           {t('TAB_MEMBERS')}
         </button>
@@ -53,6 +56,7 @@ export function AdminLeaveScreen() {
       </div>
 
       {tab === 'approvals' && <ApprovalsTab />}
+      {tab === 'cancels' && <CancellationsTab />}
       {tab === 'members' && <MembersTab />}
       {tab === 'types' && <TypesTab />}
     </div>
@@ -160,6 +164,99 @@ function ApprovalsTab() {
             <button onClick={() => setRejectTarget(null)}>{t('CANCEL')}</button>
           </div>
         </Modal>
+      )}
+    </>
+  )
+}
+
+// ===== 취소 신청 =====
+
+function CancellationsTab() {
+  const { t } = useApp()
+  const amt = useAmountFormatter(t)
+  const [rows, setRows] = useState<LeaveRequestItem[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const [rowError, setRowError] = useState<{ id: number; message: string } | null>(null)
+
+  const reload = useCallback(async () => {
+    try {
+      setRows(await tenantLeaveApi.cancelRequests())
+      setError(null)
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : String(e))
+    }
+  }, [])
+
+  useEffect(() => {
+    void reload()
+  }, [reload])
+
+  async function act(fn: () => Promise<unknown>, id: number) {
+    setRowError(null)
+    try {
+      await fn()
+      await reload()
+    } catch (e) {
+      setRowError({ id, message: e instanceof ApiError ? e.message : String(e) })
+    }
+  }
+
+  return (
+    <>
+      {error && <p className="error" role="alert">{error}</p>}
+      {rows.length === 0 ? (
+        <p className="muted center">{t('NO_CANCELS')}</p>
+      ) : (
+        <div className="table-wrap">
+          <table className="detail-table">
+            <thead>
+              <tr>
+                <th>{t('MEMBER')}</th>
+                <th>{t('LEAVE_TYPE')}</th>
+                <th>{t('PERIOD')}</th>
+                <th>{t('AMOUNT')}</th>
+                <th>{t('CANCEL_REASON')}</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.leaveRequestId}>
+                  <td>{r.userName}</td>
+                  <td>{r.typeName}</td>
+                  <td className="wrap">{dateOf(r.startAt)}</td>
+                  <td className="num">{amt(r.minutes, r.unit, 480)}</td>
+                  <td className="wrap">{r.cancelReason ?? ''}</td>
+                  <td>
+                    <div className="row-actions">
+                      <button
+                        className="primary"
+                        onClick={() =>
+                          void act(
+                            () => tenantLeaveApi.cancel(r.leaveRequestId, r.cancelReason || '-'),
+                            r.leaveRequestId,
+                          )
+                        }
+                      >
+                        {t('CANCEL_APPROVE')}
+                      </button>
+                      <button
+                        onClick={() =>
+                          void act(() => tenantLeaveApi.rejectCancel(r.leaveRequestId, ''), r.leaveRequestId)
+                        }
+                      >
+                        {t('CANCEL_REJECT')}
+                      </button>
+                    </div>
+                    {rowError?.id === r.leaveRequestId && (
+                      <span className="error"> {rowError.message}</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </>
   )
@@ -286,8 +383,14 @@ function MemberDetailModal({
   const [grantTypeId, setGrantTypeId] = useState(detail.balances[0]?.leaveTypeId ?? 0)
   const [grantDays, setGrantDays] = useState('1')
   const [memo, setMemo] = useState('')
+  const [cancelId, setCancelId] = useState<number | null>(null)
+  const [cancelReason, setCancelReason] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+
+  const cancelable = detail.requests.filter(
+    (r) => r.status === 'APPROVED' || r.status === 'CANCEL_REQUESTED',
+  )
 
   async function run(fn: () => Promise<unknown>) {
     setBusy(true)
@@ -358,6 +461,58 @@ function MemberDetailModal({
           ))}
         </tbody>
       </table>
+
+      {cancelable.length > 0 && (
+        <>
+          <h4 className="section-head">{t('CANCEL_LEAVE')}</h4>
+          <table className="detail-table compact">
+            <tbody>
+              {cancelable.map((r) => (
+                <tr key={r.leaveRequestId}>
+                  <td className="wrap">{dateOf(r.startAt)}</td>
+                  <td className="num">{amt(r.minutes, r.unit, detail.standardDayMinutes)}</td>
+                  <td>{t(`STATUS_${r.status}`)}</td>
+                  <td>
+                    {cancelId === r.leaveRequestId ? (
+                      <div className="row-actions">
+                        <input
+                          placeholder={t('CANCEL_REASON')}
+                          value={cancelReason}
+                          onChange={(e) => setCancelReason(e.target.value)}
+                          maxLength={200}
+                          autoFocus
+                        />
+                        <button
+                          type="button"
+                          className="primary"
+                          disabled={busy || !cancelReason.trim()}
+                          onClick={() =>
+                            void run(() =>
+                              tenantLeaveApi.cancel(r.leaveRequestId, cancelReason.trim()),
+                            ).then(() => {
+                              setCancelId(null)
+                              setCancelReason('')
+                            })
+                          }
+                        >
+                          {t('SUBMIT')}
+                        </button>
+                        <button type="button" onClick={() => setCancelId(null)}>
+                          {t('CANCEL')}
+                        </button>
+                      </div>
+                    ) : (
+                      <button type="button" onClick={() => { setCancelId(r.leaveRequestId); setCancelReason('') }}>
+                        {t('CANCEL_LEAVE')}
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
 
       <h4 className="section-head">{t('GRANT')}</h4>
       <div className="field-group">

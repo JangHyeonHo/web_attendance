@@ -15,6 +15,7 @@ import com.attendance.pro.auth.LoginUser;
 import com.attendance.pro.auth.SessionUser;
 import com.attendance.pro.leave.LeaveDtos.LeaveApplyRequest;
 import com.attendance.pro.leave.LeaveDtos.LeaveBalanceResponse;
+import com.attendance.pro.leave.LeaveDtos.LeaveCancelRequest;
 import com.attendance.pro.leave.LeaveDtos.LeaveRequestResponse;
 import com.attendance.pro.leave.LeaveDtos.LeaveTypeResponse;
 
@@ -67,5 +68,12 @@ public class MemberLeaveController {
     @PostMapping("/requests/{requestId}/cancel")
     public void cancel(@LoginUser SessionUser user, @PathVariable("requestId") long requestId) {
         leaveService.cancel(user.tenantId(), user.userId(), requestId);
+    }
+
+    @Operation(summary = "api.leave.request-cancel")
+    @PostMapping("/requests/{requestId}/cancel-request")
+    public void requestCancel(@LoginUser SessionUser user, @PathVariable("requestId") long requestId,
+            @Valid @RequestBody LeaveCancelRequest request) {
+        leaveService.requestCancel(user.tenantId(), user.userId(), requestId, request.reason());
     }
 }

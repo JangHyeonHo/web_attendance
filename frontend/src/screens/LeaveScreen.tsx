@@ -13,6 +13,13 @@ const STATUS_KEYS: Record<LeaveStatus, string> = {
   APPROVED: 'STATUS_APPROVED',
   REJECTED: 'STATUS_REJECTED',
   CANCELED: 'STATUS_CANCELED',
+  CANCEL_REQUESTED: 'STATUS_CANCEL_REQUESTED',
+}
+
+/** 오늘보다 이후 날짜에 시작하는가(당일·시작된 휴가는 멤버 취소 신청 불가) */
+function startsInFuture(startAtIso: string): boolean {
+  const today = new Date().toISOString().slice(0, 10)
+  return startAtIso.slice(0, 10) > today
 }
 
 function dateOf(iso: string): string {
@@ -44,6 +51,8 @@ export function LeaveScreen() {
 
   const [formOpen, setFormOpen] = useState(false)
   const [cancelTarget, setCancelTarget] = useState<LeaveRequestItem | null>(null)
+  const [cancelReqTarget, setCancelReqTarget] = useState<LeaveRequestItem | null>(null)
+  const [cancelReqReason, setCancelReqReason] = useState('')
   const [rowError, setRowError] = useState<{ id: number; message: string } | null>(null)
 
   const reload = useCallback(async () => {
@@ -81,6 +90,18 @@ export function LeaveScreen() {
     setRowError(null)
     try {
       await leaveApi.cancel(id)
+      await reload()
+    } catch (e) {
+      setRowError({ id, message: e instanceof ApiError ? e.message : String(e) })
+    }
+  }
+
+  async function runCancelRequest(id: number, reason: string) {
+    setCancelReqTarget(null)
+    setCancelReqReason('')
+    setRowError(null)
+    try {
+      await leaveApi.requestCancel(id, reason)
       await reload()
     } catch (e) {
       setRowError({ id, message: e instanceof ApiError ? e.message : String(e) })
@@ -149,6 +170,33 @@ export function LeaveScreen() {
         </Modal>
       )}
 
+      {cancelReqTarget && (
+        <Modal title={t('REQUEST_CANCEL')} onClose={() => setCancelReqTarget(null)} danger>
+          <p className="center">{periodText(cancelReqTarget)}</p>
+          <label>
+            {t('CANCEL_REASON')}
+            <input
+              value={cancelReqReason}
+              onChange={(e) => setCancelReqReason(e.target.value)}
+              maxLength={200}
+              autoFocus
+            />
+          </label>
+          <div className="btn-row">
+            <button
+              className="primary"
+              disabled={!cancelReqReason.trim()}
+              onClick={() =>
+                void runCancelRequest(cancelReqTarget.leaveRequestId, cancelReqReason.trim())
+              }
+            >
+              {t('SUBMIT')}
+            </button>
+            <button onClick={() => setCancelReqTarget(null)}>{t('CANCEL')}</button>
+          </div>
+        </Modal>
+      )}
+
       <h3 className="section-head">{t('MY_REQUESTS')}</h3>
       {requests.length === 0 ? (
         <p className="muted center">{t('EMPTY')}</p>
@@ -167,8 +215,10 @@ export function LeaveScreen() {
             </thead>
             <tbody>
               {requests.map((r) => {
-                //본인 취소는 대기(PENDING)만 — 승인건은 관리자 처리(백엔드 정책과 일치)
-                const cancelable = r.status === 'PENDING'
+                //대기(PENDING)는 본인 직접 취소, 승인건은 시작 전이면 취소 신청(당일·시작 후는 관리자에게)
+                const canCancelPending = r.status === 'PENDING'
+                const canRequestCancel = r.status === 'APPROVED' && startsInFuture(r.startAt)
+                const approvedSameDay = r.status === 'APPROVED' && !startsInFuture(r.startAt)
                 return (
                   <tr key={r.leaveRequestId}>
                     <td>{r.typeName}</td>
@@ -184,11 +234,20 @@ export function LeaveScreen() {
                       {r.status === 'REJECTED' && r.decisionNote && (
                         <span className="hint"> {r.decisionNote}</span>
                       )}
+                      {r.status === 'CANCEL_REQUESTED' && r.cancelReason && (
+                        <span className="hint"> {r.cancelReason}</span>
+                      )}
                     </td>
                     <td>
-                      {cancelable && (
+                      {canCancelPending && (
                         <button onClick={() => setCancelTarget(r)}>{t('CANCEL')}</button>
                       )}
+                      {canRequestCancel && (
+                        <button onClick={() => { setCancelReqTarget(r); setCancelReqReason('') }}>
+                          {t('REQUEST_CANCEL')}
+                        </button>
+                      )}
+                      {approvedSameDay && <span className="hint">{t('CANCEL_SAME_DAY')}</span>}
                       {rowError?.id === r.leaveRequestId && (
                         <span className="error"> {rowError.message}</span>
                       )}

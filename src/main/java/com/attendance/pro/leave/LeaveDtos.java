@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
@@ -81,13 +82,14 @@ public final class LeaveDtos {
             long leaveRequestId, long userId, String userName, long leaveTypeId, String typeName,
             LeaveUnit unit, LocalDateTime startAt, LocalDateTime endAt, int minutes,
             boolean dayUnit, boolean halfDay, String reason, LeaveStatus status,
-            LocalDateTime decidedAt, String decisionNote, LocalDateTime createdAt) {
+            LocalDateTime decidedAt, String decisionNote, String cancelReason,
+            LocalDateTime createdAt) {
 
         public static LeaveRequestResponse of(LeaveRequestMapper.LeaveRequestView v) {
             return new LeaveRequestResponse(v.leaveRequestId(), v.userId(), v.userName(),
                     v.leaveTypeId(), v.typeName(), v.unit(), v.startAt(), v.endAt(), v.minutes(),
                     v.dayUnit(), v.halfDay(), v.reason(), v.status(), v.decidedAt(),
-                    v.decisionNote(), v.createdAt());
+                    v.decisionNote(), v.cancelReason(), v.createdAt());
         }
     }
 
@@ -95,6 +97,16 @@ public final class LeaveDtos {
 
     public record LeaveDecisionRequest(
             boolean approve,
+            @Size(max = 200) String note) {
+    }
+
+    /** 취소 사유(필수) — 멤버 취소 신청 / 관리자 직접 취소 공통. */
+    public record LeaveCancelRequest(
+            @NotBlank(message = "{validation.required}") @Size(max = 200) String reason) {
+    }
+
+    /** 취소 신청 반려 메모(선택). */
+    public record LeaveNoteRequest(
             @Size(max = 200) String note) {
     }
 

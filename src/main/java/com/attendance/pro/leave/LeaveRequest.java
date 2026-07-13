@@ -21,6 +21,7 @@ public record LeaveRequest(
         Long decidedBy,
         LocalDateTime decidedAt,
         String decisionNote,
+        String cancelReason,
         LocalDateTime createdAt,
         LocalDateTime updatedAt) {
 }

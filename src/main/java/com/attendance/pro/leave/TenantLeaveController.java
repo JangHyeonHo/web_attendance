@@ -14,7 +14,9 @@ import org.springframework.web.bind.annotation.RestController;
 import com.attendance.pro.auth.LoginUser;
 import com.attendance.pro.auth.SessionUser;
 import com.attendance.pro.leave.LeaveDtos.HireDateRequest;
+import com.attendance.pro.leave.LeaveDtos.LeaveCancelRequest;
 import com.attendance.pro.leave.LeaveDtos.LeaveDecisionRequest;
+import com.attendance.pro.leave.LeaveDtos.LeaveNoteRequest;
 import com.attendance.pro.leave.LeaveDtos.LeaveGrantRequest;
 import com.attendance.pro.leave.LeaveDtos.LeaveRequestResponse;
 import com.attendance.pro.leave.LeaveDtos.LeaveTypeCreateRequest;
@@ -78,6 +80,28 @@ public class TenantLeaveController {
             @Valid @RequestBody LeaveDecisionRequest request) {
         leaveService.decide(user.tenantId(), user.userId(), requestId, request.approve(),
                 request.note());
+    }
+
+    // ---- 취소 ----
+
+    @Operation(summary = "api.leave.admin.cancel-requests")
+    @GetMapping("/requests/cancel-requests")
+    public List<LeaveRequestResponse> cancelRequests(@LoginUser SessionUser user) {
+        return leaveService.cancelRequests(user.tenantId());
+    }
+
+    @Operation(summary = "api.leave.admin.cancel")
+    @PostMapping("/requests/{requestId}/cancel")
+    public void cancel(@LoginUser SessionUser user, @PathVariable("requestId") long requestId,
+            @Valid @RequestBody LeaveCancelRequest request) {
+        leaveService.cancelByAdmin(user.tenantId(), user.userId(), requestId, request.reason());
+    }
+
+    @Operation(summary = "api.leave.admin.cancel-reject")
+    @PostMapping("/requests/{requestId}/cancel-reject")
+    public void rejectCancel(@LoginUser SessionUser user, @PathVariable("requestId") long requestId,
+            @Valid @RequestBody LeaveNoteRequest request) {
+        leaveService.rejectCancel(user.tenantId(), user.userId(), requestId, request.note());
     }
 
     // ---- 부여/재계산 ----

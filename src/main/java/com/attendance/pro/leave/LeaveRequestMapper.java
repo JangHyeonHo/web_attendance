@@ -19,11 +19,12 @@ public interface LeaveRequestMapper {
 
     String COLS = "leave_request_id, tenant_id, user_id, leave_type_id, start_at, end_at, minutes, "
             + "day_unit, half_day, reason, status, decided_by, decided_at, decision_note, "
-            + "created_at, updated_at";
+            + "cancel_reason, created_at, updated_at";
 
     String VIEW_COLS = "r.leave_request_id, r.user_id, u.name AS user_name, r.leave_type_id, "
             + "t.code AS type_code, t.name AS type_name, t.unit, r.start_at, r.end_at, r.minutes, "
-            + "r.day_unit, r.half_day, r.reason, r.status, r.decided_at, r.decision_note, r.created_at";
+            + "r.day_unit, r.half_day, r.reason, r.status, r.decided_at, r.decision_note, "
+            + "r.cancel_reason, r.created_at";
 
     @Select("SELECT " + COLS + " FROM leave_request WHERE tenant_id = #{tenantId} "
             + "AND leave_request_id = #{requestId}")
@@ -38,24 +39,27 @@ public interface LeaveRequestMapper {
     @Options(useGeneratedKeys = true, keyProperty = "requestId", keyColumn = "leave_request_id")
     int insert(InsertParam param);
 
-    /** 잔여 계산용 — 종류별 APPROVED 차감 합계(분). */
+    /**
+     * 잔여 소진 합계(분) — APPROVED + CANCEL_REQUESTED. 취소 신청중인 건도 확정 전까지는
+     * 유효한 휴가이므로 잔여를 계속 소진한다(확정=CANCELED 시 합산에서 빠져 복원).
+     */
     @Select("""
             SELECT COALESCE(SUM(minutes), 0) FROM leave_request
             WHERE tenant_id = #{tenantId} AND user_id = #{userId} AND leave_type_id = #{leaveTypeId}
-              AND status = 'APPROVED'
+              AND status IN ('APPROVED', 'CANCEL_REQUESTED')
             """)
     int sumApprovedMinutes(@Param("tenantId") long tenantId, @Param("userId") long userId,
             @Param("leaveTypeId") long leaveTypeId);
 
     /**
-     * 기간 겹침 검사 — 같은 유저의 PENDING/APPROVED 신청과 [startAt, endAt)이 겹치면 true.
+     * 기간 겹침 검사 — 유효 신청(PENDING/APPROVED/CANCEL_REQUESTED)과 [startAt, endAt)이 겹치면 true.
      * 종류 무관(같은 시각에 두 휴가 동시 불가). 반열림 구간 비교(end ≤ 상대start면 안 겹침).
      */
     @Select("""
             SELECT EXISTS(
                 SELECT 1 FROM leave_request
                 WHERE tenant_id = #{tenantId} AND user_id = #{userId}
-                  AND status IN ('PENDING', 'APPROVED')
+                  AND status IN ('PENDING', 'APPROVED', 'CANCEL_REQUESTED')
                   AND start_at < #{endAt} AND end_at > #{startAt}
             )
             """)
@@ -103,6 +107,53 @@ public interface LeaveRequestMapper {
             """)
     int cancelByUser(@Param("tenantId") long tenantId, @Param("userId") long userId,
             @Param("requestId") long requestId);
+
+    /**
+     * 멤버 취소 신청 — 본인 APPROVED 건 중 <b>시작 전(당일 제외)</b>만 CANCEL_REQUESTED로 전이.
+     * 당일·시작된 휴가는 tomorrowStart 조건에 걸려 0행 → 관리자 직접 취소만 가능.
+     */
+    @Update("""
+            UPDATE leave_request
+            SET status = 'CANCEL_REQUESTED', cancel_reason = #{cancelReason}
+            WHERE tenant_id = #{tenantId} AND user_id = #{userId} AND leave_request_id = #{requestId}
+              AND status = 'APPROVED' AND start_at >= #{tomorrowStart}
+            """)
+    int requestCancelByUser(@Param("tenantId") long tenantId, @Param("userId") long userId,
+            @Param("requestId") long requestId, @Param("cancelReason") String cancelReason,
+            @Param("tomorrowStart") LocalDateTime tomorrowStart);
+
+    /**
+     * 관리자 취소 확정 — APPROVED 또는 CANCEL_REQUESTED를 CANCELED로. 잔여 자동 복원.
+     * cancelReason은 신청 사유가 있으면 유지, 없으면(관리자 직접 취소) 새로 기록.
+     */
+    @Update("""
+            UPDATE leave_request
+            SET status = 'CANCELED', decided_by = #{adminId}, decided_at = NOW(),
+                cancel_reason = COALESCE(cancel_reason, #{cancelReason})
+            WHERE tenant_id = #{tenantId} AND leave_request_id = #{requestId}
+              AND status IN ('APPROVED', 'CANCEL_REQUESTED')
+            """)
+    int cancelByAdmin(@Param("tenantId") long tenantId, @Param("requestId") long requestId,
+            @Param("adminId") long adminId, @Param("cancelReason") String cancelReason);
+
+    /**
+     * 관리자가 취소 신청을 반려 — CANCEL_REQUESTED를 APPROVED로 되돌린다(잔여 그대로 소진 유지).
+     */
+    @Update("""
+            UPDATE leave_request
+            SET status = 'APPROVED', decided_by = #{adminId}, decided_at = NOW(),
+                decision_note = #{note}
+            WHERE tenant_id = #{tenantId} AND leave_request_id = #{requestId}
+              AND status = 'CANCEL_REQUESTED'
+            """)
+    int rejectCancelByAdmin(@Param("tenantId") long tenantId, @Param("requestId") long requestId,
+            @Param("adminId") long adminId, @Param("note") String note);
+
+    /** 취소 신청 목록(관리자) — 오래된 신청 먼저. */
+    @Select("SELECT " + VIEW_COLS + VIEW_FROM
+            + " WHERE r.tenant_id = #{tenantId} AND r.status = 'CANCEL_REQUESTED'"
+            + " ORDER BY r.start_at ASC, r.leave_request_id ASC")
+    List<LeaveRequestView> findCancelRequestedViewByTenant(@Param("tenantId") long tenantId);
 
     /** 신청 등록 파라미터(자동 생성 키 반환). */
     class InsertParam {
@@ -193,6 +244,7 @@ public interface LeaveRequestMapper {
             LeaveStatus status,
             LocalDateTime decidedAt,
             String decisionNote,
+            String cancelReason,
             LocalDateTime createdAt) {
     }
 }

@@ -135,7 +135,8 @@ public class LeaveService {
                 if (r.leaveTypeId() != type.leaveTypeId()) {
                     continue;
                 }
-                if (r.status() == LeaveStatus.APPROVED) {
+                //APPROVED와 취소신청중(CANCEL_REQUESTED)은 확정 전까지 잔여를 소진
+                if (r.status() == LeaveStatus.APPROVED || r.status() == LeaveStatus.CANCEL_REQUESTED) {
                     used += r.minutes();
                 } else if (r.status() == LeaveStatus.PENDING) {
                     pending += r.minutes();
@@ -244,11 +245,67 @@ public class LeaveService {
         }
     }
 
+    /**
+     * 멤버 취소 신청(승인 휴가) — 시작 전(당일 제외)만 가능. 당일·시작된 휴가는 관리자 직접 취소 대상.
+     * 확정 전까지 CANCEL_REQUESTED로 잔여를 계속 소진한다(관리자 확정 시 복원).
+     */
+    @Transactional
+    public void requestCancel(long tenantId, long userId, long requestId, String reason) {
+        LocalDateTime tomorrowStart = LocalDate.now(clock).plusDays(1).atStartOfDay();
+        int updated = requestMapper.requestCancelByUser(tenantId, userId, requestId, reason.trim(),
+                tomorrowStart);
+        if (updated == 0) {
+            LeaveRequest existing = requestMapper.findById(tenantId, requestId);
+            if (existing == null || existing.userId() != userId) {
+                throw ApiException.notFound("LEAVE_REQUEST_NOT_FOUND", "leave.request.not-found");
+            }
+            if (existing.status() == LeaveStatus.APPROVED) {
+                //승인건이지만 당일·시작됨 → 관리자 직접 취소만
+                throw ApiException.badRequest("LEAVE_CANCEL_SAME_DAY", "leave.request.cancel-same-day");
+            }
+            throw ApiException.badRequest("LEAVE_NOT_CANCELABLE", "leave.request.not-cancelable");
+        }
+    }
+
     // ===== 결재/부여(관리자) =====
 
     public List<LeaveRequestResponse> pendingRequests(long tenantId) {
         return requestMapper.findPendingViewByTenant(tenantId).stream()
                 .map(LeaveRequestResponse::of).toList();
+    }
+
+    /** 취소 신청 목록(관리자). */
+    public List<LeaveRequestResponse> cancelRequests(long tenantId) {
+        return requestMapper.findCancelRequestedViewByTenant(tenantId).stream()
+                .map(LeaveRequestResponse::of).toList();
+    }
+
+    /** 관리자 취소 확정 — 승인건/취소신청건을 CANCELED로(잔여 복원). 취소사유 필수. */
+    @Transactional
+    public void cancelByAdmin(long tenantId, long adminId, long requestId, String reason) {
+        int updated = requestMapper.cancelByAdmin(tenantId, requestId, adminId, reason.trim());
+        if (updated == 0) {
+            LeaveRequest existing = requestMapper.findById(tenantId, requestId);
+            if (existing == null) {
+                throw ApiException.notFound("LEAVE_REQUEST_NOT_FOUND", "leave.request.not-found");
+            }
+            //APPROVED/CANCEL_REQUESTED가 아님(대기/반려/이미 취소)
+            throw ApiException.conflict("LEAVE_NOT_CANCELABLE", "leave.request.not-cancelable");
+        }
+    }
+
+    /** 관리자가 취소 신청을 반려 — CANCEL_REQUESTED를 APPROVED로 되돌린다. */
+    @Transactional
+    public void rejectCancel(long tenantId, long adminId, long requestId, String note) {
+        int updated = requestMapper.rejectCancelByAdmin(tenantId, requestId, adminId,
+                trimToNull(note));
+        if (updated == 0) {
+            LeaveRequest existing = requestMapper.findById(tenantId, requestId);
+            if (existing == null) {
+                throw ApiException.notFound("LEAVE_REQUEST_NOT_FOUND", "leave.request.not-found");
+            }
+            throw ApiException.conflict("LEAVE_NOT_CANCELABLE", "leave.request.not-cancelable");
+        }
     }
 
     @Transactional
@@ -395,7 +452,7 @@ public class LeaveService {
             if (r.leaveTypeId() != leaveTypeId) {
                 continue;
             }
-            if (r.status() == LeaveStatus.APPROVED) {
+            if (r.status() == LeaveStatus.APPROVED || r.status() == LeaveStatus.CANCEL_REQUESTED) {
                 used += r.minutes();
             } else if (r.status() == LeaveStatus.PENDING) {
                 pending += r.minutes();

@@ -187,6 +187,8 @@ export const leaveApi = {
     post<LeaveRequestItem>('/api/v1/attendance/leave/requests', request),
   cancel: (requestId: number) =>
     post<void>(`/api/v1/attendance/leave/requests/${requestId}/cancel`),
+  requestCancel: (requestId: number, reason: string) =>
+    post<void>(`/api/v1/attendance/leave/requests/${requestId}/cancel-request`, { reason }),
 }
 
 /** 관리자 휴가 — 종류·결재·부여·멤버 잔여 (/tenant/leave, 인사관리자+총관리자) */
@@ -199,6 +201,12 @@ export const tenantLeaveApi = {
   pending: () => get<LeaveRequestItem[]>('/api/v1/tenant/leave/requests/pending'),
   decide: (requestId: number, request: LeaveDecisionRequest) =>
     post<void>(`/api/v1/tenant/leave/requests/${requestId}/decision`, request),
+  cancelRequests: () =>
+    get<LeaveRequestItem[]>('/api/v1/tenant/leave/requests/cancel-requests'),
+  cancel: (requestId: number, reason: string) =>
+    post<void>(`/api/v1/tenant/leave/requests/${requestId}/cancel`, { reason }),
+  rejectCancel: (requestId: number, note: string) =>
+    post<void>(`/api/v1/tenant/leave/requests/${requestId}/cancel-reject`, { note }),
   grant: (request: LeaveGrantRequest) => post<void>('/api/v1/tenant/leave/grants', request),
   recompute: (userId: number) =>
     post<void>(`/api/v1/tenant/leave/members/${userId}/recompute`),

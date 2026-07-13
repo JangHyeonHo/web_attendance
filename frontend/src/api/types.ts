@@ -547,7 +547,7 @@ export interface LanguageUpsertRequest {
 // ---- 휴가 (Phase 6-2) ----
 
 export type LeaveUnit = 'DAY' | 'HOUR'
-export type LeaveStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELED'
+export type LeaveStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELED' | 'CANCEL_REQUESTED'
 
 export interface LeaveType {
   leaveTypeId: number
@@ -620,6 +620,7 @@ export interface LeaveRequestItem {
   status: LeaveStatus
   decidedAt: string | null
   decisionNote: string | null
+  cancelReason: string | null
   createdAt: string
 }
 

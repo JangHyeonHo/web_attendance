@@ -195,7 +195,7 @@ class LeaveServiceTest {
     void decideAlreadyDecided() {
         LeaveRequest approved = new LeaveRequest(9L, TENANT, USER, ANNUAL_ID,
                 LocalDateTime.of(2026, 7, 20, 0, 0), LocalDateTime.of(2026, 7, 21, 0, 0), 480,
-                true, false, null, LeaveStatus.APPROVED, 3L, LocalDateTime.now(), null,
+                true, false, null, LeaveStatus.APPROVED, 3L, LocalDateTime.now(), null, null,
                 LocalDateTime.now(), LocalDateTime.now());
         when(requestMapper.findById(TENANT, 9L)).thenReturn(approved);
         assertThatThrownBy(() -> service().decide(TENANT, 3L, 9L, true, null))
@@ -208,7 +208,7 @@ class LeaveServiceTest {
     void decideInsufficientAtApproval() {
         LeaveRequest pending = new LeaveRequest(9L, TENANT, USER, ANNUAL_ID,
                 LocalDateTime.of(2026, 7, 20, 0, 0), LocalDateTime.of(2026, 7, 21, 0, 0), 480,
-                true, false, null, LeaveStatus.PENDING, null, null, null,
+                true, false, null, LeaveStatus.PENDING, null, null, null, null,
                 LocalDateTime.now(), LocalDateTime.now());
         when(requestMapper.findById(TENANT, 9L)).thenReturn(pending);
         when(grantMapper.sumEffectiveMinutes(eq(TENANT), eq(USER), eq(ANNUAL_ID), any()))
@@ -224,13 +224,38 @@ class LeaveServiceTest {
     void decideReject() {
         LeaveRequest pending = new LeaveRequest(9L, TENANT, USER, ANNUAL_ID,
                 LocalDateTime.of(2026, 7, 20, 0, 0), LocalDateTime.of(2026, 7, 21, 0, 0), 480,
-                true, false, null, LeaveStatus.PENDING, null, null, null,
+                true, false, null, LeaveStatus.PENDING, null, null, null, null,
                 LocalDateTime.now(), LocalDateTime.now());
         when(requestMapper.findById(TENANT, 9L)).thenReturn(pending);
         when(requestMapper.decide(eq(TENANT), eq(9L), eq(LeaveStatus.REJECTED), eq(3L), any()))
                 .thenReturn(1);
         service().decide(TENANT, 3L, 9L, false, "인력 부족");
         verify(requestMapper).decide(TENANT, 9L, LeaveStatus.REJECTED, 3L, "인력 부족");
+    }
+
+    // ===== 취소 =====
+
+    @Test
+    @DisplayName("CANCEL-01: 당일·시작된 승인 휴가는 멤버 취소 신청 불가 → 400 cancel-same-day")
+    void requestCancelSameDay() {
+        when(requestMapper.requestCancelByUser(eq(TENANT), eq(USER), eq(9L), any(), any()))
+                .thenReturn(0);
+        LeaveRequest approvedToday = new LeaveRequest(9L, TENANT, USER, ANNUAL_ID,
+                LocalDateTime.of(2026, 7, 13, 0, 0), LocalDateTime.of(2026, 7, 14, 0, 0), 480,
+                true, false, null, LeaveStatus.APPROVED, 3L, LocalDateTime.now(), null, null,
+                LocalDateTime.now(), LocalDateTime.now());
+        when(requestMapper.findById(TENANT, 9L)).thenReturn(approvedToday);
+        assertThatThrownBy(() -> service().requestCancel(TENANT, USER, 9L, "개인 사정"))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("leave.request.cancel-same-day");
+    }
+
+    @Test
+    @DisplayName("CANCEL-02: 관리자 직접 취소 → CANCELED 전이(취소사유 기록)")
+    void cancelByAdmin() {
+        when(requestMapper.cancelByAdmin(TENANT, 9L, 3L, "회사 사정")).thenReturn(1);
+        service().cancelByAdmin(TENANT, 3L, 9L, "회사 사정");
+        verify(requestMapper).cancelByAdmin(TENANT, 9L, 3L, "회사 사정");
     }
 
     // ===== 재계산 =====
