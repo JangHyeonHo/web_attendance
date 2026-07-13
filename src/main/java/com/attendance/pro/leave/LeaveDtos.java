@@ -115,12 +115,17 @@ public final class LeaveDtos {
 
     public record MemberLeaveDetail(
             long userId, String name, LocalDate hireDate, int standardDayMinutes,
-            List<LeaveBalanceResponse> balances, List<LeaveRequestResponse> requests) {
+            Integer suggestedAnnualMinutes, List<LeaveBalanceResponse> balances,
+            List<LeaveRequestResponse> requests) {
     }
 
-    /** 멤버 잔여 개요(연차 중심). */
+    /**
+     * 멤버 잔여 개요(연차 중심).
+     * suggestedAnnualMinutes = 법정 제안(입사일·근속 기준 계산값 — 미리보기, 자동 부여 아님).
+     * annualRemainingMinutes = 실제 부여−사용 잔여. 둘을 비교해 관리자가 "제안 적용" 여부를 판단한다.
+     */
     public record MemberLeaveSummary(
-            long userId, String name, LocalDate hireDate,
-            Integer annualRemainingMinutes, int standardDayMinutes) {
+            long userId, String name, LocalDate hireDate, Integer annualRemainingMinutes,
+            Integer suggestedAnnualMinutes, int standardDayMinutes) {
     }
 }

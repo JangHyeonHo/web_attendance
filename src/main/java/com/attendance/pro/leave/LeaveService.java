@@ -298,6 +298,15 @@ public class LeaveService {
         return count;
     }
 
+    /** 법정 연차 제안(미리보기 — 부여하지 않는다). 연차 종류 없거나 입사일 미설정이면 null. */
+    private Integer suggestedAnnualMinutes(User user, LeaveType annual, ProfileCountry country) {
+        if (annual == null || user.hireDate() == null) {
+            return null;
+        }
+        int days = LeaveAccrualPolicy.of(country).entitledDays(user.hireDate(), LocalDate.now(clock));
+        return days * standardDayMinutes(user, country);
+    }
+
     private void recomputeAnnualInternal(long tenantId, long granterId, User user, LeaveType annual,
             ProfileCountry country) {
         if (user.hireDate() == null) {
@@ -328,8 +337,9 @@ public class LeaveService {
         List<LeaveBalanceResponse> balances = balancesFor(tenantId, userId, dayMinutes, requests);
         List<LeaveRequestResponse> reqResponses = requests.stream()
                 .map(LeaveRequestResponse::of).toList();
+        Integer suggested = suggestedAnnualMinutes(user, typeMapper.findAnnual(tenantId), country);
         return new MemberLeaveDetail(user.userId(), user.name(), user.hireDate(), dayMinutes,
-                balances, reqResponses);
+                suggested, balances, reqResponses);
     }
 
     public List<MemberLeaveSummary> memberOverview(long tenantId) {
@@ -350,8 +360,9 @@ public class LeaveService {
                         annual.leaveTypeId());
                 annualRemaining = granted - used;
             }
+            Integer suggested = suggestedAnnualMinutes(user, annual, country);
             out.add(new MemberLeaveSummary(user.userId(), user.name(), user.hireDate(),
-                    annualRemaining, dayMinutes));
+                    annualRemaining, suggested, dayMinutes));
         }
         return out;
     }

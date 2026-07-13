@@ -231,6 +231,7 @@ function MembersTab() {
               <tr>
                 <th>{t('MEMBER')}</th>
                 <th>{t('START_DATE')}</th>
+                <th>{t('SUGGESTED')}</th>
                 <th>{t('BALANCE')}</th>
                 <th />
               </tr>
@@ -240,13 +241,18 @@ function MembersTab() {
                 <tr key={m.userId}>
                   <td>{m.name}</td>
                   <td>{m.hireDate ?? '—'}</td>
+                  <td className="num muted">
+                    {m.suggestedAnnualMinutes != null
+                      ? amountText(m.suggestedAnnualMinutes, 'DAY', m.standardDayMinutes, t('UNIT_DAY'), t('UNIT_HOUR'))
+                      : '—'}
+                  </td>
                   <td className="num">
                     {m.annualRemainingMinutes != null
                       ? amountText(m.annualRemainingMinutes, 'DAY', m.standardDayMinutes, t('UNIT_DAY'), t('UNIT_HOUR'))
                       : '—'}
                   </td>
                   <td>
-                    <button onClick={() => void openDetail(m.userId)}>{t('BALANCE')}</button>
+                    <button onClick={() => void openDetail(m.userId)}>{t('EDIT')}</button>
                   </td>
                 </tr>
               ))}
@@ -315,10 +321,20 @@ function MemberDetailModal({
         >
           {t('SUBMIT')}
         </button>
+      </div>
+
+      {/* 법정 제안은 미리보기 — 관리자가 "제안 적용"을 눌러야 부여된다(자동 부여 아님) */}
+      <div className="suggest-row">
+        <span className="muted">{t('SUGGESTED')}</span>
+        <strong>
+          {detail.suggestedAnnualMinutes != null
+            ? amountText(detail.suggestedAnnualMinutes, 'DAY', detail.standardDayMinutes, t('UNIT_DAY'), t('UNIT_HOUR'))
+            : '—'}
+        </strong>
         <button
           type="button"
           className="primary"
-          disabled={busy}
+          disabled={busy || detail.suggestedAnnualMinutes == null}
           onClick={() => void run(() => tenantLeaveApi.recompute(detail.userId))}
         >
           {t('RECOMPUTE')}

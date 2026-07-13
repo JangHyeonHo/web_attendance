@@ -641,6 +641,8 @@ export interface MemberLeaveSummary {
   name: string
   hireDate: string | null
   annualRemainingMinutes: number | null
+  /** 법정 제안(미리보기 — 자동 부여 아님). 관리자가 확인 후 적용 */
+  suggestedAnnualMinutes: number | null
   standardDayMinutes: number
 }
 
@@ -649,6 +651,7 @@ export interface MemberLeaveDetail {
   name: string
   hireDate: string | null
   standardDayMinutes: number
+  suggestedAnnualMinutes: number | null
   balances: LeaveBalance[]
   requests: LeaveRequestItem[]
 }

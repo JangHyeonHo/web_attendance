@@ -1791,3 +1791,21 @@ button.day-link:hover {
   color: var(--muted);
   opacity: 0.7;
 }
+
+.suggest-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  margin: 4px 0 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-alt);
+}
+.suggest-row strong {
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+.suggest-row button {
+  margin-left: auto;
+}
