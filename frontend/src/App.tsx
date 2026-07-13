@@ -13,6 +13,7 @@ import { HolidaysScreen } from './screens/HolidaysScreen'
 import { TenantMailTemplatesScreen } from './screens/TenantMailTemplatesScreen'
 import { LeaveScreen } from './screens/LeaveScreen'
 import { AdminLeaveScreen } from './screens/AdminLeaveScreen'
+import { AuditLogScreen } from './screens/AuditLogScreen'
 import type { Lang, ScreenCode } from './api/types'
 
 const LANGS: Lang[] = ['KOR', 'ENG', 'JPN']
@@ -52,6 +53,8 @@ function ScreenBody({ screen }: { screen: ScreenCode }) {
       return <LeaveScreen />
     case 'W016':
       return <AdminLeaveScreen />
+    case 'W017':
+      return <AuditLogScreen />
     case 'W000':
     default:
       return <LandingScreen />
@@ -139,6 +142,9 @@ export default function App() {
               </button>
               <button aria-current={current('W012')} onClick={() => void navigate('W012')}>
                 {t('MAIL_TEMPLATES')}
+              </button>
+              <button aria-current={current('W017')} onClick={() => void navigate('W017')}>
+                {t('AUDIT_LOG')}
               </button>
               <button aria-current={current('W004')} onClick={() => void navigate('W004')}>
                 {t('ADMIN')}

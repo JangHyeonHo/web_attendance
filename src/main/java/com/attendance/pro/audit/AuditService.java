@@ -1,8 +1,12 @@
 package com.attendance.pro.audit;
 
+import java.util.List;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+
+import com.attendance.pro.audit.AuditDtos.AuditLogResponse;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -37,6 +41,28 @@ public class AuditService {
             //감사는 부가 기능 — 실패해도 본 요청 흐름을 막지 않는다
             log.warn("audit record failed: event={} tenant={} user={}", event, tenantId, userId, e);
         }
+    }
+
+    /**
+     * 전역 최근 감사 로그(SYSTEM_ADMIN). category 필터(AUTH/ERROR)는 유효값만 적용(그 외/공백은 전체).
+     * limit은 1~500으로 클램프.
+     */
+    public List<AuditLogResponse> recentView(String category, int limit) {
+        String cat = normalizeCategory(category);
+        int capped = Math.max(1, Math.min(limit, 500));
+        return mapper.findRecentView(cat, capped).stream().map(AuditLogResponse::of).toList();
+    }
+
+    private static String normalizeCategory(String category) {
+        if (category == null || category.isBlank()) {
+            return null;
+        }
+        for (AuditCategory c : AuditCategory.values()) {
+            if (c.name().equalsIgnoreCase(category.trim())) {
+                return c.name();
+            }
+        }
+        return null; //알 수 없는 값은 전체로 취급
     }
 
     private static String trunc(String s, int max) {

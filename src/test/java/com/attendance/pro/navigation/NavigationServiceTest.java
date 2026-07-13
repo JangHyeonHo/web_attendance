@@ -187,6 +187,17 @@ class NavigationServiceTest {
     }
 
     @Test
+    @DisplayName("W017(감사 로그): SYSTEM_ADMIN만 — 그 외는 홈 + ROLE_DENIED")
+    void auditScreenRoleGate() {
+        NavigationService service = service();
+        assertThat(service.decide("W017", SYSTEM_ADMIN, false)).isEqualTo(new Decision(Screen.AUDIT, null, false));
+        assertThat(service.decide("W017", TENANT_ADMIN, false))
+                .isEqualTo(new Decision(Screen.ATTENDANCE, NavigationReason.ROLE_DENIED, false));
+        assertThat(service.decide("W017", MEMBER, false))
+                .isEqualTo(new Decision(Screen.ATTENDANCE, NavigationReason.ROLE_DENIED, false));
+    }
+
+    @Test
     @DisplayName("W013(공휴일): TENANT_ADMIN만 — MEMBER/SYSTEM_ADMIN은 홈 + ROLE_DENIED")
     void holidaysScreenRoleGate() {
         NavigationService service = service();

@@ -21,6 +21,7 @@ export type ScreenCode =
   | 'W014' // 회사 메일 템플릿 (TENANT_ADMIN — 오버라이드, 기본은 전역)
   | 'W015' // 휴가 (멤버 — 잔여·신청)
   | 'W016' // 휴가 관리 (인사관리자+총관리자 — 결재·부여·종류)
+  | 'W017' // 감사 로그 조회 (SYSTEM_ADMIN)
   | 'W999' // 공통(헤더)
 
 export type Lang = 'KOR' | 'ENG' | 'JPN'
@@ -655,6 +656,23 @@ export interface MemberLeaveDetail {
   suggestedAnnualMinutes: number | null
   balances: LeaveBalance[]
   requests: LeaveRequestItem[]
+}
+
+// ---- 감사 로그 (SYSTEM_ADMIN) ----
+
+export interface AuditLogEntry {
+  auditId: number
+  category: string
+  event: string
+  tenantId: number | null
+  tenantName: string | null
+  userId: number | null
+  actor: string | null
+  ip: string | null
+  userAgent: string | null
+  requestPath: string | null
+  detail: string | null
+  createdAt: string
 }
 
 // ---- error ----

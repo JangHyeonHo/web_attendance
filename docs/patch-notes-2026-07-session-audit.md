@@ -19,7 +19,12 @@ Phase 6 이후 후속. 로그인 세션을 모바일 편의에 맞게 늘리고,
   - **AUTH**: `LOGIN_SUCCESS`(AuthController) / `LOGIN_FAIL`(존재 비노출 원칙상 user_id 없음 — 시도 이메일·테넌트·사유코드) / `LOGOUT` / `SESSION_REVOKED`(재검증 회수 사유: HOST_TENANT_MISMATCH·USER_INACTIVE·TENANT_SUSPENDED·PASSWORD_CHANGED).
   - **ERROR**: `APP_ERROR`(GlobalExceptionHandler의 처리되지 않은 예외/500 — 예외 클래스·메시지·경로, 세션 있으면 행위자 식별).
 - 기존 로그인 실패는 `LoginRateLimiter` 인메모리라 재시작 시 소실 → 감사용 **영속 기록**을 별도로 남김.
-- 조회 API/화면은 이번 범위 밖(매퍼 `findRecentByTenant`는 준비) — 필요 시 SYSTEM_ADMIN/총관리자 감사 화면을 후속으로.
+
+## D58. 감사 로그 조회 화면(W017, SYSTEM_ADMIN)
+
+- `GET /api/v1/admin/audit?category=&limit=` — 운영사(SYSTEM_ADMIN) 전용(`/admin/**` 화이트리스트 편승). 전역(모든 테넌트 + tenant/user가 NULL인 비인증 이벤트) 최신순, `category`(AUTH/ERROR) 선택 필터, limit 1~500 클램프.
+- 테넌트명·행위자명을 LEFT JOIN(널 이벤트 보존)해 사람이 읽을 수 있게 표시. 화면 **W017**: 시각·분류(뱃지)·이벤트·테넌트·행위자·IP·경로·상세 + 인증/에러 필터 + 새로고침. SA 헤더에 "감사 로그" 메뉴 추가.
+- (테넌트 관리자용 자사 감사 화면은 매퍼 `findRecentByTenant`로 후속 확장 가능.)
 
 ## 검증
 
