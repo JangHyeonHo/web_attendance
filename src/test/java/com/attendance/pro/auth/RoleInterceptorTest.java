@@ -63,6 +63,17 @@ class RoleInterceptorTest {
             "/api/v1/tenant/mail-templates,     TENANT_ADMIN, allow",
             "/api/v1/tenant/mail-templates,     HR_ADMIN,     deny",
             "/api/v1/tenant/mail-templates/INVITE/KOR, HR_ADMIN, deny",
+            //휴가(관리자) — 인사관리자+총관리자(직권 분산 밖 — 인사 업무), SYSTEM_ADMIN 배제
+            "/api/v1/tenant/leave/requests/pending, HR_ADMIN,     allow",
+            "/api/v1/tenant/leave/requests/pending, TENANT_ADMIN, allow",
+            "/api/v1/tenant/leave/requests/pending, MEMBER,       deny",
+            "/api/v1/tenant/leave/types,        HR_ADMIN,     allow",
+            "/api/v1/tenant/leave/members/5/recompute, HR_ADMIN, allow",
+            //휴가(멤버) — 회사 구성원 전원, SYSTEM_ADMIN 배제
+            "/api/v1/attendance/leave/balances, MEMBER,       allow",
+            "/api/v1/attendance/leave/balances, HR_ADMIN,     allow",
+            "/api/v1/attendance/leave/requests, TENANT_ADMIN, allow",
+            "/api/v1/attendance/leave/balances, SYSTEM_ADMIN, deny",
             //attendance/** — 회사 구성원 전원(SYSTEM_ADMIN 명시 배제 — ISO-11/ROLE-03~05)
             "/api/v1/attendance/status,         MEMBER,       allow",
             "/api/v1/attendance/status,         HR_ADMIN,     allow",

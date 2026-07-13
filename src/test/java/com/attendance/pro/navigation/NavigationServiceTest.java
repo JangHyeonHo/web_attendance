@@ -207,6 +207,21 @@ class NavigationServiceTest {
         assertThat(service.decide("W006", HR_ADMIN, false)).isEqualTo(new Decision(Screen.ATT_DETAILS, null, false));
         assertThat(service.decide("W009", HR_ADMIN, false)).isEqualTo(new Decision(Screen.MEMBERS, null, false));
         assertThat(service.decide("W013", HR_ADMIN, false)).isEqualTo(new Decision(Screen.HOLIDAYS, null, false));
+        assertThat(service.decide("W015", HR_ADMIN, false)).isEqualTo(new Decision(Screen.LEAVE, null, false));
+        assertThat(service.decide("W016", HR_ADMIN, false))
+                .isEqualTo(new Decision(Screen.LEAVE_ADMIN, null, false));
+    }
+
+    @Test
+    @DisplayName("휴가 화면: 멤버는 W015(휴가) 허용·W016(휴가 관리)은 홈+ROLE_DENIED")
+    void leaveScreensAccess() {
+        NavigationService service = service();
+        assertThat(service.decide("W015", MEMBER, false)).isEqualTo(new Decision(Screen.LEAVE, null, false));
+        assertThat(service.decide("W015", TENANT_ADMIN, false)).isEqualTo(new Decision(Screen.LEAVE, null, false));
+        assertThat(service.decide("W016", MEMBER, false))
+                .isEqualTo(new Decision(Screen.ATTENDANCE, NavigationReason.ROLE_DENIED, false));
+        assertThat(service.decide("W016", TENANT_ADMIN, false))
+                .isEqualTo(new Decision(Screen.LEAVE_ADMIN, null, false));
     }
 
     @Test

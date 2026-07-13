@@ -53,7 +53,7 @@ class MemberServiceTest {
 
     private static User user(long userId, Role role, UserStatus status) {
         return new User(userId, TENANT_ID, "user" + userId + "@acme.co.kr", "hash", null,
-                "유저" + userId, null, LocalTime.of(9, 0), LocalTime.of(18, 0), "1111100",
+                "유저" + userId, null, LocalTime.of(9, 0), LocalTime.of(18, 0), "1111100", null,
                 role, status, false, LocalDateTime.now(), LocalDateTime.now());
     }
 
