@@ -26,9 +26,9 @@ public final class BillingDtos {
             int freeSeats,
             int billedSeats,
             int unitPrice,
-            int subtotal,
-            int vat,
-            int total,
+            long subtotal,
+            long vat,
+            long total,
             InvoiceStatus status,
             LocalDateTime issuedAt) {
 

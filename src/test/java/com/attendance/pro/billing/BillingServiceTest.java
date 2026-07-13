@@ -174,6 +174,21 @@ class BillingServiceTest {
     }
 
     @Test
+    @DisplayName("BILL-10: 공급가가 int 범위(약 21.4억)를 넘어도 long으로 정확히 계산")
+    void largeAmountDoesNotOverflow() {
+        //단가 1천만 × 1000명 = 100억 > Integer.MAX_VALUE(약 21.4억) — int였다면 음수로 오버플로
+        when(tenantBillingMapper.findById(TENANT)).thenReturn(config(10_000_000, 0));
+        when(invoiceMapper.find(TENANT, YM)).thenReturn(null);
+        when(seatUsageMapper.findMaxSeats(TENANT, YM)).thenReturn(1000);
+
+        InvoiceResponse r = service().getInvoice(TENANT, YM);
+
+        assertThat(r.subtotal()).isEqualTo(10_000_000_000L);
+        assertThat(r.vat()).isEqualTo(1_000_000_000L);
+        assertThat(r.total()).isEqualTo(11_000_000_000L);
+    }
+
+    @Test
     @DisplayName("BILL-09: 청구월 형식이 틀리면 400")
     void invalidYmRejected() {
         assertThatThrownBy(() -> service().getInvoice(TENANT, "2026/07"))

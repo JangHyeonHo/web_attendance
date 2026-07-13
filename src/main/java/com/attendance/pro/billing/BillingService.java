@@ -126,8 +126,9 @@ public class BillingService {
         Integer stored = seatUsageMapper.findMaxSeats(tenantId, ym);
         int maxSeats = stored == null ? 0 : stored;
         int billedSeats = Math.max(0, maxSeats - freeSeats);
-        int subtotal = billedSeats * unitPrice;
-        int vat = (int) Math.round(subtotal / 10.0);
+        //단가 상한(1천만)×좌석이면 int를 넘기므로 long으로 계산·저장(오버플로 방지)
+        long subtotal = (long) billedSeats * unitPrice;
+        long vat = Math.round(subtotal / 10.0);
         return new Line(maxSeats, freeSeats, billedSeats, unitPrice, subtotal, vat, subtotal + vat);
     }
 
@@ -144,6 +145,6 @@ public class BillingService {
     }
 
     private record Line(int maxSeats, int freeSeats, int billedSeats,
-            int unitPrice, int subtotal, int vat, int total) {
+            int unitPrice, long subtotal, long vat, long total) {
     }
 }

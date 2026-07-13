@@ -25,7 +25,7 @@ public interface InvoiceMapper {
     int insert(@Param("tenantId") long tenantId, @Param("ym") String ym,
             @Param("maxSeats") int maxSeats, @Param("freeSeats") int freeSeats,
             @Param("billedSeats") int billedSeats, @Param("unitPrice") int unitPrice,
-            @Param("subtotal") int subtotal, @Param("vat") int vat, @Param("total") int total);
+            @Param("subtotal") long subtotal, @Param("vat") long vat, @Param("total") long total);
 
     @Select("""
             SELECT tenant_id, ym, max_seats, free_seats, billed_seats,
