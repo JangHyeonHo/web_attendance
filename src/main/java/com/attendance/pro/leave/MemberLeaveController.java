@@ -37,25 +37,25 @@ public class MemberLeaveController {
         this.leaveService = leaveService;
     }
 
-    @Operation(summary = "신청 가능한 휴가 종류(활성)")
+    @Operation(summary = "api.leave.types")
     @GetMapping("/types")
     public List<LeaveTypeResponse> types(@LoginUser SessionUser user) {
         return leaveService.listActiveTypes(user.tenantId());
     }
 
-    @Operation(summary = "본인 잔여 휴가(종류별)")
+    @Operation(summary = "api.leave.balances")
     @GetMapping("/balances")
     public List<LeaveBalanceResponse> balances(@LoginUser SessionUser user) {
         return leaveService.balances(user.tenantId(), user.userId());
     }
 
-    @Operation(summary = "본인 휴가 신청 내역")
+    @Operation(summary = "api.leave.requests")
     @GetMapping("/requests")
     public List<LeaveRequestResponse> myRequests(@LoginUser SessionUser user) {
         return leaveService.myRequests(user.tenantId(), user.userId());
     }
 
-    @Operation(summary = "휴가 신청")
+    @Operation(summary = "api.leave.apply")
     @PostMapping("/requests")
     @ResponseStatus(HttpStatus.CREATED)
     public LeaveRequestResponse apply(@LoginUser SessionUser user,
@@ -63,7 +63,7 @@ public class MemberLeaveController {
         return leaveService.apply(user.tenantId(), user.userId(), request);
     }
 
-    @Operation(summary = "본인 휴가 신청 취소")
+    @Operation(summary = "api.leave.cancel")
     @PostMapping("/requests/{requestId}/cancel")
     public void cancel(@LoginUser SessionUser user, @PathVariable("requestId") long requestId) {
         leaveService.cancel(user.tenantId(), user.userId(), requestId);

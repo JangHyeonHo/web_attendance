@@ -30,6 +30,8 @@ class LeaveAccrualPolicyTest {
             "2024-01-01, 2027-01-01, 16",  //ACC-KR-08: 3년차 +1 = 16
             "2020-01-01, 2027-01-01, 18",  //ACC-KR-09: 7년 15+(7-1)/2=18
             "1990-01-01, 2027-01-01, 25",  //ACC-KR-10: 장기근속 상한 25
+            "2026-01-31, 2026-02-28, 1",   //ACC-KR-11: 월말 입사 보정 — 2/28에 1개월 완성(1일)
+            "2026-01-31, 2026-02-27, 0",   //ACC-KR-12: 2/27은 아직 1개월 미완성(0일)
     })
     void koreaAccrual(String hire, String asOf, int expected) {
         assertThat(LeaveAccrualPolicy.KR.entitledDays(LocalDate.parse(hire), LocalDate.parse(asOf)))

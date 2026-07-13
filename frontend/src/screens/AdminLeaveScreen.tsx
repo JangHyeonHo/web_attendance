@@ -5,6 +5,7 @@ import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { Modal } from '../components/Modal'
 import { SelectField } from '../components/fields'
+import { formatLeaveAmount } from '../util/leaveFormat'
 import type {
   LeaveRequestItem,
   LeaveType,
@@ -15,18 +16,11 @@ import type {
 
 type Tab = 'approvals' | 'members' | 'types'
 
-function amountText(
-  minutes: number,
-  unit: LeaveUnit,
-  dayMinutes: number,
-  dayLabel: string,
-  hourLabel: string,
-): string {
-  if (unit === 'HOUR' || dayMinutes <= 0) {
-    const h = minutes / 60
-    return `${Number.isInteger(h) ? h : h.toFixed(1)}${hourLabel}`
-  }
-  return `${Math.round((minutes / dayMinutes) * 2) / 2}${dayLabel}`
+/** t()로 단위 라벨을 채운 수량 포매터를 만든다(각 탭 컴포넌트에서 사용). */
+function useAmountFormatter(t: (key: string) => string) {
+  const labels = { day: t('UNIT_DAY'), hour: t('UNIT_HOUR'), min: t('UNIT_MIN') }
+  return (minutes: number, unit: LeaveUnit, dayMinutes: number) =>
+    formatLeaveAmount(minutes, unit, dayMinutes, labels)
 }
 
 function dateOf(iso: string) {
@@ -69,6 +63,7 @@ export function AdminLeaveScreen() {
 
 function ApprovalsTab() {
   const { t } = useApp()
+  const amt = useAmountFormatter(t)
   const [pending, setPending] = useState<LeaveRequestItem[]>([])
   const [error, setError] = useState<string | null>(null)
   const [rejectTarget, setRejectTarget] = useState<LeaveRequestItem | null>(null)
@@ -128,7 +123,7 @@ function ApprovalsTab() {
                       ? `${dateOf(r.startAt)}${r.halfDay ? ` (${t('HALF_DAY')})` : ''}`
                       : `${dateOf(r.startAt)} ${r.startAt.slice(11, 16)}~${r.endAt.slice(11, 16)}`}
                   </td>
-                  <td className="num">{amountText(r.minutes, r.unit, 480, t('UNIT_DAY'), t('UNIT_HOUR'))}</td>
+                  <td className="num">{amt(r.minutes, r.unit, 480)}</td>
                   <td className="wrap">{r.reason ?? ''}</td>
                   <td>
                     <div className="row-actions">
@@ -174,6 +169,7 @@ function ApprovalsTab() {
 
 function MembersTab() {
   const { t } = useApp()
+  const amt = useAmountFormatter(t)
   const [members, setMembers] = useState<MemberLeaveSummary[]>([])
   const [error, setError] = useState<string | null>(null)
   const [detail, setDetail] = useState<MemberLeaveDetail | null>(null)
@@ -243,12 +239,12 @@ function MembersTab() {
                   <td>{m.hireDate ?? '—'}</td>
                   <td className="num muted">
                     {m.suggestedAnnualMinutes != null
-                      ? amountText(m.suggestedAnnualMinutes, 'DAY', m.standardDayMinutes, t('UNIT_DAY'), t('UNIT_HOUR'))
+                      ? amt(m.suggestedAnnualMinutes, 'DAY', m.standardDayMinutes)
                       : '—'}
                   </td>
                   <td className="num">
                     {m.annualRemainingMinutes != null
-                      ? amountText(m.annualRemainingMinutes, 'DAY', m.standardDayMinutes, t('UNIT_DAY'), t('UNIT_HOUR'))
+                      ? amt(m.annualRemainingMinutes, 'DAY', m.standardDayMinutes)
                       : '—'}
                   </td>
                   <td>
@@ -285,6 +281,7 @@ function MemberDetailModal({
   onChanged: () => Promise<void>
 }) {
   const { t } = useApp()
+  const amt = useAmountFormatter(t)
   const [hireDate, setHireDate] = useState(detail.hireDate ?? '')
   const [grantTypeId, setGrantTypeId] = useState(detail.balances[0]?.leaveTypeId ?? 0)
   const [grantDays, setGrantDays] = useState('1')
@@ -328,7 +325,7 @@ function MemberDetailModal({
         <span className="muted">{t('SUGGESTED')}</span>
         <strong>
           {detail.suggestedAnnualMinutes != null
-            ? amountText(detail.suggestedAnnualMinutes, 'DAY', detail.standardDayMinutes, t('UNIT_DAY'), t('UNIT_HOUR'))
+            ? amt(detail.suggestedAnnualMinutes, 'DAY', detail.standardDayMinutes)
             : '—'}
         </strong>
         <button
@@ -354,9 +351,9 @@ function MemberDetailModal({
           {detail.balances.map((b) => (
             <tr key={b.leaveTypeId}>
               <td>{b.name}</td>
-              <td className="num">{amountText(b.grantedMinutes, b.unit, b.standardDayMinutes, t('UNIT_DAY'), t('UNIT_HOUR'))}</td>
-              <td className="num">{amountText(b.usedMinutes, b.unit, b.standardDayMinutes, t('UNIT_DAY'), t('UNIT_HOUR'))}</td>
-              <td className="num">{amountText(b.remainingMinutes, b.unit, b.standardDayMinutes, t('UNIT_DAY'), t('UNIT_HOUR'))}</td>
+              <td className="num">{amt(b.grantedMinutes, b.unit, b.standardDayMinutes)}</td>
+              <td className="num">{amt(b.usedMinutes, b.unit, b.standardDayMinutes)}</td>
+              <td className="num">{amt(b.remainingMinutes, b.unit, b.standardDayMinutes)}</td>
             </tr>
           ))}
         </tbody>

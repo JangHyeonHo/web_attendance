@@ -43,20 +43,20 @@ public class TenantLeaveController {
 
     // ---- 종류 ----
 
-    @Operation(summary = "휴가 종류 목록(전체)")
+    @Operation(summary = "api.leave.admin.types")
     @GetMapping("/types")
     public List<LeaveTypeResponse> types(@LoginUser SessionUser user) {
         return leaveService.listTypes(user.tenantId());
     }
 
-    @Operation(summary = "휴가 종류 추가")
+    @Operation(summary = "api.leave.admin.create-type")
     @PostMapping("/types")
     public LeaveTypeResponse createType(@LoginUser SessionUser user,
             @Valid @RequestBody LeaveTypeCreateRequest request) {
         return leaveService.createType(user.tenantId(), request);
     }
 
-    @Operation(summary = "휴가 종류 수정")
+    @Operation(summary = "api.leave.admin.update-type")
     @PutMapping("/types/{leaveTypeId}")
     public LeaveTypeResponse updateType(@LoginUser SessionUser user,
             @PathVariable("leaveTypeId") long leaveTypeId,
@@ -66,13 +66,13 @@ public class TenantLeaveController {
 
     // ---- 결재 ----
 
-    @Operation(summary = "승인 대기 신청 목록")
+    @Operation(summary = "api.leave.admin.pending")
     @GetMapping("/requests/pending")
     public List<LeaveRequestResponse> pending(@LoginUser SessionUser user) {
         return leaveService.pendingRequests(user.tenantId());
     }
 
-    @Operation(summary = "휴가 신청 결재(승인/반려)")
+    @Operation(summary = "api.leave.admin.decide")
     @PostMapping("/requests/{requestId}/decision")
     public void decide(@LoginUser SessionUser user, @PathVariable("requestId") long requestId,
             @Valid @RequestBody LeaveDecisionRequest request) {
@@ -82,19 +82,19 @@ public class TenantLeaveController {
 
     // ---- 부여/재계산 ----
 
-    @Operation(summary = "수동 부여/조정")
+    @Operation(summary = "api.leave.admin.grant")
     @PostMapping("/grants")
     public void grant(@LoginUser SessionUser user, @Valid @RequestBody LeaveGrantRequest request) {
         leaveService.grantManual(user.tenantId(), user.userId(), request);
     }
 
-    @Operation(summary = "연차 자동 재계산(멤버)")
+    @Operation(summary = "api.leave.admin.recompute")
     @PostMapping("/members/{userId}/recompute")
     public void recompute(@LoginUser SessionUser user, @PathVariable("userId") long userId) {
         leaveService.recomputeAnnual(user.tenantId(), user.userId(), userId);
     }
 
-    @Operation(summary = "연차 자동 재계산(전체)")
+    @Operation(summary = "api.leave.admin.recompute-all")
     @PostMapping("/recompute")
     public Map<String, Integer> recomputeAll(@LoginUser SessionUser user) {
         return Map.of("count", leaveService.recomputeAnnualAll(user.tenantId(), user.userId()));
@@ -102,20 +102,20 @@ public class TenantLeaveController {
 
     // ---- 멤버 잔여 ----
 
-    @Operation(summary = "멤버 잔여 개요")
+    @Operation(summary = "api.leave.admin.members")
     @GetMapping("/members")
     public List<MemberLeaveSummary> members(@LoginUser SessionUser user) {
         return leaveService.memberOverview(user.tenantId());
     }
 
-    @Operation(summary = "멤버 휴가 상세(잔여·내역)")
+    @Operation(summary = "api.leave.admin.member-detail")
     @GetMapping("/members/{userId}")
     public MemberLeaveDetail memberDetail(@LoginUser SessionUser user,
             @PathVariable("userId") long userId) {
         return leaveService.memberDetail(user.tenantId(), userId);
     }
 
-    @Operation(summary = "멤버 입사일 수정(연차 기산)")
+    @Operation(summary = "api.leave.admin.hire-date")
     @PutMapping("/members/{userId}/hire-date")
     public void updateHireDate(@LoginUser SessionUser user, @PathVariable("userId") long userId,
             @Valid @RequestBody HireDateRequest request) {

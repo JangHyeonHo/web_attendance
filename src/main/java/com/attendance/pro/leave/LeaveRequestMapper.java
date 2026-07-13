@@ -47,6 +47,21 @@ public interface LeaveRequestMapper {
     int sumApprovedMinutes(@Param("tenantId") long tenantId, @Param("userId") long userId,
             @Param("leaveTypeId") long leaveTypeId);
 
+    /**
+     * 기간 겹침 검사 — 같은 유저의 PENDING/APPROVED 신청과 [startAt, endAt)이 겹치면 true.
+     * 종류 무관(같은 시각에 두 휴가 동시 불가). 반열림 구간 비교(end ≤ 상대start면 안 겹침).
+     */
+    @Select("""
+            SELECT EXISTS(
+                SELECT 1 FROM leave_request
+                WHERE tenant_id = #{tenantId} AND user_id = #{userId}
+                  AND status IN ('PENDING', 'APPROVED')
+                  AND start_at < #{endAt} AND end_at > #{startAt}
+            )
+            """)
+    boolean existsOverlap(@Param("tenantId") long tenantId, @Param("userId") long userId,
+            @Param("startAt") LocalDateTime startAt, @Param("endAt") LocalDateTime endAt);
+
     String VIEW_FROM = " FROM leave_request r"
             + " JOIN users u ON u.user_id = r.user_id"
             + " JOIN leave_type t ON t.leave_type_id = r.leave_type_id";
@@ -78,16 +93,16 @@ public interface LeaveRequestMapper {
             @Param("decisionNote") String decisionNote);
 
     /**
-     * 본인 취소 — 아직 시작하지 않은 PENDING/APPROVED만. 승인 취소는 잔여가 자동 복원된다
-     * (잔여 = grant − APPROVED, CANCELED로 전이되면 합산에서 빠짐).
+     * 본인 취소 — <b>PENDING만</b>(시간 제약 없이 항상, 당일 신청 실수도 복구 가능).
+     * 승인(APPROVED) 건은 본인이 취소할 수 없고 관리자 처리 대상이다(정책 결정).
      */
     @Update("""
             UPDATE leave_request SET status = 'CANCELED'
             WHERE tenant_id = #{tenantId} AND user_id = #{userId} AND leave_request_id = #{requestId}
-              AND status IN ('PENDING', 'APPROVED') AND start_at > #{now}
+              AND status = 'PENDING'
             """)
     int cancelByUser(@Param("tenantId") long tenantId, @Param("userId") long userId,
-            @Param("requestId") long requestId, @Param("now") LocalDateTime now);
+            @Param("requestId") long requestId);
 
     /** 신청 등록 파라미터(자동 생성 키 반환). */
     class InsertParam {

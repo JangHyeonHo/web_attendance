@@ -5,29 +5,14 @@ import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { Modal } from '../components/Modal'
 import { SelectField, TimeField } from '../components/fields'
-import type { LeaveBalance, LeaveRequestItem, LeaveStatus, LeaveType } from '../api/types'
+import { formatLeaveAmount } from '../util/leaveFormat'
+import type { LeaveBalance, LeaveRequestItem, LeaveStatus, LeaveType, LeaveUnit } from '../api/types'
 
 const STATUS_KEYS: Record<LeaveStatus, string> = {
   PENDING: 'STATUS_PENDING',
   APPROVED: 'STATUS_APPROVED',
   REJECTED: 'STATUS_REJECTED',
   CANCELED: 'STATUS_CANCELED',
-}
-
-/** 분 → 표시 문자열. DAY 종류는 일(0.5 단위), HOUR 종류는 시간. 단위 라벨은 i18n로 주입. */
-function formatAmount(
-  minutes: number,
-  unit: 'DAY' | 'HOUR',
-  dayMinutes: number,
-  dayLabel: string,
-  hourLabel: string,
-): string {
-  if (unit === 'HOUR' || dayMinutes <= 0) {
-    const h = minutes / 60
-    return `${Number.isInteger(h) ? h : h.toFixed(1)}${hourLabel}`
-  }
-  const rounded = Math.round((minutes / dayMinutes) * 2) / 2
-  return `${rounded}${dayLabel}`
 }
 
 function dateOf(iso: string): string {
@@ -88,10 +73,8 @@ export function LeaveScreen() {
   }, [balances])
 
   const stdDay = balances[0]?.standardDayMinutes ?? 480
-  const dayLabel = t('UNIT_DAY')
-  const hourLabel = t('UNIT_HOUR')
-  const amt = (m: number, unit: 'DAY' | 'HOUR', dm: number) =>
-    formatAmount(m, unit, dm, dayLabel, hourLabel)
+  const labels = { day: t('UNIT_DAY'), hour: t('UNIT_HOUR'), min: t('UNIT_MIN') }
+  const amt = (m: number, unit: LeaveUnit, dm: number) => formatLeaveAmount(m, unit, dm, labels)
 
   async function runCancel(id: number) {
     setCancelTarget(null)
@@ -184,7 +167,8 @@ export function LeaveScreen() {
             </thead>
             <tbody>
               {requests.map((r) => {
-                const cancelable = r.status === 'PENDING' || r.status === 'APPROVED'
+                //본인 취소는 대기(PENDING)만 — 승인건은 관리자 처리(백엔드 정책과 일치)
+                const cancelable = r.status === 'PENDING'
                 return (
                   <tr key={r.leaveRequestId}>
                     <td>{r.typeName}</td>

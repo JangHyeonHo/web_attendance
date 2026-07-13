@@ -23,6 +23,16 @@ public interface LeaveGrantMapper {
     List<LeaveGrant> findByUser(@Param("tenantId") long tenantId, @Param("userId") long userId);
 
     /**
+     * (tenant,user,type) 부여 행을 FOR UPDATE로 잠근다 — 신청/승인 잔여 검사~기록을 직렬화해
+     * 동시 결재로 인한 초과 부여를 막는다(마지막 관리자 보호의 FOR UPDATE와 같은 규율).
+     * 부여 행이 없으면 잠글 행도 없지만, 그 경우 가용=0이라 초과 예약 자체가 불가능하다.
+     */
+    @Select("SELECT leave_grant_id FROM leave_grant WHERE tenant_id = #{tenantId} "
+            + "AND user_id = #{userId} AND leave_type_id = #{leaveTypeId} FOR UPDATE")
+    List<Long> lockByUserType(@Param("tenantId") long tenantId, @Param("userId") long userId,
+            @Param("leaveTypeId") long leaveTypeId);
+
+    /**
      * 기준일에 유효한 부여 합계(분) — effective_from ≤ asOf, (expires_on NULL 또는 ≥ asOf).
      * 결과 NULL(행 없음)은 서비스에서 0으로 처리.
      */

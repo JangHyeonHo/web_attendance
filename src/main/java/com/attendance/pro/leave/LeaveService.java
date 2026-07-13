@@ -103,8 +103,11 @@ public class LeaveService {
     @Transactional
     public LeaveTypeResponse updateType(long tenantId, long leaveTypeId, LeaveTypeUpdateRequest req) {
         LeaveType existing = requireType(tenantId, leaveTypeId);
+        //연차(내장)는 자동계산·잔여 조회의 기준이므로 단위(DAY)·활성 상태를 잠근다(모순 상태 방지)
+        LeaveUnit unit = existing.isAnnual() ? existing.unit() : req.unit();
+        boolean active = existing.isAnnual() ? true : req.active();
         typeMapper.update(tenantId, existing.leaveTypeId(), req.name().trim(), req.paid(),
-                req.unit(), req.requiresApproval(), req.active(), req.sortOrder());
+                unit, req.requiresApproval(), active, req.sortOrder());
         return LeaveTypeResponse.of(typeMapper.findById(tenantId, leaveTypeId));
     }
 
@@ -123,7 +126,8 @@ public class LeaveService {
             List<LeaveRequestView> requests) {
         LocalDate today = LocalDate.now(clock);
         List<LeaveBalanceResponse> out = new ArrayList<>();
-        for (LeaveType type : typeMapper.findActiveByTenant(tenantId)) {
+        //전체 종류를 순회하되 비활성은 부여·사용·대기가 있을 때만 노출(소진 이력 은폐 방지)
+        for (LeaveType type : typeMapper.findByTenant(tenantId)) {
             int granted = grantMapper.sumEffectiveMinutes(tenantId, userId, type.leaveTypeId(), today);
             int used = 0;
             int pending = 0;
@@ -136,6 +140,9 @@ public class LeaveService {
                 } else if (r.status() == LeaveStatus.PENDING) {
                     pending += r.minutes();
                 }
+            }
+            if (!type.active() && granted == 0 && used == 0 && pending == 0) {
+                continue;
             }
             int remaining = granted - used;
             out.add(new LeaveBalanceResponse(type.leaveTypeId(), type.code(), type.name(),
@@ -155,6 +162,9 @@ public class LeaveService {
         }
         ProfileCountry country = countryOf(tenantId);
         int dayMinutes = standardDayMinutes(user, country);
+
+        //잔여 검사~기록 직렬화(동시 신청 초과 예약 방지)
+        grantMapper.lockByUserType(tenantId, userId, type.leaveTypeId());
 
         LocalDateTime startAt;
         LocalDateTime endAt;
@@ -193,6 +203,11 @@ public class LeaveService {
             endAt = e;
         }
 
+        //기간 겹침 금지(같은 시각에 두 휴가 불가 — 이중 차감 방지)
+        if (requestMapper.existsOverlap(tenantId, userId, startAt, endAt)) {
+            throw ApiException.badRequest("LEAVE_OVERLAP", "leave.request.overlap");
+        }
+
         //가용 = 유효 부여 − 승인 − 대기(초과 예약 방지)
         int available = availableMinutes(tenantId, userId, type.leaveTypeId());
         if (minutes > available) {
@@ -218,9 +233,9 @@ public class LeaveService {
 
     @Transactional
     public void cancel(long tenantId, long userId, long requestId) {
-        int updated = requestMapper.cancelByUser(tenantId, userId, requestId, LocalDateTime.now(clock));
+        int updated = requestMapper.cancelByUser(tenantId, userId, requestId);
         if (updated == 0) {
-            //존재하지 않거나(타인/미존재) 이미 시작·처리되어 취소 불가
+            //존재하지 않거나(타인/미존재) 이미 결재되어(승인/반려) 본인 취소 불가
             LeaveRequest existing = requestMapper.findById(tenantId, requestId);
             if (existing == null || existing.userId() != userId) {
                 throw ApiException.notFound("LEAVE_REQUEST_NOT_FOUND", "leave.request.not-found");
@@ -246,6 +261,8 @@ public class LeaveService {
             throw ApiException.conflict("LEAVE_ALREADY_DECIDED", "leave.request.already-decided");
         }
         if (approve) {
+            //부여 행 잠금 후 잔여 재확인 — 동시 결재로 인한 초과 부여 방지(read-then-write 직렬화)
+            grantMapper.lockByUserType(tenantId, existing.userId(), existing.leaveTypeId());
             //승인 시점 잔여 재확인(부여 − 승인). 대기(본 건 포함)는 아직 승인 전이라 제외.
             int granted = grantMapper.sumEffectiveMinutes(tenantId, existing.userId(),
                     existing.leaveTypeId(), LocalDate.now(clock));

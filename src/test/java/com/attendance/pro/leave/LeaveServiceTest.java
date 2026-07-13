@@ -159,6 +159,22 @@ class LeaveServiceTest {
     }
 
     @Test
+    @DisplayName("APPLY-05: 기간이 기존 신청과 겹치면 400(이중 차감 방지)")
+    void applyOverlap() {
+        when(userMapper.findById(TENANT, USER))
+                .thenReturn(member(LocalTime.of(9, 0), LocalTime.of(18, 0), "1111100", null));
+        when(typeMapper.findById(TENANT, ANNUAL_ID)).thenReturn(annual());
+        stubCountry();
+        when(holidayMapper.findHolidaysBetween(anyLong(), any(), any())).thenReturn(List.of());
+        when(requestMapper.existsOverlap(eq(TENANT), eq(USER), any(), any())).thenReturn(true);
+        LeaveApplyRequest req = new LeaveApplyRequest(ANNUAL_ID, true,
+                LocalDate.of(2026, 7, 20), LocalDate.of(2026, 7, 20), false, null, null, null);
+        assertThatThrownBy(() -> service().apply(TENANT, USER, req))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("leave.request.overlap");
+    }
+
+    @Test
     @DisplayName("APPLY-04: 시간단위 종료<=시작 또는 날짜 다르면 400")
     void applyHourInvalid() {
         when(userMapper.findById(TENANT, USER))

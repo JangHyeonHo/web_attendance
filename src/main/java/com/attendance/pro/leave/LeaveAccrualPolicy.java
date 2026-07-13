@@ -1,7 +1,6 @@
 package com.attendance.pro.leave;
 
 import java.time.LocalDate;
-import java.time.temporal.ChronoUnit;
 
 import com.attendance.pro.tenant.ProfileCountry;
 
@@ -25,12 +24,12 @@ public enum LeaveAccrualPolicy {
             if (hireDate == null || asOf.isBefore(hireDate)) {
                 return 0;
             }
-            long years = ChronoUnit.YEARS.between(hireDate, asOf);
-            if (years < 1) {
+            long months = completedMonths(hireDate, asOf);
+            if (months < 12) {
                 //1년 미만: 완성 개월수만큼 1일씩(최대 11)
-                long months = ChronoUnit.MONTHS.between(hireDate, asOf);
-                return (int) Math.min(11, Math.max(0, months));
+                return (int) Math.min(11, months);
             }
+            long years = months / 12;
             long extra = Math.max(0, (years - 1) / 2); //3년차(years=3)부터 1일
             return (int) Math.min(25, 15 + extra);
         }
@@ -46,7 +45,7 @@ public enum LeaveAccrualPolicy {
             if (hireDate == null || asOf.isBefore(hireDate)) {
                 return 0;
             }
-            long months = ChronoUnit.MONTHS.between(hireDate, asOf);
+            long months = completedMonths(hireDate, asOf);
             if (months >= 78) {
                 return 20; //6.5년 이상
             }
@@ -74,6 +73,21 @@ public enum LeaveAccrualPolicy {
 
     /** 입사일·기준일로 그 시점 부여할 법정 연차 일수. */
     public abstract int entitledDays(LocalDate hireDate, LocalDate asOf);
+
+    /**
+     * 완성 근속 개월수 — 월말 입사 보정 포함. {@code ChronoUnit.MONTHS}는 입사 일자보다 기준 일자가
+     * 이르면 무조건 한 달을 빼서, 1/31 입사→2/28은 0개월로 과소 계산된다. 기념일 일자를 그 달의 말일로
+     * 클램프해(2월엔 28/29일) 월말 입사자의 개월수가 정상 증가하도록 한다.
+     */
+    static long completedMonths(LocalDate hire, LocalDate asOf) {
+        long months = (asOf.getYear() - hire.getYear()) * 12L
+                + (asOf.getMonthValue() - hire.getMonthValue());
+        int anchorDay = Math.min(hire.getDayOfMonth(), asOf.lengthOfMonth());
+        if (asOf.getDayOfMonth() < anchorDay) {
+            months--;
+        }
+        return Math.max(0, months);
+    }
 
     /** 소재국 → 정책(완전 매칭 — 국가 추가 시 컴파일 에러로 확장 지점 강제). */
     public static LeaveAccrualPolicy of(ProfileCountry country) {
