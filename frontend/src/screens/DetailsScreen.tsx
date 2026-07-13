@@ -40,6 +40,8 @@ function stampTypeKey(stamp: DailyStampEntry): string {
 interface EditingStamp {
   attendanceId: number
   type: AttendanceType
+  /** 휴식 스탬프의 종료 여부(수정 모달의 시작/종료 라벨용) */
+  breakEnd: boolean
 }
 
 /**
@@ -69,12 +71,15 @@ export function DetailsScreen() {
   const [manualOpen, setManualOpen] = useState(false)
   const [manualDate, setManualDate] = useState('')
   const [editing, setEditing] = useState<EditingStamp | null>(null)
-  //등록 모드: 출근/퇴근 행 토글(둘 다 잊은 날 한 번에)
+  //등록 모드: 출근/퇴근/휴식 행 토글(둘 다 잊은 날 한 번에)
   const [inOn, setInOn] = useState(true)
   const [inTime, setInTime] = useState('09:00')
   const [outOn, setOutOn] = useState(false)
   const [outTime, setOutTime] = useState('18:00')
-  //수정 모드: 구분(출근/퇴근)과 시각
+  const [breakOn, setBreakOn] = useState(false)
+  const [breakStartTime, setBreakStartTime] = useState('12:00')
+  const [breakEndTime, setBreakEndTime] = useState('13:00')
+  //수정 모드: 구분(출근/퇴근/휴식)과 시각
   const [editType, setEditType] = useState<AttendanceType>('GO_TO_WORK')
   const [editTime, setEditTime] = useState('09:00')
   const [reasonCode, setReasonCode] = useState<ManualReason>('FORGOT')
@@ -144,6 +149,9 @@ export function DetailsScreen() {
     setInTime('09:00')
     setOutOn(false)
     setOutTime('18:00')
+    setBreakOn(false)
+    setBreakStartTime('12:00')
+    setBreakEndTime('13:00')
     setReasonCode('FORGOT')
     setReasonText('')
     setManualError(null)
@@ -155,9 +163,9 @@ export function DetailsScreen() {
   /** 수정 모드로 열기(일자 상세의 MANUAL 행 [수정] — 시각·구분·사유가 채워진 채) */
   function openEdit(date: string, stamp: DailyStampEntry) {
     setManualDate(date)
-    setEditing({ attendanceId: stamp.attendanceId, type: stamp.type })
-    //조퇴는 UI에서 폐지 — 과거 조퇴 스탬프를 수정하면 퇴근으로 정리된다
-    setEditType(stamp.type === 'GO_TO_WORK' ? 'GO_TO_WORK' : 'OFF_WORK')
+    setEditing({ attendanceId: stamp.attendanceId, type: stamp.type, breakEnd: stamp.breakEnd })
+    //휴식은 BREAK 유지(시각만 정정). 조퇴는 UI 폐지 — 과거 조퇴 스탬프 수정 시 퇴근으로 정리
+    setEditType(stamp.type === 'GO_TO_WORK' ? 'GO_TO_WORK' : stamp.type === 'BREAK' ? 'BREAK' : 'OFF_WORK')
     setEditTime(stamp.stampedAt.slice(11, 16))
     setReasonCode((stamp.reasonCode as ManualReason) ?? 'FORGOT')
     setReasonText(stamp.reasonCode === 'OTHER' ? (stamp.reasonText ?? '') : '')
@@ -202,6 +210,17 @@ export function DetailsScreen() {
             date: manualDate,
             time: outTime,
             type: 'OFF_WORK',
+            reasonCode,
+            reasonText: reasonTextValue,
+          })
+          messages.push(response.message)
+        }
+        if (breakOn) {
+          //휴식은 시작·종료 쌍으로 등록(단일 스탬프 정합성 회피)
+          const response = await attendanceApi.manualBreak({
+            date: manualDate,
+            startTime: breakStartTime,
+            endTime: breakEndTime,
             reasonCode,
             reasonText: reasonTextValue,
           })
@@ -261,8 +280,7 @@ export function DetailsScreen() {
               <th rowSpan={2}>{t('DATES')}</th>
               <th colSpan={2}>{t('USERSCHE')}</th>
               <th colSpan={2}>{t('INPUTTIME')}</th>
-              <th rowSpan={2}>{t('BREAK_ACTUAL')}</th>
-              <th rowSpan={2}>{t('BREAK_STATUTORY')}</th>
+              <th rowSpan={2}>{t('BREAK_RECOGNIZED')}</th>
               <th rowSpan={2}>{t('TOTAL_WORK')}</th>
             </tr>
             <tr>
@@ -279,11 +297,11 @@ export function DetailsScreen() {
               const offDuty = day.holiday || day.dayOff
               //휴일·휴무여도 스탬프가 있으면 통상 열로 표시(휴일 근무 — manual-attendance §4)
               const hasStamps = day.stampIn !== null || day.stampOut !== null
-              //실휴식이 법정 휴게를 초과한 날은 강조 — "왜 총계가 줄었는지" 시인성(work-schedule §7-2)
+              //인정 휴게가 법정보다 큰 날 = 실휴식이 법정 초과 → 총계 감소 사유 강조(work-schedule §7-2)
               const breakOver =
-                day.breakMinutes !== null &&
+                day.recognizedBreakMinutes !== null &&
                 day.statutoryBreakMinutes !== null &&
-                day.breakMinutes > day.statutoryBreakMinutes
+                day.recognizedBreakMinutes > day.statutoryBreakMinutes
               const offDutyLabel = day.holidayName ?? (day.holiday ? t('HOLIDAY') : t('DAY_OFF'))
               return (
                 <tr key={day.date} className={offDuty ? 'holiday' : ''}>
@@ -299,7 +317,7 @@ export function DetailsScreen() {
                     {day.manual && <span className="mini-badge">{t('SOURCE_MANUAL')}</span>}
                   </td>
                   {offDuty && !hasStamps ? (
-                    <td colSpan={7} className="center muted">
+                    <td colSpan={6} className="center muted">
                       {offDutyLabel}
                     </td>
                   ) : (
@@ -309,9 +327,8 @@ export function DetailsScreen() {
                       <td>{day.stampIn ?? ''}</td>
                       <td>{day.stampOut ?? ''}</td>
                       <td className={breakOver ? 'break-over' : ''}>
-                        {formatMinutes(day.breakMinutes)}
+                        {formatMinutes(day.recognizedBreakMinutes)}
                       </td>
-                      <td>{formatMinutes(day.statutoryBreakMinutes)}</td>
                       <td>{formatMinutes(day.workMinutes)}</td>
                     </>
                   )}
@@ -321,7 +338,7 @@ export function DetailsScreen() {
           </tbody>
           <tfoot>
             <tr className="month-total">
-              <td colSpan={7}>{t('MONTH_TOTAL')}</td>
+              <td colSpan={6}>{t('MONTH_TOTAL')}</td>
               <td>{formatMinutes(monthly.totalWorkMinutes)}</td>
             </tr>
           </tfoot>
@@ -380,19 +397,25 @@ export function DetailsScreen() {
         >
           <form onSubmit={(e) => void submitManual(e)}>
             {editing ? (
-              //수정 모드: 구분(출근/퇴근) + 시각 한 행
+              //수정 모드: 구분 + 시각 한 행. 휴식은 구분 전환 불가라 라벨만(시각 정정)
               <div className="manual-rows">
                 <div className="manual-row">
-                  <SelectField
-                    compact
-                    value={editType}
-                    options={[
-                      { value: 'GO_TO_WORK', label: t('TYPE_GO') },
-                      { value: 'OFF_WORK', label: t('TYPE_OFF') },
-                    ]}
-                    ariaLabel={t('TYPE')}
-                    onChange={(v) => setEditType(v as AttendanceType)}
-                  />
+                  {editing.type === 'BREAK' ? (
+                    <span className="row-label">
+                      {t('TYPE_BREAK')} {editing.breakEnd ? t('BREAK_END') : t('BREAK_START')}
+                    </span>
+                  ) : (
+                    <SelectField
+                      compact
+                      value={editType}
+                      options={[
+                        { value: 'GO_TO_WORK', label: t('TYPE_GO') },
+                        { value: 'OFF_WORK', label: t('TYPE_OFF') },
+                      ]}
+                      ariaLabel={t('TYPE')}
+                      onChange={(v) => setEditType(v as AttendanceType)}
+                    />
+                  )}
                   <div className="row-controls">
                     <TimeField value={editTime} onChange={setEditTime} ariaLabel={t('TIME')} />
                   </div>
@@ -431,6 +454,28 @@ export function DetailsScreen() {
                       />
                     </div>
                   </div>
+                  {/* 휴식은 시작~종료 쌍 — 한 행에서 두 시각을 함께 등록 */}
+                  <div className={`manual-row${breakOn ? '' : ' off'}`}>
+                    <label className="row-check">
+                      <input type="checkbox" checked={breakOn} onChange={() => setBreakOn((v) => !v)} />
+                      <span>{t('TYPE_BREAK')}</span>
+                    </label>
+                    <div className="row-controls">
+                      <TimeField
+                        value={breakStartTime}
+                        onChange={setBreakStartTime}
+                        ariaLabel={t('BREAK_START')}
+                        disabled={!breakOn}
+                      />
+                      <span className="time-sep" aria-hidden="true">~</span>
+                      <TimeField
+                        value={breakEndTime}
+                        onChange={setBreakEndTime}
+                        ariaLabel={t('BREAK_END')}
+                        disabled={!breakOn}
+                      />
+                    </div>
+                  </div>
                 </div>
               </>
             )}
@@ -463,7 +508,7 @@ export function DetailsScreen() {
               className="primary"
               disabled={
                 submitting ||
-                (!editing && !inOn && !outOn) || //등록 모드는 최소 하나
+                (!editing && !inOn && !outOn && !breakOn) || //등록 모드는 최소 하나
                 (reasonCode === 'OTHER' && !reasonText.trim())
               }
             >

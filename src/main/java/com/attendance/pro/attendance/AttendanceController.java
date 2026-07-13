@@ -17,6 +17,7 @@ import com.attendance.pro.attendance.AttendanceDtos.CheckRequest;
 import com.attendance.pro.attendance.AttendanceDtos.CheckResponse;
 import com.attendance.pro.attendance.AttendanceDtos.ConfirmRequest;
 import com.attendance.pro.attendance.AttendanceDtos.DailyResponse;
+import com.attendance.pro.attendance.AttendanceDtos.ManualBreakRequest;
 import com.attendance.pro.attendance.AttendanceDtos.ManualStampRequest;
 import com.attendance.pro.attendance.AttendanceDtos.MonthlyResponse;
 import com.attendance.pro.attendance.AttendanceDtos.StampResponse;
@@ -77,6 +78,19 @@ public class AttendanceController {
     @ResponseStatus(HttpStatus.CREATED)
     public StampResponse manual(@LoginUser SessionUser user, @Valid @RequestBody ManualStampRequest request) {
         return attendanceService.manual(user.tenantId(), user.userId(), request);
+    }
+
+    @Operation(summary = "api.attendance.manual-break.summary",
+            description = "api.attendance.manual-break.description")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "api.attendance.manual-break.201"),
+            @ApiResponse(responseCode = "400", description = "api.attendance.manual.400")
+    })
+    @PostMapping("/manual/break")
+    @ResponseStatus(HttpStatus.CREATED)
+    public StampResponse manualBreak(@LoginUser SessionUser user,
+            @Valid @RequestBody ManualBreakRequest request) {
+        return attendanceService.manualBreak(user.tenantId(), user.userId(), request);
     }
 
     @Operation(summary = "api.attendance.manual-update.summary",

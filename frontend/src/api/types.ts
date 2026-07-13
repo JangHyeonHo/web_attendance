@@ -394,7 +394,9 @@ export interface DailyAttendance {
   breakMinutes: number | null
   /** 법정휴게(분). 근무일=스케줄 기반, 휴일·휴무 근무=실체류 기반, 그 외 null */
   statutoryBreakMinutes: number | null
-  /** 총 근무시간(분) = max(0, 체류 − max(법정휴게, 실휴식)). 미확정이면 null */
+  /** 인정 휴게(분) = max(법정, 실휴식) — 총근무에서 실제 차감. 휴식 미기록이어도 근무일이면 법정. 미확정 null */
+  recognizedBreakMinutes: number | null
+  /** 총 근무시간(분) = max(0, 체류 − 인정 휴게). 미확정이면 null */
   workMinutes: number | null
   /** 그 날에 수동 정정 스탬프 존재(상세는 daily API) */
   manual: boolean
@@ -411,8 +413,17 @@ export type ManualReason = 'FORGOT' | 'DEVICE' | 'OFFSITE' | 'OTHER'
 export interface ManualStampRequest {
   date: string // yyyy-MM-dd
   time: string // HH:mm
-  /** BREAK 제외(서버 400) */
+  /** 등록은 BREAK 제외(서버 400). 수정(manualUpdate)은 휴식 스탬프에 한해 BREAK 허용 */
   type: AttendanceType
+  reasonCode: ManualReason
+  reasonText?: string | null
+}
+
+/** 휴식 시간 정정 등록 — 시작·종료 쌍(단일 스탬프 정합성 회피) */
+export interface ManualBreakRequest {
+  date: string // yyyy-MM-dd
+  startTime: string // HH:mm
+  endTime: string // HH:mm
   reasonCode: ManualReason
   reasonText?: string | null
 }

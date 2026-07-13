@@ -267,6 +267,48 @@ class MonthlyAttendanceAssemblerTest {
         }
 
         @Test
+        @DisplayName("REC-01: 인정 휴게 = max(법정, 실휴식) — 휴식 미기록/부족/초과 3케이스(KR 8h 근무)")
+        void recognizedBreak() {
+            //09~18 스케줄(KR 법정 60분). 실체류 540분.
+            WorkSchedule day = new WorkSchedule(1L, 1L, D1, LocalTime.of(9, 0), LocalTime.of(18, 0), false);
+
+            //휴식 미기록 → 법정 60 자동 인정, 근무 480
+            List<DailyAttendance> none = assembler.assemble(List.of(D1), Map.of(D1, day), Map.of(),
+                    List.of(stamp(AttendanceType.GO_TO_WORK, D1.atTime(9, 0)),
+                            stamp(AttendanceType.OFF_WORK, D1.atTime(18, 0))),
+                    null, null, null, BreakPolicy.KR);
+            assertThat(none.get(0).breakMinutes()).isZero();
+            assertThat(none.get(0).recognizedBreakMinutes()).isEqualTo(60);
+            assertThat(none.get(0).workMinutes()).isEqualTo(480);
+
+            //45분 기록(법정 미달) → 60 인정, 근무 480
+            List<DailyAttendance> under = assembler.assemble(List.of(D1), Map.of(D1, day), Map.of(),
+                    List.of(stamp(AttendanceType.GO_TO_WORK, D1.atTime(9, 0)),
+                            breakStart(D1.atTime(12, 0)), breakEnd(D1.atTime(12, 45)),
+                            stamp(AttendanceType.OFF_WORK, D1.atTime(18, 0))),
+                    null, null, null, BreakPolicy.KR);
+            assertThat(under.get(0).breakMinutes()).isEqualTo(45);
+            assertThat(under.get(0).recognizedBreakMinutes()).isEqualTo(60);
+            assertThat(under.get(0).workMinutes()).isEqualTo(480);
+
+            //90분 기록(법정 초과) → 90 인정, 근무 450
+            List<DailyAttendance> over = assembler.assemble(List.of(D1), Map.of(D1, day), Map.of(),
+                    List.of(stamp(AttendanceType.GO_TO_WORK, D1.atTime(9, 0)),
+                            breakStart(D1.atTime(12, 0)), breakEnd(D1.atTime(13, 30)),
+                            stamp(AttendanceType.OFF_WORK, D1.atTime(18, 0))),
+                    null, null, null, BreakPolicy.KR);
+            assertThat(over.get(0).breakMinutes()).isEqualTo(90);
+            assertThat(over.get(0).recognizedBreakMinutes()).isEqualTo(90);
+            assertThat(over.get(0).workMinutes()).isEqualTo(450);
+
+            //출근만(퇴근 미확정) → 인정 휴게 null
+            List<DailyAttendance> open = assembler.assemble(List.of(D1), Map.of(D1, day), Map.of(),
+                    List.of(stamp(AttendanceType.GO_TO_WORK, D1.atTime(9, 0))),
+                    null, null, null, BreakPolicy.KR);
+            assertThat(open.get(0).recognizedBreakMinutes()).isNull();
+        }
+
+        @Test
         @DisplayName("CALC-07: 개인 기본값(10:00~19:00) — 오버라이드 없는 날은 개인값 기준 산출")
         void personalDefaultsApplied() {
             List<DailyAttendance> days = assembler.assemble(

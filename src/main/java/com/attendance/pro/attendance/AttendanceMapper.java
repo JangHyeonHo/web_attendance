@@ -96,6 +96,22 @@ public interface AttendanceMapper {
             @Param("reasonText") String reasonText);
 
     /**
+     * 수정/삭제 전 대상 확인 — 본인 + MANUAL 행만 반환(자동 기록·타인·미존재는 null → 404).
+     */
+    @Select("""
+            SELECT attendance_id, user_id, type AS type_code, status, stamped_at,
+                   source, reason_code, reason_text
+            FROM attendance
+            WHERE attendance_id = #{attendanceId}
+              AND tenant_id = #{tenantId}
+              AND user_id = #{userId}
+              AND source = 'MANUAL'
+            """)
+    AttendanceStamp findManualById(@Param("tenantId") long tenantId,
+            @Param("userId") long userId,
+            @Param("attendanceId") long attendanceId);
+
+    /**
      * 수동 정정 스탬프 수정(잘못 입력 복구 — 본인 + MANUAL 행만, 시각/구분/사유 변경).
      * AUTO 행은 불변 — 조건 불일치는 0행(호출부에서 404, 존재 비노출).
      */

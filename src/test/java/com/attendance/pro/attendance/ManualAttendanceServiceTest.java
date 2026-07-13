@@ -22,6 +22,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.attendance.pro.attendance.AttendanceDtos.DailyResponse;
+import com.attendance.pro.attendance.AttendanceDtos.ManualBreakRequest;
 import com.attendance.pro.attendance.AttendanceDtos.ManualStampRequest;
 import com.attendance.pro.attendance.AttendanceDtos.StampResponse;
 import com.attendance.pro.common.ApiException;
@@ -148,11 +149,18 @@ class ManualAttendanceServiceTest {
     }
 
 
+    private AttendanceStamp manualRow(long id, AttendanceType type, int status) {
+        return new AttendanceStamp(id, USER_ID, type.code(), status, LocalDate.now().atStartOfDay(),
+                StampSource.MANUAL, "FORGOT", null);
+    }
+
     @Test
-    @DisplayName("updateManual: 본인 MANUAL 행이면 시각/구분/사유가 수정된다(등록과 동일 검증 규칙)")
+    @DisplayName("updateManual: 본인 MANUAL 근무 행이면 시각/구분/사유가 수정된다(등록과 동일 검증 규칙)")
     void updateManual() {
         when(messages.get(anyString(), any(Object[].class))).thenReturn("ok");
         LocalDate yesterday = LocalDate.now().minusDays(1);
+        when(attendanceMapper.findManualById(TENANT_ID, USER_ID, 7L))
+                .thenReturn(manualRow(7L, AttendanceType.GO_TO_WORK, AttendanceStamp.STATUS_ACTIVE));
         when(attendanceMapper.updateManual(eq(TENANT_ID), eq(USER_ID), eq(7L),
                 eq(AttendanceType.OFF_WORK.code()), eq(yesterday.atTime(17, 30)),
                 eq("DEVICE"), eq(null))).thenReturn(1);
@@ -167,21 +175,65 @@ class ManualAttendanceServiceTest {
     }
 
     @Test
-    @DisplayName("updateManual: 조건 불일치(자동/타인/미존재)는 404, 검증 실패는 400 + DB 무변경")
+    @DisplayName("updateManual: 휴식 행은 시각·사유만 정정(BREAK 유지, status 미변경)")
+    void updateManualBreak() {
+        when(messages.get(anyString(), any(Object[].class))).thenReturn("ok");
+        LocalDate yesterday = LocalDate.now().minusDays(1);
+        when(attendanceMapper.findManualById(TENANT_ID, USER_ID, 9L))
+                .thenReturn(manualRow(9L, AttendanceType.BREAK, AttendanceStamp.STATUS_ACTIVE));
+        when(attendanceMapper.updateManual(eq(TENANT_ID), eq(USER_ID), eq(9L),
+                eq(AttendanceType.BREAK.code()), eq(yesterday.atTime(12, 10)),
+                eq("FORGOT"), eq(null))).thenReturn(1);
+
+        service().updateManual(TENANT_ID, USER_ID, 9L,
+                request(yesterday, "12:10", AttendanceType.BREAK, "FORGOT", null));
+
+        verify(attendanceMapper).updateManual(eq(TENANT_ID), eq(USER_ID), eq(9L),
+                eq(AttendanceType.BREAK.code()), eq(yesterday.atTime(12, 10)), eq("FORGOT"), eq(null));
+    }
+
+    @Test
+    @DisplayName("updateManual: 미존재는 404, 휴식↔근무 구분 전환은 400 + DB 무변경")
     void updateManualRejections() {
         LocalDate yesterday = LocalDate.now().minusDays(1);
-        when(attendanceMapper.updateManual(eq(TENANT_ID), eq(USER_ID), eq(8L),
-                anyInt(), any(), anyString(), any())).thenReturn(0);
+        when(attendanceMapper.findManualById(TENANT_ID, USER_ID, 8L)).thenReturn(null);
         assertThatThrownBy(() -> service().updateManual(TENANT_ID, USER_ID, 8L,
                 request(yesterday, "17:30", AttendanceType.OFF_WORK, "FORGOT", null)))
                 .isInstanceOf(ApiException.class)
                 .hasFieldOrPropertyWithValue("code", "MANUAL_NOT_FOUND");
 
-        //등록과 동일 검증(대표 1건 — BREAK 거부)
+        //근무 행을 BREAK로 전환 시도 → 구분 전환 불가
+        when(attendanceMapper.findManualById(TENANT_ID, USER_ID, 7L))
+                .thenReturn(manualRow(7L, AttendanceType.GO_TO_WORK, AttendanceStamp.STATUS_ACTIVE));
         assertThatThrownBy(() -> service().updateManual(TENANT_ID, USER_ID, 7L,
                 request(yesterday, "12:00", AttendanceType.BREAK, "FORGOT", null)))
                 .isInstanceOf(ApiException.class)
                 .hasFieldOrPropertyWithValue("code", "MANUAL_TYPE_INVALID");
+
+        verify(attendanceMapper, never()).updateManual(anyLong(), anyLong(), anyLong(),
+                anyInt(), any(), anyString(), any());
+    }
+
+    @Test
+    @DisplayName("manualBreak: 시작·종료 쌍으로 insert(시작=ACTIVE, 종료=BREAK_ENDED), 순서 뒤집히면 400")
+    void manualBreak() {
+        when(messages.get(anyString(), any(Object[].class))).thenReturn("ok");
+        LocalDate yesterday = LocalDate.now().minusDays(1);
+
+        service().manualBreak(TENANT_ID, USER_ID,
+                new ManualBreakRequest(yesterday, "12:00", "13:00", "FORGOT", null));
+
+        verify(attendanceMapper).insert(eq(TENANT_ID), eq(USER_ID), eq(AttendanceType.BREAK.code()),
+                eq(AttendanceStamp.STATUS_ACTIVE), eq(yesterday.atTime(12, 0)),
+                eq(null), eq(null), eq(null), eq("manual"), eq(StampSource.MANUAL), eq("FORGOT"), eq(null));
+        verify(attendanceMapper).insert(eq(TENANT_ID), eq(USER_ID), eq(AttendanceType.BREAK.code()),
+                eq(AttendanceStamp.STATUS_BREAK_ENDED), eq(yesterday.atTime(13, 0)),
+                eq(null), eq(null), eq(null), eq("manual"), eq(StampSource.MANUAL), eq("FORGOT"), eq(null));
+
+        assertThatThrownBy(() -> service().manualBreak(TENANT_ID, USER_ID,
+                new ManualBreakRequest(yesterday, "13:00", "12:00", "FORGOT", null)))
+                .isInstanceOf(ApiException.class)
+                .hasFieldOrPropertyWithValue("code", "MANUAL_BREAK_RANGE");
     }
 
 }

@@ -25,6 +25,7 @@ import com.attendance.pro.attendance.AttendanceDtos.ConfirmRequest;
 import com.attendance.pro.attendance.AttendanceDtos.DailyAttendance;
 import com.attendance.pro.attendance.AttendanceDtos.DailyResponse;
 import com.attendance.pro.attendance.AttendanceDtos.DailyStampEntry;
+import com.attendance.pro.attendance.AttendanceDtos.ManualBreakRequest;
 import com.attendance.pro.attendance.AttendanceDtos.ManualStampRequest;
 import com.attendance.pro.attendance.AttendanceDtos.MonthlyResponse;
 import com.attendance.pro.attendance.AttendanceDtos.StampResponse;
@@ -136,7 +137,7 @@ public class AttendanceService {
      */
     @Transactional
     public StampResponse manual(long tenantId, long userId, ManualStampRequest request) {
-        ValidatedManual validated = validateManual(request);
+        ValidatedManual validated = validateManual(request, false);
         //좌표·장소 없음 — 위치는 자동 스탬프의 무결성 장치이지 정정의 입력이 아니다(§3)
         attendanceMapper.insert(tenantId, userId, request.type().code(), AttendanceStamp.STATUS_ACTIVE,
                 validated.stampedAt(), null, null, null, "manual",
@@ -147,13 +148,46 @@ public class AttendanceService {
     }
 
     /**
+     * 휴식 시간 수동 정정 등록(Phase 5.3 — 시작·종료 쌍).
+     * 단일 스탬프 정합성 문제를 피하기 위해 시작(STATUS_ACTIVE)·종료(STATUS_BREAK_ENDED)를 한 번에 넣는다.
+     */
+    @Transactional
+    public StampResponse manualBreak(long tenantId, long userId, ManualBreakRequest request) {
+        ManualReason reason = resolveReason(request.reasonCode());
+        String reasonText = resolveReasonText(reason, request.reasonText());
+        LocalDateTime start = LocalDateTime.of(request.date(), java.time.LocalTime.parse(request.startTime()));
+        LocalDateTime end = LocalDateTime.of(request.date(), java.time.LocalTime.parse(request.endTime()));
+        if (!end.isAfter(start)) {
+            throw ApiException.badRequest("MANUAL_BREAK_RANGE", "attendance.manual.break.range");
+        }
+        checkStampWindow(start, request.date());
+        checkStampWindow(end, request.date());
+        attendanceMapper.insert(tenantId, userId, AttendanceType.BREAK.code(), AttendanceStamp.STATUS_ACTIVE,
+                start, null, null, null, "manual", StampSource.MANUAL, reason.name(), reasonText);
+        attendanceMapper.insert(tenantId, userId, AttendanceType.BREAK.code(), AttendanceStamp.STATUS_BREAK_ENDED,
+                end, null, null, null, "manual", StampSource.MANUAL, reason.name(), reasonText);
+        log.info("manual break stamped: userId={}, {}~{}, reason={}", userId, start, end, reason);
+        return manualResponse("attendance.manual.break.success", AttendanceType.BREAK, start);
+    }
+
+    /**
      * 수동 정정 수정(잘못 입력 복구 — 시각/구분/사유 변경).
      * 본인 + MANUAL 행만(자동 기록 불변). 조건 불일치는 404(존재 비노출).
+     * 휴식 스탬프는 시각·사유만 정정(휴식↔근무 구분 전환 불가 — 휴식은 시작/종료 상태를 가진 쌍).
      */
     @Transactional
     public StampResponse updateManual(long tenantId, long userId, long attendanceId,
             ManualStampRequest request) {
-        ValidatedManual validated = validateManual(request);
+        AttendanceStamp existing = attendanceMapper.findManualById(tenantId, userId, attendanceId);
+        if (existing == null) {
+            throw ApiException.notFound("MANUAL_NOT_FOUND", "attendance.manual.not-found");
+        }
+        boolean existingIsBreak = existing.type() == AttendanceType.BREAK;
+        if (existingIsBreak != (request.type() == AttendanceType.BREAK)) {
+            throw ApiException.badRequest("MANUAL_TYPE_INVALID", "attendance.manual.type.invalid");
+        }
+        ValidatedManual validated = validateManual(request, existingIsBreak);
+        //휴식은 status(시작/종료)를 보존해야 하므로 시각·사유만 갱신, 그 외는 구분까지 갱신
         int updated = attendanceMapper.updateManual(tenantId, userId, attendanceId,
                 request.type().code(), validated.stampedAt(),
                 validated.reason().name(), validated.reasonText());
@@ -169,15 +203,28 @@ public class AttendanceService {
     private record ValidatedManual(LocalDateTime stampedAt, ManualReason reason, String reasonText) {
     }
 
-    private ValidatedManual validateManual(ManualStampRequest request) {
-        if (request.type() == AttendanceType.BREAK) {
+    private ValidatedManual validateManual(ManualStampRequest request, boolean allowBreak) {
+        if (!allowBreak && request.type() == AttendanceType.BREAK) {
             throw ApiException.badRequest("MANUAL_TYPE_INVALID", "attendance.manual.type.invalid");
         }
-        ManualReason reason = ManualReason.of(request.reasonCode());
+        ManualReason reason = resolveReason(request.reasonCode());
+        String reasonText = resolveReasonText(reason, request.reasonText());
+        LocalDateTime stampedAt = LocalDateTime.of(request.date(),
+                java.time.LocalTime.parse(request.time()));
+        checkStampWindow(stampedAt, request.date());
+        return new ValidatedManual(stampedAt, reason, reasonText);
+    }
+
+    private ManualReason resolveReason(String reasonCode) {
+        ManualReason reason = ManualReason.of(reasonCode);
         if (reason == null) {
             throw ApiException.badRequest("MANUAL_REASON_UNSUPPORTED", "attendance.manual.reason.unsupported");
         }
-        String reasonText = request.reasonText() == null ? null : request.reasonText().trim();
+        return reason;
+    }
+
+    private String resolveReasonText(ManualReason reason, String rawText) {
+        String reasonText = rawText == null ? null : rawText.trim();
         if (reasonText != null && reasonText.isEmpty()) {
             reasonText = null;
         }
@@ -185,16 +232,17 @@ public class AttendanceService {
             //기타는 자유 텍스트가 곧 사유 — 없으면 정정 근거가 남지 않는다
             throw ApiException.badRequest("MANUAL_REASON_TEXT_REQUIRED", "attendance.manual.reason.text-required");
         }
-        LocalDateTime stampedAt = LocalDateTime.of(request.date(),
-                java.time.LocalTime.parse(request.time()));
+        return reasonText;
+    }
+
+    private void checkStampWindow(LocalDateTime stampedAt, LocalDate date) {
         LocalDateTime now = LocalDateTime.now();
         if (stampedAt.isAfter(now)) {
             throw ApiException.badRequest("MANUAL_FUTURE", "attendance.manual.future");
         }
-        if (request.date().isBefore(now.toLocalDate().minusDays(MANUAL_MAX_DAYS))) {
+        if (date.isBefore(now.toLocalDate().minusDays(MANUAL_MAX_DAYS))) {
             throw ApiException.badRequest("MANUAL_TOO_OLD", "attendance.manual.too-old");
         }
-        return new ValidatedManual(stampedAt, reason, reasonText);
     }
 
     private StampResponse manualResponse(String messageKey, AttendanceType type, LocalDateTime stampedAt) {
