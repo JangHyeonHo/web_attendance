@@ -96,12 +96,13 @@ export default function App() {
               {t('LOGIN')}
             </button>
           )}
-          {(role === 'MEMBER' || role === 'TENANT_ADMIN') && (
+          {(role === 'MEMBER' || role === 'HR_ADMIN' || role === 'TENANT_ADMIN') && (
             <button aria-current={current('W005')} onClick={() => void navigate('W005')}>
               {t('ATTEND')}
             </button>
           )}
-          {role === 'TENANT_ADMIN' && (
+          {/* 멤버·공휴일은 인사관리자+총관리자 공통 */}
+          {(role === 'HR_ADMIN' || role === 'TENANT_ADMIN') && (
             <>
               <button aria-current={current('W009')} onClick={() => void navigate('W009')}>
                 {t('MEMBERS')}
@@ -109,10 +110,13 @@ export default function App() {
               <button aria-current={current('W013')} onClick={() => void navigate('W013')}>
                 {t('HOLIDAYS')}
               </button>
-              <button aria-current={current('W014')} onClick={() => void navigate('W014')}>
-                {t('MAIL_TEMPLATES')}
-              </button>
             </>
+          )}
+          {/* 회사 메일 템플릿은 총관리자 전용(직권 분산) */}
+          {role === 'TENANT_ADMIN' && (
+            <button aria-current={current('W014')} onClick={() => void navigate('W014')}>
+              {t('MAIL_TEMPLATES')}
+            </button>
           )}
           {role === 'SYSTEM_ADMIN' && (
             <>

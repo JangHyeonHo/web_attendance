@@ -28,8 +28,12 @@ public class RoleInterceptor implements HandlerInterceptor {
     private static final List<RouteRule> RULES = List.of(
             new RouteRule("/api/v1/system/**", Set.of(Role.SYSTEM_ADMIN)),
             new RouteRule("/api/v1/admin/**", Set.of(Role.SYSTEM_ADMIN)),                 //admin 하위는 전부 글로벌 제품 자산(i18n·메일 템플릿)
-            new RouteRule("/api/v1/tenant/**", Set.of(Role.TENANT_ADMIN)),                //SYSTEM_ADMIN도 403
-            new RouteRule("/api/v1/attendance/**", Set.of(Role.TENANT_ADMIN, Role.MEMBER)) //SYSTEM_ADMIN 명시 배제
+            //역할 지정·회사 메일 설정은 총관리자 전용(직권 분산 — Phase 6). 일반 /tenant/** 규칙보다 먼저 선언(첫 매칭)
+            new RouteRule("/api/v1/tenant/members/*/role", Set.of(Role.TENANT_ADMIN)),
+            new RouteRule("/api/v1/tenant/mail-templates/**", Set.of(Role.TENANT_ADMIN)),
+            //그 외 회사 관리(멤버·공휴일·후속 휴가)는 인사관리자+총관리자
+            new RouteRule("/api/v1/tenant/**", Set.of(Role.TENANT_ADMIN, Role.HR_ADMIN)), //SYSTEM_ADMIN도 403
+            new RouteRule("/api/v1/attendance/**", Set.of(Role.TENANT_ADMIN, Role.HR_ADMIN, Role.MEMBER)) //SYSTEM_ADMIN 명시 배제
     );
 
     private final AntPathMatcher matcher = new AntPathMatcher();

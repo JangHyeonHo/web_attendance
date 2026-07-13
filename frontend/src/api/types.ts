@@ -71,7 +71,7 @@ export type NavigationReason =
 
 // ---- tenancy 공통 ----
 
-export type Role = 'SYSTEM_ADMIN' | 'TENANT_ADMIN' | 'MEMBER'
+export type Role = 'SYSTEM_ADMIN' | 'TENANT_ADMIN' | 'HR_ADMIN' | 'MEMBER'
 export type UserStatus = 'PENDING' | 'ACTIVE' | 'DISABLED'
 export type TenantStatus = 'ACTIVE' | 'SUSPENDED'
 export type BillingMethod = 'INVOICE' | 'CARD'

@@ -105,6 +105,7 @@ public class NavigationService {
         return switch (user.role()) {
         case SYSTEM_ADMIN -> Screen.SYSTEM_TENANTS;   //W007
         case TENANT_ADMIN -> Screen.ATTENDANCE;       //W005
+        case HR_ADMIN -> Screen.ATTENDANCE;           //W005 — 인사관리자도 일상은 본인 출결
         case MEMBER -> Screen.ATTENDANCE;             //W005
         };
     }

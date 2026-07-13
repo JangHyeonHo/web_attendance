@@ -145,6 +145,32 @@ class MemberServiceTest {
             assertThat(response.role()).isEqualTo(Role.TENANT_ADMIN);
             verify(userMapper, never()).countActiveTenantAdmins(anyLong());
         }
+
+        @Test
+        @DisplayName("HR-01: MEMBER → HR_ADMIN(인사관리자) 승격은 카운트 검사 없이 허용")
+        void promoteToHrAdmin() {
+            when(userMapper.findById(TENANT_ID, TARGET_ID))
+                    .thenReturn(user(TARGET_ID, Role.MEMBER, UserStatus.ACTIVE))
+                    .thenReturn(user(TARGET_ID, Role.HR_ADMIN, UserStatus.ACTIVE));
+            when(userTokenService.findActiveInviteExpiries(TENANT_ID)).thenReturn(Map.of());
+
+            var response = service().updateRole(TENANT_ID, TARGET_ID, Role.HR_ADMIN);
+
+            assertThat(response.role()).isEqualTo(Role.HR_ADMIN);
+            verify(userMapper).updateRole(TENANT_ID, TARGET_ID, Role.HR_ADMIN);
+            verify(userMapper, never()).countActiveTenantAdmins(anyLong());
+        }
+
+        @Test
+        @DisplayName("HR-02: 유일한 총관리자를 인사관리자로 바꿔도 총관리자 0명이 되므로 409")
+        void demoteLastAdminToHrGuarded() {
+            when(userMapper.findById(TENANT_ID, TARGET_ID))
+                    .thenReturn(user(TARGET_ID, Role.TENANT_ADMIN, UserStatus.ACTIVE));
+            when(userMapper.countActiveTenantAdmins(TENANT_ID)).thenReturn(1);
+
+            expectLastAdminConflict(() -> service().updateRole(TENANT_ID, TARGET_ID, Role.HR_ADMIN));
+            verify(userMapper, never()).updateRole(anyLong(), anyLong(), any());
+        }
     }
 
     @Nested

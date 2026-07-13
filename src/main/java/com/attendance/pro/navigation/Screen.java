@@ -22,25 +22,25 @@ public enum Screen {
     LOGOUT("W002", null),
     /** 언어 마스터 관리(글로벌 리소스 — SYSTEM_ADMIN) */
     ADMIN("W004", Set.of(Role.SYSTEM_ADMIN)),
-    /** 출결 — TENANT_ADMIN·MEMBER의 홈. SYSTEM_ADMIN은 전개 거부 */
-    ATTENDANCE("W005", Set.of(Role.MEMBER, Role.TENANT_ADMIN)),
+    /** 출결 — 회사 구성원 전원의 홈(본인 출결). SYSTEM_ADMIN은 전개 거부 */
+    ATTENDANCE("W005", Set.of(Role.MEMBER, Role.HR_ADMIN, Role.TENANT_ADMIN)),
     /** 출결 상세 */
-    ATT_DETAILS("W006", Set.of(Role.MEMBER, Role.TENANT_ADMIN)),
+    ATT_DETAILS("W006", Set.of(Role.MEMBER, Role.HR_ADMIN, Role.TENANT_ADMIN)),
     /** 테넌트 목록/생성 — SYSTEM_ADMIN의 홈 */
     SYSTEM_TENANTS("W007", Set.of(Role.SYSTEM_ADMIN)),
     /** 테넌트 상세(기업정보/결제정보) — W007에 임베드 전개 */
     TENANT_DETAIL("W008", Set.of(Role.SYSTEM_ADMIN)),
-    /** 멤버 관리 — 헤더 MEMBERS 메뉴로 진입 */
-    MEMBERS("W009", Set.of(Role.TENANT_ADMIN)),
+    /** 멤버 관리 — 인사관리자+총관리자(역할 지정 버튼은 총관리자에게만 렌더) */
+    MEMBERS("W009", Set.of(Role.HR_ADMIN, Role.TENANT_ADMIN)),
     /** 비밀번호 설정 — 공개(토큰 유효성은 API가 판정, 화면 전개는 무조건) */
     PASSWORD_SETUP("W010", null),
     /** 비밀번호 재설정 요청 — 공개 */
     PASSWORD_RESET("W011", null),
     /** 메일 템플릿 관리(글로벌 제품 자산 — SYSTEM_ADMIN) */
     MAIL_TEMPLATES("W012", Set.of(Role.SYSTEM_ADMIN)),
-    /** 공휴일 관리 — TENANT_ADMIN 전용 */
-    HOLIDAYS("W013", Set.of(Role.TENANT_ADMIN)),
-    /** 회사 메일 템플릿(오버라이드) 관리 — TENANT_ADMIN 전용 */
+    /** 공휴일 관리 — 인사관리자+총관리자 */
+    HOLIDAYS("W013", Set.of(Role.HR_ADMIN, Role.TENANT_ADMIN)),
+    /** 회사 메일 템플릿(오버라이드) 관리 — 총관리자 전용 */
     TENANT_MAIL_TEMPLATES("W014", Set.of(Role.TENANT_ADMIN)),
     /** 공통(헤더) - 직접 전개하지 않고 공통 텍스트 취득용 */
     COMMON("W999", null);

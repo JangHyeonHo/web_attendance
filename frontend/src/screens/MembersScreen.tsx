@@ -4,13 +4,22 @@ import { authApi, tenantMemberApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { Modal } from '../components/Modal'
+import { SelectField } from '../components/fields'
 import { localeOf } from '../i18n/lang'
 import type { MemberSummary, Role, UserStatus } from '../api/types'
 
 const ROLE_LABEL_KEYS: Partial<Record<Role, string>> = {
   TENANT_ADMIN: 'ROLE_TENANT_ADMIN',
+  HR_ADMIN: 'ROLE_HR_ADMIN',
   MEMBER: 'ROLE_MEMBER',
 }
+
+/** 역할 지정 선택지(총관리자 전용 UI) — 회사 내 3역할 */
+const ROLE_OPTIONS: { value: Role; labelKey: string }[] = [
+  { value: 'MEMBER', labelKey: 'ROLE_MEMBER' },
+  { value: 'HR_ADMIN', labelKey: 'ROLE_HR_ADMIN' },
+  { value: 'TENANT_ADMIN', labelKey: 'ROLE_TENANT_ADMIN' },
+]
 
 const STATUS_LABEL_KEYS: Record<UserStatus, string> = {
   ACTIVE: 'STATUS_ACTIVE',
@@ -21,11 +30,11 @@ const STATUS_LABEL_KEYS: Record<UserStatus, string> = {
 const DEFAULT_WORK_START = '09:00'
 const DEFAULT_WORK_END = '18:00'
 
-/** 파괴적 조작(비활성/관리자 해제/삭제)은 확인 모달 경유 */
+/** 파괴적 조작(비활성/삭제)은 확인 모달 경유. 역할 지정은 인라인 SelectField(총관리자 전용) */
 interface PendingAction {
   userId: number
   name: string
-  action: 'DISABLE' | 'DEMOTE' | 'DELETE'
+  action: 'DISABLE' | 'DELETE'
 }
 
 /** 행별 스케줄 수정 모달 상태(PENDING 행 포함 — 입사 전 준비, CR3-6). workDays는 월~일 [01]{7} */
@@ -51,7 +60,7 @@ interface CreatedNotice {
  * 행 아래 인라인 표시는 에러만 남긴다.
  */
 export function MembersScreen() {
-  const { t, lang } = useApp()
+  const { t, lang, role: viewerRole } = useApp()
 
   //요일 라벨(월~일)은 사전 없이 Intl로 생성 — 2024-01-01이 월요일
   const weekdayLabels = (() => {
@@ -231,7 +240,6 @@ export function MembersScreen() {
 
   function confirmLabel(action: PendingAction['action']): string {
     if (action === 'DISABLE') return t('DISABLE')
-    if (action === 'DEMOTE') return t('DEMOTE')
     return t('DELETE')
   }
 
@@ -418,8 +426,6 @@ export function MembersScreen() {
               onClick={() => {
                 if (pending.action === 'DISABLE') {
                   void updateStatus(pending.userId, 'DISABLED')
-                } else if (pending.action === 'DEMOTE') {
-                  void updateRole(pending.userId, 'MEMBER')
                 } else {
                   void removeMember(pending.userId)
                 }
@@ -456,7 +462,20 @@ export function MembersScreen() {
                     <td>{member.name}</td>
                     <td>{member.email}</td>
                     <td>{member.departCd ?? '-'}</td>
-                    <td>{t(ROLE_LABEL_KEYS[member.role] ?? member.role)}</td>
+                    <td>
+                      {/* 역할 지정은 총관리자 전용(직권 분산). 그 외 뷰어·자기 자신·초대 대기는 정적 라벨 */}
+                      {viewerRole === 'TENANT_ADMIN' && !self && !isPending ? (
+                        <SelectField
+                          compact
+                          value={member.role}
+                          options={ROLE_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) }))}
+                          ariaLabel={t('ROLE')}
+                          onChange={(v) => void updateRole(member.userId, v as Role)}
+                        />
+                      ) : (
+                        t(ROLE_LABEL_KEYS[member.role] ?? member.role)
+                      )}
+                    </td>
                     <td>
                       {t(STATUS_LABEL_KEYS[member.status])}
                       {isPending && <span className="hint">{inviteExpiryLabel(member)}</span>}
@@ -472,20 +491,7 @@ export function MembersScreen() {
                           </button>
                         ) : (
                           <>
-                            {member.role === 'MEMBER' && (
-                              <button onClick={() => void updateRole(member.userId, 'TENANT_ADMIN')}>
-                                {t('PROMOTE')}
-                              </button>
-                            )}
-                            {member.role === 'TENANT_ADMIN' && !self && (
-                              <button
-                                onClick={() =>
-                                  setPending({ userId: member.userId, name: member.name, action: 'DEMOTE' })
-                                }
-                              >
-                                {t('DEMOTE')}
-                              </button>
-                            )}
+                            {/* 역할 변경은 역할 열의 SelectField(총관리자 전용)로 이동 */}
                             {member.status === 'ACTIVE' && !self && (
                               <button
                                 onClick={() =>
