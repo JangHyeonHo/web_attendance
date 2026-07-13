@@ -22,6 +22,7 @@ export type ScreenCode =
   | 'W015' // 휴가 (멤버 — 잔여·신청)
   | 'W016' // 휴가 관리 (인사관리자+총관리자 — 결재·부여·종류)
   | 'W017' // 감사 로그 조회 (SYSTEM_ADMIN)
+  | 'W018' // 청구서 (TENANT_ADMIN — 자사 월별 청구서)
   | 'W999' // 공통(헤더)
 
 export type Lang = 'KOR' | 'ENG' | 'JPN'
@@ -248,6 +249,10 @@ export interface TenantBillingUpsertRequest {
   cardLast4: string | null
   cardBrand: string | null
   plan: string
+  /** 인당 월 단가(원, VAT 별도). null이면 서버 기본값 2000 */
+  perSeatAmount: number | null
+  /** 무료 인원(이 수까지 과금 제외). null이면 서버 기본값 5 */
+  freeSeats: number | null
   billedFrom: string | null // ISO date
   memo: string | null
 }
@@ -261,9 +266,25 @@ export interface TenantBillingResponse {
   cardMasked: string | null // 예: **** **** **** 1234
   cardBrand: string | null
   plan: string
+  perSeatAmount: number
+  freeSeats: number
   billedFrom: string | null
   memo: string | null
   updatedAt: string
+}
+
+/** 월별 청구서 한 건(금액은 원, 부가세 별도). status=PROVISIONAL(진행 중)/ISSUED(마감 확정). */
+export interface InvoiceEntry {
+  ym: string // YYYY-MM
+  maxSeats: number
+  freeSeats: number
+  billedSeats: number
+  unitPrice: number
+  subtotal: number
+  vat: number
+  total: number
+  status: 'PROVISIONAL' | 'ISSUED'
+  issuedAt: string | null
 }
 
 // ---- tenant: 멤버 (W009) ----

@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.attendance.pro.auth.LoginUser;
 import com.attendance.pro.auth.SessionUser;
+import com.attendance.pro.billing.BillingDtos.InvoiceResponse;
+import com.attendance.pro.billing.BillingService;
 import com.attendance.pro.tenant.TenantDtos.TenantBillingRequest;
 import com.attendance.pro.tenant.TenantDtos.TenantBillingResponse;
 import com.attendance.pro.tenant.TenantDtos.TenantCreateRequest;
@@ -42,10 +44,13 @@ public class SystemTenantController {
 
     private final TenantService tenantService;
     private final TenantProfileService tenantProfileService;
+    private final BillingService billingService;
 
-    public SystemTenantController(TenantService tenantService, TenantProfileService tenantProfileService) {
+    public SystemTenantController(TenantService tenantService, TenantProfileService tenantProfileService,
+            BillingService billingService) {
         this.tenantService = tenantService;
         this.tenantProfileService = tenantProfileService;
+        this.billingService = billingService;
     }
 
     @Operation(summary = "api.system-tenant.create.summary", description = "api.system-tenant.create.description")
@@ -134,6 +139,24 @@ public class SystemTenantController {
     public TenantBillingResponse upsertBilling(@PathVariable("tenantId") long tenantId,
             @Valid @RequestBody TenantBillingRequest request) {
         return tenantProfileService.upsertBilling(tenantId, request);
+    }
+
+    @Operation(summary = "api.system-tenant.invoices.summary")
+    @GetMapping("/{tenantId}/invoices")
+    public List<InvoiceResponse> invoices(@PathVariable("tenantId") long tenantId) {
+        return billingService.listForTenant(tenantId);
+    }
+
+    @Operation(summary = "api.system-tenant.invoice-close.summary",
+            description = "api.system-tenant.invoice-close.description")
+    @ApiResponses({
+            @ApiResponse(responseCode = "400", description = "api.system-tenant.invoice-close.400"),
+            @ApiResponse(responseCode = "409", description = "api.system-tenant.invoice-close.409")
+    })
+    @PostMapping("/{tenantId}/invoices/{ym}/close")
+    public InvoiceResponse closeInvoice(@PathVariable("tenantId") long tenantId,
+            @PathVariable("ym") String ym) {
+        return billingService.close(tenantId, ym);
     }
 
 }

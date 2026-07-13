@@ -5,10 +5,16 @@ import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import type {
   BillingMethod,
+  InvoiceEntry,
   ProfileCountry,
   TenantBillingResponse,
   TenantProfileResponse,
 } from '../api/types'
+
+/** 금액(원) 표시 — 천단위 구분 + '원'. */
+function won(n: number): string {
+  return `${n.toLocaleString('ko-KR')}원`
+}
 
 /** 소재국별 사업자 식별번호 라벨 키(KR=사업자등록번호, JP=法人番号) */
 const BIZ_REG_NO_LABEL_KEYS: Record<ProfileCountry, string> = {
@@ -86,8 +92,14 @@ export function TenantDetailScreen({ tenantId, country }: { tenantId: number; co
   const [cardLast4, setCardLast4] = useState('')
   const [cardBrand, setCardBrand] = useState('')
   const [plan, setPlan] = useState('')
+  const [perSeatAmount, setPerSeatAmount] = useState('')
+  const [freeSeats, setFreeSeats] = useState('')
   const [billedFrom, setBilledFrom] = useState('')
   const [memo, setMemo] = useState('')
+
+  // ---- 청구서(월별) — 운영사 조회·마감 ----
+  const [invoices, setInvoices] = useState<InvoiceEntry[]>([])
+  const [invoiceError, setInvoiceError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     //미등록은 404로 내려온다 → null(NOT_REGISTERED 표시)로 흡수
@@ -113,7 +125,26 @@ export function TenantDetailScreen({ tenantId, country }: { tenantId: number; co
     } finally {
       setBillingLoaded(true)
     }
+    try {
+      setInvoices(await systemTenantApi.invoices(tenantId))
+      setInvoiceError(null)
+    } catch (e) {
+      setInvoiceError(e instanceof ApiError ? e.message : String(e))
+    }
   }, [tenantId])
+
+  async function closeMonth(ym: string) {
+    if (!window.confirm(t('CLOSE_CONFIRM'))) {
+      return
+    }
+    try {
+      await systemTenantApi.closeInvoice(tenantId, ym)
+      setInvoices(await systemTenantApi.invoices(tenantId))
+      setInvoiceError(null)
+    } catch (e) {
+      setInvoiceError(e instanceof ApiError ? e.message : String(e))
+    }
+  }
 
   useEffect(() => {
     void load()
@@ -178,6 +209,9 @@ export function TenantDetailScreen({ tenantId, country }: { tenantId: number; co
     setCardLast4('')
     setCardBrand('')
     setPlan('')
+    //인당 단가·무료 인원은 마스킹 대상이 아니므로 현재값을 채워 수정 편의(없으면 서버 기본 2000/5)
+    setPerSeatAmount(String(billing?.perSeatAmount ?? 2000))
+    setFreeSeats(String(billing?.freeSeats ?? 5))
     setBilledFrom('')
     setMemo('')
     setBillingError(null)
@@ -199,6 +233,8 @@ export function TenantDetailScreen({ tenantId, country }: { tenantId: number; co
         cardLast4: card ? orNull(cardLast4) : null,
         cardBrand: card ? orNull(cardBrand) : null,
         plan: plan.trim(),
+        perSeatAmount: perSeatAmount.trim() === '' ? null : Number(perSeatAmount),
+        freeSeats: freeSeats.trim() === '' ? null : Number(freeSeats),
         billedFrom: orNull(billedFrom),
         memo: orNull(memo),
       })
@@ -352,6 +388,10 @@ export function TenantDetailScreen({ tenantId, country }: { tenantId: number; co
             <dd>{billing.cardBrand ?? '-'}</dd>
             <dt>{t('PLAN')}</dt>
             <dd>{billing.plan}</dd>
+            <dt>{t('PER_SEAT')}</dt>
+            <dd>{won(billing.perSeatAmount)} <span className="muted">({t('PER_SEAT_HINT')})</span></dd>
+            <dt>{t('FREE_SEATS')}</dt>
+            <dd>{billing.freeSeats}</dd>
             <dt>{t('BILLED_FROM')}</dt>
             <dd>{billing.billedFrom ?? '-'}</dd>
             <dt>{t('MEMO')}</dt>
@@ -429,6 +469,30 @@ export function TenantDetailScreen({ tenantId, country }: { tenantId: number; co
               )}
             </label>
             <label>
+              {t('PER_SEAT')} <span className="muted">({t('PER_SEAT_HINT')})</span>
+              <input
+                type="number"
+                min={0}
+                value={perSeatAmount}
+                onChange={(e) => setPerSeatAmount(e.target.value)}
+              />
+              {billingFieldErrors.perSeatAmount && (
+                <span className="error">{billingFieldErrors.perSeatAmount}</span>
+              )}
+            </label>
+            <label>
+              {t('FREE_SEATS')}
+              <input
+                type="number"
+                min={0}
+                value={freeSeats}
+                onChange={(e) => setFreeSeats(e.target.value)}
+              />
+              {billingFieldErrors.freeSeats && (
+                <span className="error">{billingFieldErrors.freeSeats}</span>
+              )}
+            </label>
+            <label>
               {t('BILLED_FROM')}
               <input
                 type="date"
@@ -458,6 +522,58 @@ export function TenantDetailScreen({ tenantId, country }: { tenantId: number; co
           </form>
         )}
         {!billingEdit && billingError && <p className="error" role="alert">{billingError}</p>}
+      </div>
+
+      {/* ---- 청구서(월별) — 진행 중=잠정, 마감하면 확정 스냅샷 ---- */}
+      <div className="panel">
+        <div className="card-head">
+          <h3>{t('INVOICES')}</h3>
+        </div>
+        {invoiceError && <p className="error" role="alert">{invoiceError}</p>}
+        {invoices.length === 0 && !invoiceError ? (
+          <p className="muted">{t('EMPTY')}</p>
+        ) : (
+          <div className="table-wrap">
+            <table className="detail-table">
+              <thead>
+                <tr>
+                  <th>{t('BILL_MONTH')}</th>
+                  <th>{t('BILL_SEATS_MAX')}</th>
+                  <th>{t('BILL_SEATS_BILLED')}</th>
+                  <th>{t('BILL_UNIT')}</th>
+                  <th>{t('BILL_SUBTOTAL')}</th>
+                  <th>{t('BILL_VAT')}</th>
+                  <th>{t('BILL_TOTAL')}</th>
+                  <th>{t('BILL_STATUS')}</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {invoices.map((r) => (
+                  <tr key={r.ym}>
+                    <td className="nowrap">{r.ym}</td>
+                    <td>{r.maxSeats}</td>
+                    <td>{r.billedSeats}</td>
+                    <td className="nowrap">{won(r.unitPrice)}</td>
+                    <td className="nowrap">{won(r.subtotal)}</td>
+                    <td className="nowrap">{won(r.vat)}</td>
+                    <td className="nowrap"><strong>{won(r.total)}</strong></td>
+                    <td>
+                      <span className={`badge ${r.status === 'ISSUED' ? 'ok' : 'muted'}`}>
+                        {r.status === 'ISSUED' ? t('BILL_ISSUED') : t('BILL_PROVISIONAL')}
+                      </span>
+                    </td>
+                    <td>
+                      {r.status === 'PROVISIONAL' && (
+                        <button onClick={() => void closeMonth(r.ym)}>{t('CLOSE')}</button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   )

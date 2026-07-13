@@ -90,9 +90,12 @@ public class TenantProfileService {
         String pgKeyEnc = request.pgCustomerKey() == null || request.pgCustomerKey().isBlank()
                 ? null
                 : fieldCipher.encrypt(request.pgCustomerKey());
+        //인당 단가·무료 인원은 미입력 시 V22 컬럼 기본값(2000/5)으로 — create-or-replace라 명시 세팅
+        int perSeatAmount = request.perSeatAmount() == null ? 2000 : request.perSeatAmount();
+        int freeSeats = request.freeSeats() == null ? 5 : request.freeSeats();
         tenantBillingMapper.upsert(tenantId, request.billingMethod(), request.billingEmail(),
                 pgKeyEnc, request.cardLast4(), request.cardBrand(), request.plan(),
-                request.billedFrom(), request.memo());
+                perSeatAmount, freeSeats, request.billedFrom(), request.memo());
         return toResponse(tenantBillingMapper.findById(tenantId));
     }
 
@@ -122,7 +125,8 @@ public class TenantProfileService {
         boolean hasBillingKey = billing.pgCustomerKeyEnc() != null && !billing.pgCustomerKeyEnc().isBlank();
         return new TenantBillingResponse(billing.tenantId(), billing.billingMethod(), billing.billingEmail(),
                 hasBillingKey, Masking.card(billing.cardLast4()), billing.cardBrand(),
-                billing.plan(), billing.billedFrom(), billing.memo(), billing.updatedAt());
+                billing.plan(), billing.perSeatAmount(), billing.freeSeats(),
+                billing.billedFrom(), billing.memo(), billing.updatedAt());
     }
 
 }

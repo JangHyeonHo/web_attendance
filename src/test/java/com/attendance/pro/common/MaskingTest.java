@@ -77,7 +77,7 @@ class MaskingTest {
 
         TenantBillingRequest billing = new TenantBillingRequest(
                 BillingMethod.CARD, "bill@acme.co.kr", "SECRET-BILLING-KEY-7f3a",
-                "1234", "VISA", "BASIC", null, "메모");
+                "1234", "VISA", "BASIC", null, null, null, "메모");
         assertThat(billing.toString())
                 .doesNotContain("SECRET-BILLING-KEY-7f3a")
                 .contains("pgCustomerKey=***");

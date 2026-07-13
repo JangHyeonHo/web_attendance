@@ -44,11 +44,13 @@ class MemberServiceTest {
     private UserTokenService userTokenService;
     @Mock
     private MemberInviteService memberInviteService;
+    @Mock
+    private com.attendance.pro.billing.BillingService billingService;
 
     private MemberService service() {
         //레이트 리미터는 실물(테스트별 새 인스턴스 — 임계 3회/5분에 도달하지 않는다)
         return new MemberService(userMapper, userTokenService, memberInviteService,
-                new com.attendance.pro.auth.PasswordResetRateLimiter());
+                new com.attendance.pro.auth.PasswordResetRateLimiter(), billingService);
     }
 
     private static User user(long userId, Role role, UserStatus status) {

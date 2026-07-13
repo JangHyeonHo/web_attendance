@@ -32,14 +32,17 @@ public class PasswordService {
     private final UserMapper userMapper;
     private final TenantMapper tenantMapper;
     private final MemberInviteService memberInviteService;
+    private final com.attendance.pro.billing.BillingService billingService;
     private final PasswordEncoder passwordEncoder;
 
     public PasswordService(UserTokenService userTokenService, UserMapper userMapper,
-            TenantMapper tenantMapper, MemberInviteService memberInviteService) {
+            TenantMapper tenantMapper, MemberInviteService memberInviteService,
+            com.attendance.pro.billing.BillingService billingService) {
         this.userTokenService = userTokenService;
         this.userMapper = userMapper;
         this.tenantMapper = tenantMapper;
         this.memberInviteService = memberInviteService;
+        this.billingService = billingService;
         this.passwordEncoder = new BCryptPasswordEncoder();
     }
 
@@ -72,6 +75,8 @@ public class PasswordService {
         userMapper.updatePassword(token.tenantId(), user.userId(), passwordEncoder.encode(rawPassword));
         if (token.purpose() == TokenPurpose.INVITE) {
             userMapper.updateStatus(token.tenantId(), user.userId(), UserStatus.ACTIVE);
+            //초대 활성화 = 활성 좌석 증가 → 월중 최대(과금 기준) 갱신(best-effort)
+            billingService.touchSeatUsage(token.tenantId());
         }
         userTokenService.invalidateAll(token.tenantId(), user.userId());
     }

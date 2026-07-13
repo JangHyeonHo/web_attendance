@@ -41,6 +41,7 @@ import type {
   MonthlyResponse,
   NavigateRequest,
   NavigateResponse,
+  InvoiceEntry,
   PasswordResetRequest,
   PasswordSetRequest,
   StampResponse,
@@ -101,6 +102,16 @@ export const systemTenantApi = {
     get<TenantBillingResponse | null>(`/api/v1/system/tenants/${tenantId}/billing`),
   upsertBilling: (tenantId: number, request: TenantBillingUpsertRequest) =>
     put<TenantBillingResponse>(`/api/v1/system/tenants/${tenantId}/billing`, request),
+  //회사별 청구서 조회·마감(운영사)
+  invoices: (tenantId: number) =>
+    get<InvoiceEntry[]>(`/api/v1/system/tenants/${tenantId}/invoices`),
+  closeInvoice: (tenantId: number, ym: string) =>
+    post<InvoiceEntry>(`/api/v1/system/tenants/${tenantId}/invoices/${ym}/close`),
+}
+
+/** 회사(TENANT_ADMIN) 전용 — 자사 월별 청구서 조회(W018). 진행 중=잠정, 마감=확정 */
+export const tenantBillingApi = {
+  invoices: () => get<InvoiceEntry[]>('/api/v1/tenant/billing/invoices'),
 }
 
 /** SYSTEM_ADMIN 전용 — 감사 로그 조회(W017). 전역 최신순 + category 필터 */

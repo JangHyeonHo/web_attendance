@@ -198,6 +198,19 @@ class NavigationServiceTest {
     }
 
     @Test
+    @DisplayName("W018(청구서): TENANT_ADMIN만 — 인사관리자·멤버·운영사는 홈 + ROLE_DENIED")
+    void billingScreenRoleGate() {
+        NavigationService service = service();
+        assertThat(service.decide("W018", TENANT_ADMIN, false)).isEqualTo(new Decision(Screen.BILLING, null, false));
+        assertThat(service.decide("W018", HR_ADMIN, false))
+                .isEqualTo(new Decision(Screen.ATTENDANCE, NavigationReason.ROLE_DENIED, false));
+        assertThat(service.decide("W018", MEMBER, false))
+                .isEqualTo(new Decision(Screen.ATTENDANCE, NavigationReason.ROLE_DENIED, false));
+        assertThat(service.decide("W018", SYSTEM_ADMIN, false))
+                .isEqualTo(new Decision(Screen.SYSTEM_TENANTS, NavigationReason.ROLE_DENIED, false));
+    }
+
+    @Test
     @DisplayName("W013(공휴일): TENANT_ADMIN만 — MEMBER/SYSTEM_ADMIN은 홈 + ROLE_DENIED")
     void holidaysScreenRoleGate() {
         NavigationService service = service();

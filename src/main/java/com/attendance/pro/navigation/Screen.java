@@ -48,6 +48,8 @@ public enum Screen {
     LEAVE_ADMIN("W016", Set.of(Role.HR_ADMIN, Role.TENANT_ADMIN)),
     /** 감사 로그 조회 — 운영사(SYSTEM_ADMIN) 전용 */
     AUDIT("W017", Set.of(Role.SYSTEM_ADMIN)),
+    /** 청구서 조회 — 회사 총관리자(TENANT_ADMIN) 전용(재무 정보) */
+    BILLING("W018", Set.of(Role.TENANT_ADMIN)),
     /** 공통(헤더) - 직접 전개하지 않고 공통 텍스트 취득용 */
     COMMON("W999", null);
 
