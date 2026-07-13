@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.attendance.pro.auth.PasswordResetRateLimiter;
+import com.attendance.pro.billing.BillingService;
 import com.attendance.pro.common.ApiException;
 import com.attendance.pro.user.MemberDtos.InviteResponse;
 import com.attendance.pro.user.MemberDtos.MemberCreateRequest;
@@ -41,15 +42,18 @@ public class MemberService {
     private final UserTokenService userTokenService;
     private final MemberInviteService memberInviteService;
     private final PasswordResetRateLimiter rateLimiter;
+    private final BillingService billingService;
     private final PasswordEncoder passwordEncoder;
     private final SecureRandom random = new SecureRandom();
 
     public MemberService(UserMapper userMapper, UserTokenService userTokenService,
-            MemberInviteService memberInviteService, PasswordResetRateLimiter rateLimiter) {
+            MemberInviteService memberInviteService, PasswordResetRateLimiter rateLimiter,
+            BillingService billingService) {
         this.userMapper = userMapper;
         this.userTokenService = userTokenService;
         this.memberInviteService = memberInviteService;
         this.rateLimiter = rateLimiter;
+        this.billingService = billingService;
         this.passwordEncoder = new BCryptPasswordEncoder();
     }
 
@@ -149,6 +153,8 @@ public class MemberService {
         if (status == UserStatus.DISABLED) {
             userTokenService.invalidateAll(tenantId, userId);
         }
+        //활성 좌석 수 변동 → 월중 최대(과금 기준) 갱신(best-effort)
+        billingService.touchSeatUsage(tenantId);
         return toResponse(tenantId, userMapper.findById(tenantId, userId));
     }
 

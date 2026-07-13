@@ -22,7 +22,7 @@ public interface TenantBillingMapper {
                    CASE billing_method WHEN 1 THEN 'CARD' ELSE 'INVOICE' END AS billing_method,
                    billing_email,
                    pg_customer_key AS pg_customer_key_enc,
-                   card_last4, card_brand, plan, billed_from, memo,
+                   card_last4, card_brand, plan, per_seat_amount, free_seats, billed_from, memo,
                    created_at, updated_at
             FROM tenant_billing
             WHERE tenant_id = #{tenantId}
@@ -32,12 +32,13 @@ public interface TenantBillingMapper {
     @Insert("""
             INSERT INTO tenant_billing
                 (tenant_id, billing_method, billing_email, pg_customer_key,
-                 card_last4, card_brand, plan, billed_from, memo)
+                 card_last4, card_brand, plan, per_seat_amount, free_seats, billed_from, memo)
             VALUES
                 (#{tenantId},
                  CASE #{billingMethod} WHEN 'CARD' THEN 1 ELSE 0 END,
                  #{billingEmail}, #{pgCustomerKeyEnc},
-                 #{cardLast4}, #{cardBrand}, COALESCE(#{plan}, 'BASIC'), #{billedFrom}, #{memo})
+                 #{cardLast4}, #{cardBrand}, COALESCE(#{plan}, 'BASIC'),
+                 #{perSeatAmount}, #{freeSeats}, #{billedFrom}, #{memo})
             ON DUPLICATE KEY UPDATE
                 billing_method = CASE #{billingMethod} WHEN 'CARD' THEN 1 ELSE 0 END,
                 billing_email = #{billingEmail},
@@ -45,6 +46,8 @@ public interface TenantBillingMapper {
                 card_last4 = #{cardLast4},
                 card_brand = #{cardBrand},
                 plan = COALESCE(#{plan}, 'BASIC'),
+                per_seat_amount = #{perSeatAmount},
+                free_seats = #{freeSeats},
                 billed_from = #{billedFrom},
                 memo = #{memo}
             """)
@@ -55,6 +58,8 @@ public interface TenantBillingMapper {
             @Param("cardLast4") String cardLast4,
             @Param("cardBrand") String cardBrand,
             @Param("plan") String plan,
+            @Param("perSeatAmount") int perSeatAmount,
+            @Param("freeSeats") int freeSeats,
             @Param("billedFrom") LocalDate billedFrom,
             @Param("memo") String memo);
 

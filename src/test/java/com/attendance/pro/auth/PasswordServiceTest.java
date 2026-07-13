@@ -54,9 +54,12 @@ class PasswordServiceTest {
     private TenantMapper tenantMapper;
     @Mock
     private MemberInviteService memberInviteService;
+    @Mock
+    private com.attendance.pro.billing.BillingService billingService;
 
     private PasswordService service() {
-        return new PasswordService(userTokenService, userMapper, tenantMapper, memberInviteService);
+        return new PasswordService(userTokenService, userMapper, tenantMapper, memberInviteService,
+                billingService);
     }
 
     private static UserToken token(TokenPurpose purpose) {

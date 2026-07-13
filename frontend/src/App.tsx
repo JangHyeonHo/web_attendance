@@ -14,6 +14,7 @@ import { TenantMailTemplatesScreen } from './screens/TenantMailTemplatesScreen'
 import { LeaveScreen } from './screens/LeaveScreen'
 import { AdminLeaveScreen } from './screens/AdminLeaveScreen'
 import { AuditLogScreen } from './screens/AuditLogScreen'
+import { BillingScreen } from './screens/BillingScreen'
 import type { Lang, ScreenCode } from './api/types'
 
 const LANGS: Lang[] = ['KOR', 'ENG', 'JPN']
@@ -55,6 +56,8 @@ function ScreenBody({ screen }: { screen: ScreenCode }) {
       return <AdminLeaveScreen />
     case 'W017':
       return <AuditLogScreen />
+    case 'W018':
+      return <BillingScreen />
     case 'W000':
     default:
       return <LandingScreen />
@@ -129,11 +132,16 @@ export default function App() {
               </button>
             </>
           )}
-          {/* 회사 메일 템플릿은 총관리자 전용(직권 분산) */}
+          {/* 회사 메일 템플릿·청구서는 총관리자 전용(직권 분산·재무 정보) */}
           {role === 'TENANT_ADMIN' && (
-            <button aria-current={current('W014')} onClick={() => void navigate('W014')}>
-              {t('MAIL_TEMPLATES')}
-            </button>
+            <>
+              <button aria-current={current('W014')} onClick={() => void navigate('W014')}>
+                {t('MAIL_TEMPLATES')}
+              </button>
+              <button aria-current={current('W018')} onClick={() => void navigate('W018')}>
+                {t('BILLING')}
+              </button>
+            </>
           )}
           {role === 'SYSTEM_ADMIN' && (
             <>

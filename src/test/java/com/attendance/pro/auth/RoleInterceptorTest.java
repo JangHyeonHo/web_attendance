@@ -67,6 +67,15 @@ class RoleInterceptorTest {
             "/api/v1/tenant/mail-templates,     TENANT_ADMIN, allow",
             "/api/v1/tenant/mail-templates,     HR_ADMIN,     deny",
             "/api/v1/tenant/mail-templates/INVITE/KOR, HR_ADMIN, deny",
+            //자사 청구서 — 총관리자 전용(재무 정보, 인사관리자·SYSTEM_ADMIN 배제)
+            "/api/v1/tenant/billing/invoices,   TENANT_ADMIN, allow",
+            "/api/v1/tenant/billing/invoices,   HR_ADMIN,     deny",
+            "/api/v1/tenant/billing/invoices,   MEMBER,       deny",
+            "/api/v1/tenant/billing/invoices,   SYSTEM_ADMIN, deny",
+            //회사 청구서 마감·조회는 운영사 전용(system/** 규칙)
+            "/api/v1/system/tenants/1/invoices, SYSTEM_ADMIN, allow",
+            "/api/v1/system/tenants/1/invoices/2026-07/close, SYSTEM_ADMIN, allow",
+            "/api/v1/system/tenants/1/invoices, TENANT_ADMIN, deny",
             //휴가(관리자) — 인사관리자+총관리자(직권 분산 밖 — 인사 업무), SYSTEM_ADMIN 배제
             "/api/v1/tenant/leave/requests/pending, HR_ADMIN,     allow",
             "/api/v1/tenant/leave/requests/pending, TENANT_ADMIN, allow",

@@ -18,6 +18,8 @@ public record TenantBilling(
         String cardLast4,
         String cardBrand,
         String plan,
+        int perSeatAmount,
+        int freeSeats,
         LocalDate billedFrom,
         String memo,
         LocalDateTime createdAt,

@@ -5,6 +5,8 @@ import java.time.LocalDateTime;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -120,6 +122,12 @@ public final class TenantDtos {
             @Pattern(regexp = "^\\d{4}$", message = "{validation.card-last4.format}") String cardLast4,
             @Size(max = 20, message = "{validation.card-brand.size}") String cardBrand,
             @Size(max = 20, message = "{validation.plan.size}") String plan,
+            @Min(value = 0, message = "{validation.per-seat.range}")
+            @Max(value = 10000000, message = "{validation.per-seat.range}")
+            Integer perSeatAmount,                                    //인당 월 단가(원, VAT 별도) — null이면 기본 2000
+            @Min(value = 0, message = "{validation.free-seats.range}")
+            @Max(value = 100000, message = "{validation.free-seats.range}")
+            Integer freeSeats,                                        //무료 인원 — null이면 기본 5
             LocalDate billedFrom,
             @Size(max = 500, message = "{validation.memo.size}") String memo) {
 
@@ -136,7 +144,9 @@ public final class TenantDtos {
             boolean hasBillingKey,                                    //빌링키는 존재 여부만. 원문은 어떤 응답에도 없음
             @Schema(description = "schema.field.card-masked", example = "**** **** **** 1234")
             String cardMasked,                                        //card_last4로 조립. 빌링키 필드는 존재하지 않음
-            String cardBrand, String plan, LocalDate billedFrom, String memo,
+            String cardBrand, String plan,
+            int perSeatAmount, int freeSeats,                          //인당 단가(원, VAT 별도)·무료 인원
+            LocalDate billedFrom, String memo,
             LocalDateTime updatedAt) {
     }
 
