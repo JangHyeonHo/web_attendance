@@ -5,6 +5,8 @@ public enum AuditEvent {
 
     LOGIN_SUCCESS(AuditCategory.AUTH),
     LOGIN_FAIL(AuditCategory.AUTH),
+    /** 로그인 레이트리밋 차단 발동(임계 도달 시점 1회 — 차단 중 반복 시도는 재기록하지 않아 폭주 방지) */
+    LOGIN_BLOCKED(AuditCategory.AUTH),
     LOGOUT(AuditCategory.AUTH),
     /** 세션 재검증 실패(계정 비활성/테넌트 정지/비번 변경/호스트 불일치)로 세션 회수 */
     SESSION_REVOKED(AuditCategory.AUTH),

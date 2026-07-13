@@ -13,6 +13,7 @@ import com.attendance.pro.auth.AuthInterceptor;
 import com.attendance.pro.auth.LoginUserArgumentResolver;
 import com.attendance.pro.auth.RoleInterceptor;
 import com.attendance.pro.auth.SessionRevalidationInterceptor;
+import com.attendance.pro.auth.SlidingSessionCookieInterceptor;
 
 /**
  * MVC 설정(인증/인가 인터셉터, 로그인 유저 주입, CORS).
@@ -22,17 +23,20 @@ import com.attendance.pro.auth.SessionRevalidationInterceptor;
 public class WebConfig implements WebMvcConfigurer {
 
     private final SessionRevalidationInterceptor sessionRevalidationInterceptor;
+    private final SlidingSessionCookieInterceptor slidingSessionCookieInterceptor;
     private final AuthInterceptor authInterceptor;
     private final RoleInterceptor roleInterceptor;
     private final LoginUserArgumentResolver loginUserArgumentResolver;
     private final List<String> corsAllowedOrigins;
 
     public WebConfig(SessionRevalidationInterceptor sessionRevalidationInterceptor,
+            SlidingSessionCookieInterceptor slidingSessionCookieInterceptor,
             AuthInterceptor authInterceptor,
             RoleInterceptor roleInterceptor,
             LoginUserArgumentResolver loginUserArgumentResolver,
             @Value("${app.cors.allowed-origins:}") List<String> corsAllowedOrigins) {
         this.sessionRevalidationInterceptor = sessionRevalidationInterceptor;
+        this.slidingSessionCookieInterceptor = slidingSessionCookieInterceptor;
         this.authInterceptor = authInterceptor;
         this.roleInterceptor = roleInterceptor;
         this.loginUserArgumentResolver = loginUserArgumentResolver;
@@ -44,6 +48,9 @@ public class WebConfig implements WebMvcConfigurer {
         //세션 스냅샷 재검증(정지/비활성 → 세션 무효화, role 변경 → 스냅샷 갱신).
         //navigation 등 공개 API도 포함해 전 /api에 최우선 적용한다.
         registry.addInterceptor(sessionRevalidationInterceptor)
+                .addPathPatterns("/api/**");
+        //세션 쿠키 슬라이딩 갱신 — 재검증 뒤(회수된 세션은 갱신 대상 아님), 인증된 세션만 대상.
+        registry.addInterceptor(slidingSessionCookieInterceptor)
                 .addPathPatterns("/api/**");
         //로그인 필수 API (공개 4종: 로그인/화면 텍스트 조회/화면 전개/비밀번호 설정·재설정만 제외)
         registry.addInterceptor(authInterceptor)

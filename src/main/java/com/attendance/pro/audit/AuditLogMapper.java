@@ -26,17 +26,6 @@ public interface AuditLogMapper {
             @Param("ip") String ip, @Param("userAgent") String userAgent,
             @Param("requestPath") String requestPath);
 
-    /** 테넌트 최근 감사 로그 — 최신순 상한 조회(향후 테넌트 관리자 화면용). */
-    @Select("""
-            SELECT audit_id, tenant_id, user_id, category, event, detail, actor_email,
-                   ip, user_agent, request_path, created_at
-            FROM audit_log
-            WHERE tenant_id = #{tenantId}
-            ORDER BY audit_id DESC
-            LIMIT #{limit}
-            """)
-    List<AuditLog> findRecentByTenant(@Param("tenantId") long tenantId, @Param("limit") int limit);
-
     /**
      * 전역 최근 감사 로그(SYSTEM_ADMIN 화면) — 테넌트/유저명을 LEFT JOIN(널 이벤트 보존),
      * category 선택 필터. 로그인 실패·비인증 에러 등 tenant/user가 NULL인 행도 포함한다.

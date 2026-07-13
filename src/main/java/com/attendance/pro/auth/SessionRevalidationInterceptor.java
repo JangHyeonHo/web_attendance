@@ -11,7 +11,6 @@ import com.attendance.pro.tenant.TenantHostResolver;
 import com.attendance.pro.tenant.TenantHostResolver.HostTenant;
 import com.attendance.pro.tenant.TenantMapper;
 import com.attendance.pro.tenant.TenantStatus;
-import com.attendance.pro.user.User;
 import com.attendance.pro.user.UserMapper;
 import com.attendance.pro.user.UserStatus;
 
@@ -68,7 +67,9 @@ public class SessionRevalidationInterceptor implements HandlerInterceptor {
             return true;
         }
 
-        User current = userMapper.findById(sessionUser.tenantId(), sessionUser.userId());
+        //재검증에 필요한 필드(상태·role·비번시각·세션토큰)를 한 번에 조회(DB 왕복 1건).
+        UserMapper.RevalidationState current =
+                userMapper.findRevalidationState(sessionUser.tenantId(), sessionUser.userId());
         Tenant tenant = tenantMapper.findById(sessionUser.tenantId());
         boolean userRevoked = current == null || current.status() != UserStatus.ACTIVE;
         boolean tenantRevoked = tenant == null || tenant.status() == TenantStatus.SUSPENDED;
@@ -84,8 +85,7 @@ public class SessionRevalidationInterceptor implements HandlerInterceptor {
             return true;
         }
         //단일 세션 강제: DB의 현재 토큰과 스냅샷 토큰이 다르면(= 다른 기기에서 새 로그인) 회수한다.
-        String currentToken = userMapper.findSessionToken(sessionUser.tenantId(), sessionUser.userId());
-        if (!java.util.Objects.equals(sessionUser.sessionToken(), currentToken)) {
+        if (!java.util.Objects.equals(sessionUser.sessionToken(), current.sessionToken())) {
             invalidateKeepingLang(request, session, sessionUser, "SESSION_SUPERSEDED");
             return true;
         }

@@ -26,6 +26,9 @@ public record SessionUser(
         LocalDateTime passwordChangedAt,
         String sessionToken) implements Serializable {
 
+    /** 직렬화 버전 — 필드 구성 변경 시 올린다(구버전 세션 역직렬화 실패 = 세션 무효 = 재로그인). */
+    private static final long serialVersionUID = 1L;
+
     /** 세션 속성 키 */
     public static final String SESSION_KEY = "LOGIN_USER";
 

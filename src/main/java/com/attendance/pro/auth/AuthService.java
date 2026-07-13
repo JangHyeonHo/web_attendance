@@ -55,4 +55,12 @@ public class AuthService {
                 user.email(), user.name(), user.role(), user.passwordChangedAt(), sessionToken);
     }
 
+    /**
+     * 로그아웃 시 DB의 단일 세션 토큰을 비운다. 이후 어떤 스냅샷 토큰도 DB(null)와 불일치해
+     * 잔존 세션이 다음 요청에 회수된다(로그아웃 = 전 기기 로그아웃, 재검증 SESSION_SUPERSEDED).
+     */
+    public void clearSession(long tenantId, long userId) {
+        userMapper.updateSessionToken(tenantId, userId, null);
+    }
+
 }

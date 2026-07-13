@@ -135,12 +135,25 @@ public interface UserMapper {
     int updateSessionToken(@Param("tenantId") long tenantId, @Param("userId") long userId,
             @Param("sessionToken") String sessionToken);
 
-    /** 현재 유효 세션 토큰(재검증 비교용). 미식별/토큰 없음은 null. */
+    /**
+     * 요청 단위 세션 재검증에 필요한 최소 필드만 한 번에 조회(SessionRevalidationInterceptor 전용).
+     * status·role·password_changed_at·session_token을 함께 읽어 재검증의 DB 왕복을 1건으로 줄인다
+     * (전체 User 조회 + 별도 토큰 조회 2건 → 1건). 미식별 유저는 null.
+     */
     @Select("""
-            SELECT session_token FROM users
+            SELECT status, role, password_changed_at, session_token
+            FROM users
             WHERE tenant_id = #{tenantId} AND user_id = #{userId} AND deleted = FALSE
             """)
-    String findSessionToken(@Param("tenantId") long tenantId, @Param("userId") long userId);
+    RevalidationState findRevalidationState(@Param("tenantId") long tenantId, @Param("userId") long userId);
+
+    /** 세션 재검증용 스냅샷(계정 상태·role·비번 변경시각·단일 세션 토큰). */
+    record RevalidationState(
+            UserStatus status,
+            Role role,
+            java.time.LocalDateTime passwordChangedAt,
+            String sessionToken) {
+    }
 
     /**
      * 입사일 수정(연차 자동계산 기산 보정) — 2중 조건. 휴가 관리 화면에서 관리자가 조정.

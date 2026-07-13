@@ -64,10 +64,16 @@ public class AuthController {
         try {
             user = authService.authenticate(tenantCode, request.email(), request.password());
         } catch (ApiException e) {
-            loginRateLimiter.recordFailure(tenantCode, request.email(), clientIp);
+            boolean blockedNow = loginRateLimiter.recordFailure(tenantCode, request.email(), clientIp);
             //감사: 로그인 실패(존재 비노출 원칙상 user_id 없음 — 시도 이메일·테넌트·사유코드만)
             auditService.record(AuditEvent.LOGIN_FAIL, null, null, request.email(),
                     "tenant=" + tenantCode + " code=" + e.getCode(), httpRequest);
+            //차단이 이번에 발동했으면(임계 도달) 1회만 별도 기록 — 차단 중 반복 시도는 check()에서
+            //429로 걸러져 여기 도달하지 않으므로 감사 폭주 없이 무차별 시도 정황을 남긴다
+            if (blockedNow) {
+                auditService.record(AuditEvent.LOGIN_BLOCKED, null, null, request.email(),
+                        "tenant=" + tenantCode + " rate limit engaged", httpRequest);
+            }
             throw e;
         }
         loginRateLimiter.reset(tenantCode, request.email());
@@ -124,6 +130,8 @@ public class AuthController {
             if (su instanceof SessionUser user) {
                 auditService.record(AuditEvent.LOGOUT, user.tenantId(), user.userId(), user.email(),
                         null, httpRequest);
+                //DB 세션 토큰을 비워 잔존 세션까지 정리(단일 세션 강제와 정합)
+                authService.clearSession(user.tenantId(), user.userId());
             }
             //언어 설정은 로그아웃 후에도 유지한다
             Object lang = session.getAttribute(LocaleConfig.SESSION_LANG_KEY);
