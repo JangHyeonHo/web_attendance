@@ -125,6 +125,37 @@ public interface UserMapper {
             @Param("workDays") String workDays);
 
     /**
+     * 로그인 성공 시 현재 유효 세션 토큰 교체(단일 세션 강제) — 이전 세션 스냅샷 토큰과 달라져
+     * 다음 요청에 SessionRevalidationInterceptor가 이전 세션을 회수한다.
+     */
+    @Update("""
+            UPDATE users SET session_token = #{sessionToken}
+            WHERE tenant_id = #{tenantId} AND user_id = #{userId} AND deleted = FALSE
+            """)
+    int updateSessionToken(@Param("tenantId") long tenantId, @Param("userId") long userId,
+            @Param("sessionToken") String sessionToken);
+
+    /**
+     * 요청 단위 세션 재검증에 필요한 최소 필드만 한 번에 조회(SessionRevalidationInterceptor 전용).
+     * status·role·password_changed_at·session_token을 함께 읽어 재검증의 DB 왕복을 1건으로 줄인다
+     * (전체 User 조회 + 별도 토큰 조회 2건 → 1건). 미식별 유저는 null.
+     */
+    @Select("""
+            SELECT status, role, password_changed_at, session_token
+            FROM users
+            WHERE tenant_id = #{tenantId} AND user_id = #{userId} AND deleted = FALSE
+            """)
+    RevalidationState findRevalidationState(@Param("tenantId") long tenantId, @Param("userId") long userId);
+
+    /** 세션 재검증용 스냅샷(계정 상태·role·비번 변경시각·단일 세션 토큰). */
+    record RevalidationState(
+            UserStatus status,
+            Role role,
+            java.time.LocalDateTime passwordChangedAt,
+            String sessionToken) {
+    }
+
+    /**
      * 입사일 수정(연차 자동계산 기산 보정) — 2중 조건. 휴가 관리 화면에서 관리자가 조정.
      */
     @Update("""

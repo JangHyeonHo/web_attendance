@@ -1,5 +1,6 @@
 import { del, get, post, put } from './client'
 import type {
+  AuditLogEntry,
   CheckRequest,
   CheckResponse,
   ConfirmRequest,
@@ -100,6 +101,16 @@ export const systemTenantApi = {
     get<TenantBillingResponse | null>(`/api/v1/system/tenants/${tenantId}/billing`),
   upsertBilling: (tenantId: number, request: TenantBillingUpsertRequest) =>
     put<TenantBillingResponse>(`/api/v1/system/tenants/${tenantId}/billing`, request),
+}
+
+/** SYSTEM_ADMIN 전용 — 감사 로그 조회(W017). 전역 최신순 + category 필터 */
+export const adminAuditApi = {
+  list: (category?: string, limit = 100) => {
+    const p = new URLSearchParams()
+    if (category) p.set('category', category)
+    p.set('limit', String(limit))
+    return get<AuditLogEntry[]>(`/api/v1/admin/audit?${p.toString()}`)
+  },
 }
 
 /** SYSTEM_ADMIN 전용 — 시스템 전역 UI 테마(W004). 확정 테마의 배포는 navigation 응답이 담당 */

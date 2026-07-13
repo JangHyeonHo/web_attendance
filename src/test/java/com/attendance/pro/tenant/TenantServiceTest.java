@@ -48,7 +48,7 @@ class TenantServiceTest {
 
     private static final SessionUser SYSTEM_ADMIN =
             new SessionUser(1L, 1L, "DEFAULT", "기본 테넌트", "admin@attendance.local", "관리자",
-                    Role.SYSTEM_ADMIN, LocalDateTime.now());
+                    Role.SYSTEM_ADMIN, LocalDateTime.now(), null);
 
     @Mock
     private TenantMapper tenantMapper;

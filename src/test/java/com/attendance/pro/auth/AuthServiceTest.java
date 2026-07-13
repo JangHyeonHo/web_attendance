@@ -82,6 +82,20 @@ class AuthServiceTest {
     }
 
     @Test
+    @DisplayName("SES-05: 로그인 성공 시 새 세션 토큰을 발급·저장한다(단일 세션 강제)")
+    void issuesSessionTokenOnLogin() {
+        when(tenantMapper.findByCode("ACME")).thenReturn(tenant(TENANT_A, "ACME", TenantStatus.ACTIVE));
+        when(userMapper.findByEmail(TENANT_A, "hong@example.com"))
+                .thenReturn(user(TENANT_A, "hong@example.com", PW_A, Role.MEMBER, UserStatus.ACTIVE));
+
+        SessionUser session = service().authenticate("ACME", "hong@example.com", PW_A);
+
+        assertThat(session.sessionToken()).isNotBlank();
+        //발급한 토큰이 DB에도 저장돼(이후 재검증 비교 대상) 이전 세션을 밀어낸다
+        verify(userMapper).updateSessionToken(TENANT_A, 1L, session.sessionToken());
+    }
+
+    @Test
     @DisplayName("LGN-02: 같은 이메일이 B에도 있으면 B 코드+B 비밀번호로 B 스코프 로그인")
     void loginSameEmailOtherTenant() {
         when(tenantMapper.findByCode("BETA")).thenReturn(tenant(TENANT_B, "BETA", TenantStatus.ACTIVE));

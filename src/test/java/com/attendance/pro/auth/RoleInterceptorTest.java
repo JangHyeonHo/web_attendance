@@ -25,7 +25,7 @@ class RoleInterceptorTest {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", uri);
         if (role != null) {
             SessionUser user = new SessionUser(1L, 1L, "ACME", "에이크미(주)", "u@acme.co.kr", "유저", role,
-                    java.time.LocalDateTime.now());
+                    java.time.LocalDateTime.now(), null);
             request.getSession(true).setAttribute(SessionUser.SESSION_KEY, user);
         }
         return request;
@@ -45,6 +45,10 @@ class RoleInterceptorTest {
             "/api/v1/admin/i18n,                TENANT_ADMIN, deny",
             "/api/v1/admin/i18n,                MEMBER,       deny",
             "/api/v1/admin/mail-templates,      SYSTEM_ADMIN, allow",
+            "/api/v1/admin/audit,               SYSTEM_ADMIN, allow",
+            "/api/v1/admin/audit,               TENANT_ADMIN, deny",
+            "/api/v1/admin/audit,               HR_ADMIN,     deny",
+            "/api/v1/admin/audit,               MEMBER,       deny",
             "/api/v1/admin/mail-templates,      TENANT_ADMIN, deny",
             "/api/v1/admin/mail-templates,      MEMBER,       deny",
             "/api/v1/admin/mail-templates/INVITE/KOR, SYSTEM_ADMIN, allow",

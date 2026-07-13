@@ -38,16 +38,16 @@ class NavigationServiceTest {
 
     private static final SessionUser MEMBER =
             new SessionUser(1L, 10L, "ACME", "에이크미(주)", "hong@example.com", "홍길동", Role.MEMBER,
-                    java.time.LocalDateTime.now());
+                    java.time.LocalDateTime.now(), null);
     private static final SessionUser TENANT_ADMIN =
             new SessionUser(2L, 10L, "ACME", "에이크미(주)", "ta@acme.co.kr", "김관리", Role.TENANT_ADMIN,
-                    java.time.LocalDateTime.now());
+                    java.time.LocalDateTime.now(), null);
     private static final SessionUser HR_ADMIN =
             new SessionUser(4L, 10L, "ACME", "에이크미(주)", "hr@acme.co.kr", "이인사", Role.HR_ADMIN,
-                    java.time.LocalDateTime.now());
+                    java.time.LocalDateTime.now(), null);
     private static final SessionUser SYSTEM_ADMIN =
             new SessionUser(3L, 1L, "DEFAULT", "기본 테넌트", "admin@attendance.local", "관리자", Role.SYSTEM_ADMIN,
-                    java.time.LocalDateTime.now());
+                    java.time.LocalDateTime.now(), null);
 
     @Test
     @DisplayName("미로그인: 공개 화면은 그대로, 보호 화면은 로그인으로")
@@ -184,6 +184,17 @@ class NavigationServiceTest {
                 .isEqualTo(new Decision(Screen.ATTENDANCE, NavigationReason.ROLE_DENIED, false));
         assertThat(service.decide("W012", null, false))
                 .isEqualTo(new Decision(Screen.LOGIN, NavigationReason.LOGIN_REQUIRED, false));
+    }
+
+    @Test
+    @DisplayName("W017(감사 로그): SYSTEM_ADMIN만 — 그 외는 홈 + ROLE_DENIED")
+    void auditScreenRoleGate() {
+        NavigationService service = service();
+        assertThat(service.decide("W017", SYSTEM_ADMIN, false)).isEqualTo(new Decision(Screen.AUDIT, null, false));
+        assertThat(service.decide("W017", TENANT_ADMIN, false))
+                .isEqualTo(new Decision(Screen.ATTENDANCE, NavigationReason.ROLE_DENIED, false));
+        assertThat(service.decide("W017", MEMBER, false))
+                .isEqualTo(new Decision(Screen.ATTENDANCE, NavigationReason.ROLE_DENIED, false));
     }
 
     @Test

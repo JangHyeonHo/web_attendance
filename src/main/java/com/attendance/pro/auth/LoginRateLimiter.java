@@ -64,11 +64,16 @@ public class LoginRateLimiter {
 
     /**
      * 인증 실패 기록. 임계 도달 시 차단을 건다.
+     *
+     * @return 이번 호출로 계정 또는 IP 차단이 <b>새로 발동</b>했으면 true(감사 1회 기록 트리거).
+     *         이미 차단 중인 반복 시도는 {@link #check}에서 걸러져 이 메소드에 도달하지 않으므로,
+     *         차단 발동은 윈도우당 한 번만 true가 된다(감사 폭주 방지).
      */
-    public void recordFailure(String tenantCode, String email, String ip) {
+    public boolean recordFailure(String tenantCode, String email, String ip) {
         long now = clock.millis();
-        record(accountKey(tenantCode, email), now, ACCOUNT_THRESHOLD, ACCOUNT_BLOCK_MILLIS);
-        record(ipKey(ip), now, IP_THRESHOLD, IP_BLOCK_MILLIS);
+        boolean accountBlocked = record(accountKey(tenantCode, email), now, ACCOUNT_THRESHOLD, ACCOUNT_BLOCK_MILLIS);
+        boolean ipBlocked = record(ipKey(ip), now, IP_THRESHOLD, IP_BLOCK_MILLIS);
+        return accountBlocked || ipBlocked;
     }
 
     /**
@@ -92,7 +97,8 @@ public class LoginRateLimiter {
         return true;
     }
 
-    private void record(String key, long now, int threshold, long blockMillis) {
+    /** @return 이번 기록으로 임계에 도달해 차단이 걸렸으면 true. */
+    private boolean record(String key, long now, int threshold, long blockMillis) {
         evictIfNeeded();
         Deque<Long> deque = failures.computeIfAbsent(key, k -> new ArrayDeque<>());
         synchronized (deque) {
@@ -104,8 +110,10 @@ public class LoginRateLimiter {
             if (deque.size() >= threshold) {
                 blockedUntil.put(key, now + blockMillis);
                 deque.clear();
+                return true;
             }
         }
+        return false;
     }
 
     /**

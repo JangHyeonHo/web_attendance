@@ -90,6 +90,17 @@ class LoginRateLimiterTest {
     }
 
     @Test
+    @DisplayName("LGN-08(감사): recordFailure는 차단 발동(임계 도달) 호출에만 true를 반환한다(LOGIN_BLOCKED 1회 트리거)")
+    void recordFailureSignalsBlockEngagementOnce() {
+        for (int i = 0; i < 4; i++) {
+            //임계 미만 실패는 차단 미발동 → false
+            assertThat(limiter.recordFailure("ACME", "hong@example.com", "10.0.0.1")).isFalse();
+        }
+        //5번째 실패에서 임계 도달 → 차단 발동 → true(감사 1회)
+        assertThat(limiter.recordFailure("ACME", "hong@example.com", "10.0.0.1")).isTrue();
+    }
+
+    @Test
     @DisplayName("LGN-10: 차단 시간(계정 5분) 경과 후 재시도 허용")
     void blockExpires() {
         for (int i = 0; i < 5; i++) {

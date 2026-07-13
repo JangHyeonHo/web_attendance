@@ -46,6 +46,8 @@ public enum Screen {
     LEAVE("W015", Set.of(Role.MEMBER, Role.HR_ADMIN, Role.TENANT_ADMIN)),
     /** 휴가 관리(관리자) — 결재·부여·종류. 인사관리자+총관리자 */
     LEAVE_ADMIN("W016", Set.of(Role.HR_ADMIN, Role.TENANT_ADMIN)),
+    /** 감사 로그 조회 — 운영사(SYSTEM_ADMIN) 전용 */
+    AUDIT("W017", Set.of(Role.SYSTEM_ADMIN)),
     /** 공통(헤더) - 직접 전개하지 않고 공통 텍스트 취득용 */
     COMMON("W999", null);
 

@@ -1809,3 +1809,16 @@ button.day-link:hover {
 .suggest-row button {
   margin-left: auto;
 }
+
+/* ---- 감사 로그 (W017) ---- */
+.detail-table td.nowrap {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.badge.audit-auth {
+  color: var(--accent-dark);
+}
+.badge.audit-error {
+  color: #b23350;
+  border-color: #b23350;
+}
