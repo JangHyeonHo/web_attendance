@@ -532,8 +532,8 @@ export function DetailsScreen() {
 }
 
 /**
- * 월별 출결 — 모바일 아코디언(#4). 하루=한 줄(날짜+실근무)로 접어두고, 펴면 스케줄·입력·휴게가 보인다.
- * 한 화면에 여러 날이 보여 스크롤이 크게 줄고, 펼친 뒤 [일자 상세]로 정정 등록 동선으로 진입한다.
+ * 월별 출결 — 모바일 카드 뷰(#모바일). 표를 가로 스크롤로 욱여넣지 않고 하루=한 카드로 편다.
+ * 데스크톱 표와 같은 monthly 데이터를 공유하고, 날짜 카드 탭 → 같은 일자 상세 모달로 진입한다.
  */
 function MonthlyCards({
   monthly,
@@ -547,7 +547,7 @@ function MonthlyCards({
   onOpen: (date: string) => void | Promise<void>
 }) {
   return (
-    <div className="att-acc-list">
+    <div className="att-cards">
       {monthly.days.map((day: DailyAttendance) => {
         const date = new Date(day.date)
         const weekday = date.getDay()
@@ -556,38 +556,38 @@ function MonthlyCards({
         const offDutyLabel = day.holidayName ?? (day.holiday ? t('HOLIDAY') : t('DAY_OFF'))
         const dowClass = weekday === 0 ? 'sun' : weekday === 6 ? 'sat' : ''
         return (
-          <details key={day.date} className={`att-acc${offDuty ? ' off' : ''}`}>
-            <summary className="att-acc-sum">
-              <span className={`att-acc-date ${dowClass}`}>
+          <button
+            key={day.date}
+            type="button"
+            className={`att-card${offDuty ? ' off' : ''}`}
+            onClick={() => void onOpen(day.date)}
+          >
+            <div className="att-card-head">
+              <span className={`att-card-date ${dowClass}`}>
                 {date.getDate()}({weekdayOf(date)})
               </span>
               {day.manual && <span className="mini-badge">{t('SOURCE_MANUAL')}</span>}
-              <span className="att-acc-work">
-                {offDuty && !hasStamps ? offDutyLabel : formatMinutes(day.workMinutes)}
-              </span>
-            </summary>
-            <div className="att-acc-body">
-              {!(offDuty && !hasStamps) && (
-                <dl className="att-card-body">
-                  <div>
-                    <dt>{t('USERSCHE')}</dt>
-                    <dd>{day.scheduleStart ?? '-'} ~ {day.scheduleEnd ?? '-'}</dd>
-                  </div>
-                  <div>
-                    <dt>{t('INPUTTIME')}</dt>
-                    <dd>{day.stampIn ?? '-'} ~ {day.stampOut ?? '-'}</dd>
-                  </div>
-                  <div>
-                    <dt>{t('BREAK_RECOGNIZED')}</dt>
-                    <dd>{formatMinutes(day.recognizedBreakMinutes)}</dd>
-                  </div>
-                </dl>
-              )}
-              <button type="button" className="att-acc-open" onClick={() => void onOpen(day.date)}>
-                {t('DAY_DETAIL')}
-              </button>
+              <span className="att-card-work">{formatMinutes(day.workMinutes)}</span>
             </div>
-          </details>
+            {offDuty && !hasStamps ? (
+              <div className="att-card-off muted">{offDutyLabel}</div>
+            ) : (
+              <dl className="att-card-body">
+                <div>
+                  <dt>{t('USERSCHE')}</dt>
+                  <dd>{day.scheduleStart ?? '-'} ~ {day.scheduleEnd ?? '-'}</dd>
+                </div>
+                <div>
+                  <dt>{t('INPUTTIME')}</dt>
+                  <dd>{day.stampIn ?? '-'} ~ {day.stampOut ?? '-'}</dd>
+                </div>
+                <div>
+                  <dt>{t('BREAK_RECOGNIZED')}</dt>
+                  <dd>{formatMinutes(day.recognizedBreakMinutes)}</dd>
+                </div>
+              </dl>
+            )}
+          </button>
         )
       })}
       {/* 월 합계 요약 카드 — 예정/휴게/실근무 */}
