@@ -414,6 +414,8 @@ export interface DailyAttendance {
   stampOut: string | null
   /** 공휴일 명칭(NATIONAL/COMPANY). 개인 휴일(work_schedule.holiday)은 null → HOLIDAY 라벨 폴백 */
   holidayName: string | null
+  /** 예정 근무(분) = 스케줄 구간 − 법정휴게. 휴일·휴무는 null */
+  scheduledMinutes: number | null
   /** 실휴식 합(분). 출근·퇴근 미확정이면 null */
   breakMinutes: number | null
   /** 법정휴게(분). 근무일=스케줄 기반, 휴일·휴무 근무=실체류 기반, 그 외 null */
@@ -473,7 +475,11 @@ export interface MonthlyResponse {
   year: number
   month: number
   days: DailyAttendance[]
-  /** 월 합계(분) = workMinutes non-null 합 */
+  /** 월 예정근무 합(분) = scheduledMinutes non-null 합 */
+  totalScheduledMinutes: number
+  /** 월 인정휴게 합(분) = recognizedBreakMinutes non-null 합 */
+  totalBreakMinutes: number
+  /** 월 실근무 합(분) = workMinutes non-null 합 */
   totalWorkMinutes: number
 }
 
@@ -524,7 +530,8 @@ export interface TenantMailTemplateResponse {
 export type HolidayType = 'NATIONAL' | 'COMPANY'
 
 export interface HolidayEntry {
-  holidayDate: string // yyyy-MM-dd (PK — 식별자는 날짜 자체)
+  holidayId: number // 대리키(날짜 중복 허용 — #7)
+  holidayDate: string // yyyy-MM-dd
   holidayName: string
   holidayType: HolidayType
   updatedAt: string
@@ -539,14 +546,9 @@ export interface HolidaySyncResult {
   skippedCompany: number
 }
 
-/** 수동 등록은 항상 COMPANY로 저장(요청에 type 없음 — holiday-plan §3-2) */
+/** 수동 등록은 항상 COMPANY로 저장(요청에 type 없음). 날짜 중복 허용(#7) */
 export interface HolidayCreateRequest {
   holidayDate: string
-  holidayName: string
-}
-
-/** 명칭만 수정 가능 — 유형 변경 불가(holiday-plan §3-3) */
-export interface HolidayUpdateRequest {
   holidayName: string
 }
 
@@ -615,6 +617,16 @@ export interface LeaveBalance {
   standardDayMinutes: number
 }
 
+/** 만기일별 잔여 한 행(부여 하나의 남은 분 + 만기일). expiresOn null = 무기한. */
+export interface LeaveBalanceRow {
+  leaveTypeId: number
+  name: string
+  unit: LeaveUnit
+  remainingMinutes: number
+  expiresOn: string | null
+  standardDayMinutes: number
+}
+
 export interface LeaveApplyRequest {
   leaveTypeId: number
   dayUnit: boolean
@@ -653,6 +665,15 @@ export interface LeaveDecisionRequest {
 
 export interface LeaveGrantRequest {
   userId: number
+  leaveTypeId: number
+  days: number
+  expiresOn?: string | null
+  memo?: string | null
+}
+
+/** 일괄 부여(#9) — 여러 멤버에 같은 종류·일수 */
+export interface LeaveBulkGrantRequest {
+  userIds: number[]
   leaveTypeId: number
   days: number
   expiresOn?: string | null

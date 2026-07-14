@@ -11,7 +11,6 @@ import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -78,10 +77,9 @@ public class HolidayService {
         LocalDate to = LocalDate.of(year + 1, 1, 1);
         return transactionTemplate.execute(status -> {
             int deleted = holidayMapper.deleteNationalByYear(tenantId, from, to);
-            int inserted = holidayMapper.insertNationalIgnore(tenantId, entries);
-            //살아남은(삽입 안 된) 날짜는 전부 COMPANY — COMPANY 우선 규칙의 카운트
-            return new HolidaySyncResponse(year, country.name(), entries.size(), inserted,
-                    deleted, entries.size() - inserted);
+            int inserted = holidayMapper.insertNational(tenantId, entries);
+            //날짜 중복 허용(#7) — COMPANY와 공존하므로 건너뛰는 항목 없음
+            return new HolidaySyncResponse(year, country.name(), entries.size(), inserted, deleted, 0);
         });
     }
 
@@ -114,33 +112,24 @@ public class HolidayService {
 
     /**
      * 수동 등록 — 항상 COMPANY(요청에 type 없음 — "수동 NATIONAL"이 다음 동기화에서 소리 없이
-     * 지워지는 함정을 닫는다). 같은 날짜 중복은 409.
+     * 지워지는 함정을 닫는다). 날짜 중복 허용(#7) — 대리키로 여러 행 공존.
      */
     @Transactional
     public HolidayResponse create(long tenantId, HolidayCreateRequest request) {
-        try {
-            holidayMapper.insert(tenantId, request.holidayDate(), request.holidayName());
-        } catch (DuplicateKeyException e) {
-            throw ApiException.conflict("HOLIDAY_DATE_DUPLICATED", "holiday.date.duplicated");
-        }
-        return HolidayResponse.from(holidayMapper.findByDate(tenantId, request.holidayDate()));
+        HolidayMapper.HolidayInsert holiday =
+                new HolidayMapper.HolidayInsert(tenantId, request.holidayDate(), request.holidayName());
+        holidayMapper.insert(holiday);
+        return HolidayResponse.from(holidayMapper.findById(tenantId, holiday.getHolidayId()));
     }
 
     /**
-     * 명칭 수정(NATIONAL도 허용 + 프론트가 복원 경고 — §3-3. 유형 변경 불가).
+     * 회사 공휴일 삭제(#7) — COMPANY만 삭제 가능. 국가 공휴일(NATIONAL)이거나 미존재면 404
+     * (매퍼가 type='COMPANY'로 한정하므로 국가 공휴일 id는 매칭되지 않는다 = 삭제 불가 보장).
      */
     @Transactional
-    public HolidayResponse updateName(long tenantId, LocalDate holidayDate, String holidayName) {
-        if (holidayMapper.updateName(tenantId, holidayDate, holidayName) == 0) {
-            throw holidayNotFound();
-        }
-        return HolidayResponse.from(holidayMapper.findByDate(tenantId, holidayDate));
-    }
-
-    @Transactional
-    public void delete(long tenantId, LocalDate holidayDate) {
-        if (holidayMapper.deleteByDate(tenantId, holidayDate) == 0) {
-            throw holidayNotFound();
+    public void deleteCompany(long tenantId, long holidayId) {
+        if (holidayMapper.deleteCompanyById(tenantId, holidayId) == 0) {
+            throw ApiException.notFound("HOLIDAY_NOT_FOUND", "holiday.not-found");
         }
     }
 
@@ -208,10 +197,6 @@ public class HolidayService {
     private ProfileCountry countryOf(Tenant tenant) {
         ProfileCountry country = ProfileCountry.of(tenant.country());
         return country == null ? ProfileCountry.KR : country;
-    }
-
-    private static ApiException holidayNotFound() {
-        return ApiException.notFound("HOLIDAY_NOT_FOUND", "holiday.not-found");
     }
 
 }

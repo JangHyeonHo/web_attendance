@@ -4,9 +4,11 @@ import { leaveApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { Modal } from '../components/Modal'
-import { SelectField, TimeField } from '../components/fields'
+import { SelectField } from '../components/fields'
+import { DateField } from '../components/DateField'
+import { useIsMobile } from '../hooks/useIsMobile'
 import { formatLeaveAmount } from '../util/leaveFormat'
-import type { LeaveBalance, LeaveRequestItem, LeaveStatus, LeaveType, LeaveUnit } from '../api/types'
+import type { LeaveBalance, LeaveBalanceRow, LeaveRequestItem, LeaveStatus, LeaveType, LeaveUnit } from '../api/types'
 
 const STATUS_KEYS: Record<LeaveStatus, string> = {
   PENDING: 'STATUS_PENDING',
@@ -44,7 +46,9 @@ function endDateOf(iso: string): string {
  */
 export function LeaveScreen() {
   const { t } = useApp()
+  const isMobile = useIsMobile()
   const [balances, setBalances] = useState<LeaveBalance[]>([])
+  const [balanceRows, setBalanceRows] = useState<LeaveBalanceRow[]>([])
   const [types, setTypes] = useState<LeaveType[]>([])
   const [requests, setRequests] = useState<LeaveRequestItem[]>([])
   const [listError, setListError] = useState<string | null>(null)
@@ -57,12 +61,14 @@ export function LeaveScreen() {
 
   const reload = useCallback(async () => {
     try {
-      const [b, ty, rq] = await Promise.all([
+      const [b, rows, ty, rq] = await Promise.all([
         leaveApi.balances(),
+        leaveApi.balanceRows(),
         leaveApi.types(),
         leaveApi.myRequests(),
       ])
       setBalances(b)
+      setBalanceRows(rows)
       setTypes(ty)
       setRequests(rq)
       setListError(null)
@@ -131,21 +137,45 @@ export function LeaveScreen() {
 
       {listError && <p className="error" role="alert">{listError}</p>}
 
-      <section className="balance-cards">
-        {balances.map((b) => (
-          <div className="balance-card" key={b.leaveTypeId}>
-            <span className="balance-name">{b.name}</span>
-            <span className="balance-remaining">{amt(b.remainingMinutes, b.unit, b.standardDayMinutes)}</span>
-            <span className="balance-sub muted">
-              {t('GRANTED')} {amt(b.grantedMinutes, b.unit, b.standardDayMinutes)} ·{' '}
-              {t('USED')} {amt(b.usedMinutes, b.unit, b.standardDayMinutes)}
-              {b.pendingMinutes > 0 &&
-                ` · ${t('STATUS_PENDING')} ${amt(b.pendingMinutes, b.unit, b.standardDayMinutes)}`}
-            </span>
-          </div>
-        ))}
-        {balances.length === 0 && !listError && <p className="muted">{t('EMPTY')}</p>}
-      </section>
+      {/* 잔여는 만기일별 한 표 — 종류·남은·만기일(먼저 만료되는 부여부터 소진, #4/#5). */}
+      {balanceRows.length === 0 && !listError ? (
+        <p className="muted">{t('EMPTY')}</p>
+      ) : isMobile ? (
+        <div className="lv-cards">
+          {balanceRows.map((r, i) => (
+            <div className="lv-bal-card" key={`${r.leaveTypeId}-${r.expiresOn ?? 'none'}-${i}`}>
+              <div className="lv-bal-main">
+                <span className="lv-bal-name">{r.name}</span>
+                <strong className="lv-bal-amt">{amt(r.remainingMinutes, r.unit, r.standardDayMinutes)}</strong>
+              </div>
+              <span className="muted lv-bal-exp">
+                {t('EXPIRES')} {r.expiresOn ?? t('NO_EXPIRY')}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="table-wrap">
+          <table className="detail-table">
+            <thead>
+              <tr>
+                <th>{t('LEAVE_TYPE')}</th>
+                <th className="num">{t('REMAINING')}</th>
+                <th>{t('EXPIRES')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {balanceRows.map((r, i) => (
+                <tr key={`${r.leaveTypeId}-${r.expiresOn ?? 'none'}-${i}`}>
+                  <td>{r.name}</td>
+                  <td className="num">{amt(r.remainingMinutes, r.unit, r.standardDayMinutes)}</td>
+                  <td>{r.expiresOn ?? t('NO_EXPIRY')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {formOpen && (
         <ApplyModal
@@ -200,6 +230,49 @@ export function LeaveScreen() {
       <h3 className="section-head">{t('MY_REQUESTS')}</h3>
       {requests.length === 0 ? (
         <p className="muted center">{t('EMPTY')}</p>
+      ) : isMobile ? (
+        <div className="lv-cards">
+          {requests.map((r) => {
+            const canCancelPending = r.status === 'PENDING'
+            const canRequestCancel = r.status === 'APPROVED' && startsInFuture(r.startAt)
+            const approvedSameDay = r.status === 'APPROVED' && !startsInFuture(r.startAt)
+            return (
+              <div className="lv-req-card" key={r.leaveRequestId}>
+                <div className="lv-req-head">
+                  <span className="lv-req-type">{r.typeName}</span>
+                  <span className={`badge leave-${r.status.toLowerCase()}`}>{t(STATUS_KEYS[r.status])}</span>
+                </div>
+                <div className="lv-req-line">
+                  <span>{periodText(r)}</span>
+                  <span className="num">{amt(r.minutes, r.unit, dayMinutesByType.get(r.leaveTypeId) ?? stdDay)}</span>
+                </div>
+                {r.reason && <p className="lv-req-reason muted">{r.reason}</p>}
+                {r.status === 'REJECTED' && r.decisionNote && (
+                  <p className="hint">{r.decisionNote}</p>
+                )}
+                {r.status === 'CANCEL_REQUESTED' && r.cancelReason && (
+                  <p className="hint">{r.cancelReason}</p>
+                )}
+                {(canCancelPending || canRequestCancel || approvedSameDay) && (
+                  <div className="lv-req-actions">
+                    {canCancelPending && (
+                      <button onClick={() => setCancelTarget(r)}>{t('CANCEL')}</button>
+                    )}
+                    {canRequestCancel && (
+                      <button onClick={() => { setCancelReqTarget(r); setCancelReqReason('') }}>
+                        {t('REQUEST_CANCEL')}
+                      </button>
+                    )}
+                    {approvedSameDay && <span className="hint">{t('CANCEL_SAME_DAY')}</span>}
+                  </div>
+                )}
+                {rowError?.id === r.leaveRequestId && (
+                  <p className="error">{rowError.message}</p>
+                )}
+              </div>
+            )
+          })}
+        </div>
       ) : (
         <div className="table-wrap">
           <table className="detail-table">
@@ -263,7 +336,7 @@ export function LeaveScreen() {
   )
 }
 
-/** 신청 모달 — 일/반차/시간 분기. */
+/** 신청 모달 — 일 단위(시작~종료일). */
 function ApplyModal({
   types,
   onClose,
@@ -276,42 +349,25 @@ function ApplyModal({
   const { t } = useApp()
   const today = new Date().toISOString().slice(0, 10)
   const [leaveTypeId, setLeaveTypeId] = useState(types[0]?.leaveTypeId ?? 0)
-  const [dayUnit, setDayUnit] = useState(true)
   const [startDate, setStartDate] = useState(today)
   const [endDate, setEndDate] = useState(today)
-  const [halfDay, setHalfDay] = useState(false)
-  const [hourDate, setHourDate] = useState(today)
-  const [startTime, setStartTime] = useState('09:00')
-  const [endTime, setEndTime] = useState('12:00')
   const [reason, setReason] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
-
-  const singleDay = startDate === endDate
 
   async function submit(event: FormEvent) {
     event.preventDefault()
     setError(null)
     setSubmitting(true)
     try {
-      if (dayUnit) {
-        await leaveApi.apply({
-          leaveTypeId,
-          dayUnit: true,
-          startDate,
-          endDate,
-          halfDay: singleDay && halfDay,
-          reason: reason.trim() || null,
-        })
-      } else {
-        await leaveApi.apply({
-          leaveTypeId,
-          dayUnit: false,
-          startTime: `${hourDate}T${startTime}:00`,
-          endTime: `${hourDate}T${endTime}:00`,
-          reason: reason.trim() || null,
-        })
-      }
+      await leaveApi.apply({
+        leaveTypeId,
+        dayUnit: true,
+        startDate,
+        endDate,
+        halfDay: false,
+        reason: reason.trim() || null,
+      })
       await onDone()
     } catch (e) {
       setError(e instanceof ApiError ? e.message : String(e))
@@ -333,79 +389,23 @@ function ApplyModal({
           />
         </label>
 
-        <div className="seg-toggle" role="tablist" aria-label={t('LEAVE_TYPE')}>
-          <button
-            type="button"
-            className={dayUnit ? 'active' : ''}
-            onClick={() => setDayUnit(true)}
-          >
-            {t('MODE_DAY')}
-          </button>
-          <button
-            type="button"
-            className={!dayUnit ? 'active' : ''}
-            onClick={() => setDayUnit(false)}
-          >
-            {t('MODE_HOUR')}
-          </button>
+        <div className="field-group">
+          <label>
+            {t('START_DATE')}
+            <DateField
+              value={startDate}
+              ariaLabel={t('START_DATE')}
+              onChange={(v) => {
+                setStartDate(v)
+                if (v > endDate) setEndDate(v)
+              }}
+            />
+          </label>
+          <label>
+            {t('END_DATE')}
+            <DateField value={endDate} min={startDate} onChange={setEndDate} ariaLabel={t('END_DATE')} />
+          </label>
         </div>
-
-        {dayUnit ? (
-          <div className="field-group">
-            <label>
-              {t('START_DATE')}
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => {
-                  setStartDate(e.target.value)
-                  if (e.target.value > endDate) setEndDate(e.target.value)
-                }}
-                required
-              />
-            </label>
-            <label>
-              {t('END_DATE')}
-              <input
-                type="date"
-                value={endDate}
-                min={startDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                required
-              />
-            </label>
-            {singleDay && (
-              <label className="check-inline">
-                <input
-                  type="checkbox"
-                  checked={halfDay}
-                  onChange={(e) => setHalfDay(e.target.checked)}
-                />
-                {t('HALF_DAY')}
-              </label>
-            )}
-          </div>
-        ) : (
-          <div className="field-group">
-            <label>
-              {t('START_DATE')}
-              <input
-                type="date"
-                value={hourDate}
-                onChange={(e) => setHourDate(e.target.value)}
-                required
-              />
-            </label>
-            <label>
-              {t('START_TIME')}
-              <TimeField value={startTime} onChange={setStartTime} ariaLabel={t('START_TIME')} />
-            </label>
-            <label>
-              {t('END_TIME')}
-              <TimeField value={endTime} onChange={setEndTime} ariaLabel={t('END_TIME')} />
-            </label>
-          </div>
-        )}
 
         <label>
           {t('REASON')}

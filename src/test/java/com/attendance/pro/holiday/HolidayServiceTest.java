@@ -25,7 +25,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.TransactionStatus;
@@ -116,13 +115,13 @@ class HolidayServiceTest {
                     nager("2026-03-04", "기념일", "KR", true, null, List.of("Observance")),         //Public 아님 제외
                     publicHoliday("2026-03-05", "타국", "JP")));                                    //국가 불일치 제외
             when(holidayMapper.deleteNationalByYear(eq(TENANT_ID), any(), any())).thenReturn(0);
-            when(holidayMapper.insertNationalIgnore(eq(TENANT_ID), anyList())).thenReturn(1);
+            when(holidayMapper.insertNational(eq(TENANT_ID), anyList())).thenReturn(1);
 
             HolidaySyncResponse response = service().sync(TENANT_ID, 2026);
 
             assertThat(response.fetched()).isEqualTo(1);
             assertThat(response.inserted()).isEqualTo(1);
-            verify(holidayMapper).insertNationalIgnore(eq(TENANT_ID), eq(List.of(
+            verify(holidayMapper).insertNational(eq(TENANT_ID), eq(List.of(
                     new HolidayMapper.NationalHoliday(LocalDate.of(2026, 3, 1), "삼일절"))));
         }
 
@@ -135,11 +134,11 @@ class HolidayServiceTest {
                     publicHoliday("2026-03-01", "삼일절 대체", "KR"),
                     publicHoliday("2026-05-05", "어린이날", "KR")));
             when(holidayMapper.deleteNationalByYear(eq(TENANT_ID), any(), any())).thenReturn(0);
-            when(holidayMapper.insertNationalIgnore(eq(TENANT_ID), anyList())).thenReturn(2);
+            when(holidayMapper.insertNational(eq(TENANT_ID), anyList())).thenReturn(2);
 
             service().sync(TENANT_ID, 2026);
 
-            verify(holidayMapper).insertNationalIgnore(eq(TENANT_ID), eq(List.of(
+            verify(holidayMapper).insertNational(eq(TENANT_ID), eq(List.of(
                     new HolidayMapper.NationalHoliday(LocalDate.of(2026, 3, 1), "삼일절"),
                     new HolidayMapper.NationalHoliday(LocalDate.of(2026, 5, 5), "어린이날"))));
         }
@@ -176,29 +175,29 @@ class HolidayServiceTest {
             expectUpstream(() -> service.sync(TENANT_ID, 2026));
 
             verify(holidayMapper, never()).deleteNationalByYear(anyLong(), any(), any());
-            verify(holidayMapper, never()).insertNationalIgnore(anyLong(), anyList());
+            verify(holidayMapper, never()).insertNational(anyLong(), anyList());
         }
 
         @Test
-        @DisplayName("HOL-04: 삭제는 해당 연도 NATIONAL만(인자 검증), COMPANY 겹침은 skippedCompany로 카운트")
-        void deleteScopeAndCompanySkip() {
+        @DisplayName("HOL-04: 삭제는 해당 연도 NATIONAL만(인자 검증), 날짜 중복 허용 — 전량 삽입(skippedCompany=0)")
+        void deleteScopeAllInserted() {
             when(tenantMapper.findById(TENANT_ID)).thenReturn(tenant("KR"));
             when(nagerDateClient.fetch(2026, "KR")).thenReturn(List.of(
                     publicHoliday("2026-03-01", "삼일절", "KR"),
                     publicHoliday("2026-10-01", "창립기념일과 겹침", "KR")));
             when(holidayMapper.deleteNationalByYear(TENANT_ID,
                     LocalDate.of(2026, 1, 1), LocalDate.of(2027, 1, 1))).thenReturn(3);
-            //2건 중 1건은 COMPANY 기존 행에 막혀 IGNORE(삽입 1건)
-            when(holidayMapper.insertNationalIgnore(eq(TENANT_ID), anyList())).thenReturn(1);
+            //날짜 중복 허용 — COMPANY와 공존, 2건 모두 삽입
+            when(holidayMapper.insertNational(eq(TENANT_ID), anyList())).thenReturn(2);
 
             HolidaySyncResponse response = service().sync(TENANT_ID, 2026);
 
             verify(holidayMapper).deleteNationalByYear(TENANT_ID,
                     LocalDate.of(2026, 1, 1), LocalDate.of(2027, 1, 1));
             assertThat(response.fetched()).isEqualTo(2);
-            assertThat(response.inserted()).isEqualTo(1);
+            assertThat(response.inserted()).isEqualTo(2);
             assertThat(response.deleted()).isEqualTo(3);
-            assertThat(response.skippedCompany()).isEqualTo(1);
+            assertThat(response.skippedCompany()).isEqualTo(0);
         }
 
         @Test
@@ -222,7 +221,7 @@ class HolidayServiceTest {
                     .thenReturn(List.of(publicHoliday("2025-03-01", "삼일절", "KR")));
             when(nagerDateClient.fetch(2028, "KR"))
                     .thenReturn(List.of(publicHoliday("2028-03-01", "삼일절", "KR")));
-            when(holidayMapper.insertNationalIgnore(anyLong(), anyList())).thenReturn(1);
+            when(holidayMapper.insertNational(anyLong(), anyList())).thenReturn(1);
             assertThat(service.sync(TENANT_ID, 2025).year()).isEqualTo(2025);
             assertThat(service.sync(TENANT_ID, 2028).year()).isEqualTo(2028);
         }
@@ -233,7 +232,7 @@ class HolidayServiceTest {
             when(tenantMapper.findById(TENANT_ID)).thenReturn(tenant("JP"));
             when(nagerDateClient.fetch(2026, "JP"))
                     .thenReturn(List.of(publicHoliday("2026-01-01", "元日", "JP")));
-            when(holidayMapper.insertNationalIgnore(anyLong(), anyList())).thenReturn(1);
+            when(holidayMapper.insertNational(anyLong(), anyList())).thenReturn(1);
 
             HolidaySyncResponse response = service().sync(TENANT_ID, 2026);
 
@@ -260,7 +259,7 @@ class HolidayServiceTest {
                     .thenReturn(List.of(publicHoliday("2026-03-01", "삼일절", "KR")));
             when(nagerDateClient.fetch(2027, "KR"))
                     .thenReturn(List.of(publicHoliday("2027-03-01", "삼일절", "KR")));
-            when(holidayMapper.insertNationalIgnore(anyLong(), anyList())).thenReturn(1);
+            when(holidayMapper.insertNational(anyLong(), anyList())).thenReturn(1);
 
             assertThat(service().syncInitialYears(TENANT_ID)).isTrue();
 
@@ -274,54 +273,35 @@ class HolidayServiceTest {
     class Crud {
 
         @Test
-        @DisplayName("수동 등록은 항상 COMPANY로 저장, 중복은 409 HOLIDAY_DATE_DUPLICATED")
-        void createAlwaysCompanyAndDuplicate409() {
+        @DisplayName("수동 등록은 항상 COMPANY로 저장, 날짜 중복 허용(대리키 회수)")
+        void createAlwaysCompany() {
             LocalDate date = LocalDate.of(2026, 10, 1);
-            when(holidayMapper.insert(TENANT_ID, date, "창립기념일")).thenReturn(1);
-            when(holidayMapper.findByDate(TENANT_ID, date)).thenReturn(new Holiday(
-                    TENANT_ID, date, "창립기념일", HolidayType.COMPANY, LocalDateTime.now(), LocalDateTime.now()));
+            //insert가 생성키를 holidayId에 채운다 — findById로 응답 회수
+            when(holidayMapper.insert(any(HolidayMapper.HolidayInsert.class))).thenAnswer(inv -> {
+                inv.getArgument(0, HolidayMapper.HolidayInsert.class).setHolidayId(42L);
+                return 1;
+            });
+            when(holidayMapper.findById(TENANT_ID, 42L)).thenReturn(new Holiday(
+                    42L, TENANT_ID, date, "창립기념일", HolidayType.COMPANY, LocalDateTime.now(), LocalDateTime.now()));
 
             var response = service().create(TENANT_ID, new HolidayCreateRequest(date, "창립기념일"));
             assertThat(response.holidayType()).isEqualTo(HolidayType.COMPANY);
-
-            when(holidayMapper.insert(TENANT_ID, date, "창립기념일"))
-                    .thenThrow(new DuplicateKeyException("dup"));
-            assertThatThrownBy(() -> service().create(TENANT_ID, new HolidayCreateRequest(date, "창립기념일")))
-                    .isInstanceOf(ApiException.class)
-                    .satisfies(e -> {
-                        ApiException apiException = (ApiException) e;
-                        assertThat(apiException.getStatus().value()).isEqualTo(409);
-                        assertThat(apiException.getCode()).isEqualTo("HOLIDAY_DATE_DUPLICATED");
-                    });
+            assertThat(response.holidayId()).isEqualTo(42L);
         }
 
         @Test
-        @DisplayName("미존재 날짜의 수정/삭제는 404 HOLIDAY_NOT_FOUND")
-        void updateDeleteNotFound() {
-            LocalDate date = LocalDate.of(2026, 10, 1);
-            when(holidayMapper.updateName(TENANT_ID, date, "새 이름")).thenReturn(0);
-            assertThatThrownBy(() -> service().updateName(TENANT_ID, date, "새 이름"))
+        @DisplayName("회사 공휴일 삭제 성공(#7), 국가 공휴일/미존재는 404(매퍼 type 한정으로 0행)")
+        void deleteCompanyOnly() {
+            //COMPANY 매칭 1행 → 성공
+            when(holidayMapper.deleteCompanyById(TENANT_ID, 7L)).thenReturn(1);
+            service().deleteCompany(TENANT_ID, 7L);
+            verify(holidayMapper).deleteCompanyById(TENANT_ID, 7L);
+
+            //국가 공휴일 id거나 미존재 → 0행 → 404
+            when(holidayMapper.deleteCompanyById(TENANT_ID, 9L)).thenReturn(0);
+            assertThatThrownBy(() -> service().deleteCompany(TENANT_ID, 9L))
                     .isInstanceOf(ApiException.class)
                     .satisfies(e -> assertThat(((ApiException) e).getCode()).isEqualTo("HOLIDAY_NOT_FOUND"));
-
-            when(holidayMapper.deleteByDate(TENANT_ID, date)).thenReturn(0);
-            assertThatThrownBy(() -> service().delete(TENANT_ID, date))
-                    .isInstanceOf(ApiException.class)
-                    .satisfies(e -> assertThat(((ApiException) e).getCode()).isEqualTo("HOLIDAY_NOT_FOUND"));
-        }
-
-        @Test
-        @DisplayName("PUT은 명칭만 수정(유형 불변 — updateName 매퍼로만 위임)")
-        void updateNameOnly() {
-            LocalDate date = LocalDate.of(2026, 3, 1);
-            when(holidayMapper.updateName(TENANT_ID, date, "삼일절(수정)")).thenReturn(1);
-            when(holidayMapper.findByDate(TENANT_ID, date)).thenReturn(new Holiday(
-                    TENANT_ID, date, "삼일절(수정)", HolidayType.NATIONAL, LocalDateTime.now(), LocalDateTime.now()));
-
-            var response = service().updateName(TENANT_ID, date, "삼일절(수정)");
-
-            assertThat(response.holidayName()).isEqualTo("삼일절(수정)");
-            assertThat(response.holidayType()).isEqualTo(HolidayType.NATIONAL);
         }
 
         @Test

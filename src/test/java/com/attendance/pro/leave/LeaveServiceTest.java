@@ -107,6 +107,34 @@ class LeaveServiceTest {
         assertThat(days).isEqualTo(4);
     }
 
+    @Test
+    @DisplayName("BAL-01: 만기일별 잔여 — 만기 임박순 FIFO 차감(음수 조정 480분이 이른 부여부터 소진)")
+    void balanceRowsFifo() {
+        when(userMapper.findById(TENANT, USER))
+                .thenReturn(member(LocalTime.of(9, 0), LocalTime.of(18, 0), "1111100", null));
+        stubCountry();
+        when(typeMapper.findByTenant(TENANT)).thenReturn(List.of(annual()));
+        when(requestMapper.findViewByUser(TENANT, USER)).thenReturn(List.of());
+        //만기 임박순: 2026-07-15(3일=1440) → 2027-07-15(2일=960) → 무기한 조정 −480
+        when(grantMapper.findActiveByUser(eq(TENANT), eq(USER), any())).thenReturn(List.of(
+                new LeaveGrant(10L, TENANT, USER, ANNUAL_ID, 1440, LocalDate.of(2026, 1, 1),
+                        LocalDate.of(2026, 7, 15), LeaveSource.MANUAL, null, null, null,
+                        LocalDateTime.now(), LocalDateTime.now()),
+                new LeaveGrant(11L, TENANT, USER, ANNUAL_ID, 960, LocalDate.of(2026, 1, 1),
+                        LocalDate.of(2027, 7, 15), LeaveSource.MANUAL, null, null, null,
+                        LocalDateTime.now(), LocalDateTime.now()),
+                new LeaveGrant(12L, TENANT, USER, ANNUAL_ID, -480, LocalDate.of(2026, 1, 1), null,
+                        LeaveSource.MANUAL, null, null, null, LocalDateTime.now(), LocalDateTime.now())));
+
+        List<LeaveDtos.LeaveBalanceRowResponse> rows = service().balanceRows(TENANT, USER);
+
+        assertThat(rows).hasSize(2);
+        assertThat(rows.get(0).remainingMinutes()).isEqualTo(960); //1440 − 480(FIFO)
+        assertThat(rows.get(0).expiresOn()).isEqualTo(LocalDate.of(2026, 7, 15));
+        assertThat(rows.get(1).remainingMinutes()).isEqualTo(960); //그대로
+        assertThat(rows.get(1).expiresOn()).isEqualTo(LocalDate.of(2027, 7, 15));
+    }
+
     // ===== 신청 검증 =====
 
     @Test
@@ -272,5 +300,31 @@ class LeaveServiceTest {
         verify(grantMapper).upsertAuto(eq(TENANT), eq(USER), eq(ANNUAL_ID), minutes.capture(),
                 any(), any(), eq(2026), any(), eq(3L));
         assertThat(minutes.getValue()).isEqualTo(16 * 480);
+    }
+
+    // ===== 일괄 부여(#9) =====
+
+    @Test
+    @DisplayName("BULK-01: 두 멤버에 3일 일괄 부여 → 각자 표준분 환산(480×3=1440)으로 insert 2회, 중복 userId는 1회")
+    void grantBulk() {
+        long user2 = 5L;
+        User u1 = member(LocalTime.of(9, 0), LocalTime.of(18, 0), "1111100", LocalDate.of(2023, 1, 1));
+        User u2 = new User(user2, TENANT, "kim@acme.co.kr", "hash", null, "김철수", null,
+                LocalTime.of(9, 0), LocalTime.of(18, 0), "1111100", LocalDate.of(2024, 1, 1),
+                Role.MEMBER, UserStatus.ACTIVE, false, LocalDateTime.now(), LocalDateTime.now());
+        when(typeMapper.findById(TENANT, ANNUAL_ID)).thenReturn(annual());
+        when(userMapper.findById(TENANT, USER)).thenReturn(u1);
+        when(userMapper.findById(TENANT, user2)).thenReturn(u2);
+        stubCountry();
+
+        //중복 USER는 한 번만 부여되어야 한다
+        int count = service().grantManualBulk(TENANT, 9L,
+                new LeaveDtos.LeaveBulkGrantRequest(List.of(USER, user2, USER), ANNUAL_ID, 3.0, null, "여름 특별"));
+
+        assertThat(count).isEqualTo(2);
+        verify(grantMapper).insert(eq(TENANT), eq(USER), eq(ANNUAL_ID), eq(1440),
+                any(), any(), eq(LeaveSource.MANUAL), any(), eq("여름 특별"), eq(9L));
+        verify(grantMapper).insert(eq(TENANT), eq(user2), eq(ANNUAL_ID), eq(1440),
+                any(), any(), eq(LeaveSource.MANUAL), any(), eq("여름 특별"), eq(9L));
     }
 }

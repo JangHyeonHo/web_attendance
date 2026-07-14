@@ -312,7 +312,7 @@ class AttendanceServiceTest {
                     .thenReturn(java.util.List.of());
             java.time.LocalDate today = java.time.LocalDate.now();
             when(holidayMapper.findHolidaysBetween(eq(TENANT_ID), any(), any())).thenReturn(java.util.List.of(
-                    new com.attendance.pro.holiday.Holiday(TENANT_ID, today, "삼일절",
+                    new com.attendance.pro.holiday.Holiday(1L, TENANT_ID, today, "삼일절",
                             com.attendance.pro.holiday.HolidayType.NATIONAL,
                             LocalDateTime.now(), LocalDateTime.now())));
             when(attendanceMapper.findLatest(TENANT_ID, USER_ID)).thenReturn(null);
@@ -437,7 +437,7 @@ class AttendanceServiceTest {
             stubMonthly();
             when(holidayMapper.findHolidaysBetween(eq(TENANT_ID), any(), any()))
                     .thenReturn(java.util.List.of(new com.attendance.pro.holiday.Holiday(
-                            TENANT_ID, java.time.LocalDate.of(2026, 7, 17), "제헌절",
+                            1L, TENANT_ID, java.time.LocalDate.of(2026, 7, 17), "제헌절",
                             com.attendance.pro.holiday.HolidayType.NATIONAL,
                             LocalDateTime.now(), LocalDateTime.now())));
 

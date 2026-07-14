@@ -10,6 +10,7 @@ import com.attendance.pro.auth.PasswordResetRateLimiter;
 import com.attendance.pro.auth.SessionUser;
 import com.attendance.pro.common.ApiException;
 import com.attendance.pro.holiday.HolidayService;
+import com.attendance.pro.leave.LeaveService;
 import com.attendance.pro.tenant.TenantDtos.TenantCreateRequest;
 import com.attendance.pro.tenant.TenantDtos.TenantCreateResponse;
 import com.attendance.pro.tenant.TenantDtos.TenantResponse;
@@ -39,17 +40,20 @@ public class TenantService {
     private final MemberService memberService;
     private final MemberInviteService memberInviteService;
     private final HolidayService holidayService;
+    private final LeaveService leaveService;
     private final PasswordResetRateLimiter rateLimiter;
     private final TransactionTemplate transactionTemplate;
 
     public TenantService(TenantMapper tenantMapper, UserMapper userMapper, MemberService memberService,
             MemberInviteService memberInviteService, HolidayService holidayService,
-            PasswordResetRateLimiter rateLimiter, TransactionTemplate transactionTemplate) {
+            LeaveService leaveService, PasswordResetRateLimiter rateLimiter,
+            TransactionTemplate transactionTemplate) {
         this.tenantMapper = tenantMapper;
         this.userMapper = userMapper;
         this.memberService = memberService;
         this.memberInviteService = memberInviteService;
         this.holidayService = holidayService;
+        this.leaveService = leaveService;
         this.rateLimiter = rateLimiter;
         this.transactionTemplate = transactionTemplate;
     }
@@ -76,6 +80,8 @@ public class TenantService {
             tenantMapper.insert(create);
             long adminUserId = memberService.registerPendingAdmin(create.getTenantId(),
                     request.adminEmail(), request.adminName());
+            //기본 휴가 종류(유급휴가·여름휴가) 시드 — 연차 자동계산이 findAnnual에 의존하므로 생성 시점에 보장
+            leaveService.seedDefaults(create.getTenantId());
             return new Provisioned(create.getTenantId(), adminUserId);
         });
         //① INVITE 메일({inviterName}=SA 세션 name) — 실패해도 생성은 성공(admin-invite 재발송이 수습)

@@ -5,6 +5,7 @@ import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { Modal } from '../components/Modal'
 import { SelectField } from '../components/fields'
+import { DateField } from '../components/DateField'
 import { formatLeaveAmount } from '../util/leaveFormat'
 import type {
   LeaveRequestItem,
@@ -14,7 +15,7 @@ import type {
   MemberLeaveSummary,
 } from '../api/types'
 
-type Tab = 'approvals' | 'cancels' | 'members' | 'types'
+type Tab = 'decide' | 'members' | 'types'
 
 /** t()로 단위 라벨을 채운 수량 포매터를 만든다(각 탭 컴포넌트에서 사용). */
 function useAmountFormatter(t: (key: string) => string) {
@@ -33,7 +34,7 @@ function dateOf(iso: string) {
  */
 export function AdminLeaveScreen() {
   const { t } = useApp()
-  const [tab, setTab] = useState<Tab>('approvals')
+  const [tab, setTab] = useState<Tab>('decide')
 
   return (
     <div className="panel">
@@ -41,11 +42,8 @@ export function AdminLeaveScreen() {
         <h2>{t('TITLE')}</h2>
       </div>
       <div className="seg-toggle" role="tablist">
-        <button className={tab === 'approvals' ? 'active' : ''} onClick={() => setTab('approvals')}>
-          {t('TAB_APPROVALS')}
-        </button>
-        <button className={tab === 'cancels' ? 'active' : ''} onClick={() => setTab('cancels')}>
-          {t('TAB_CANCELS')}
+        <button className={tab === 'decide' ? 'active' : ''} onClick={() => setTab('decide')}>
+          {t('TAB_DECIDE')}
         </button>
         <button className={tab === 'members' ? 'active' : ''} onClick={() => setTab('members')}>
           {t('TAB_MEMBERS')}
@@ -55,8 +53,15 @@ export function AdminLeaveScreen() {
         </button>
       </div>
 
-      {tab === 'approvals' && <ApprovalsTab />}
-      {tab === 'cancels' && <CancellationsTab />}
+      {/* 결재: 신규 신청 승인 + 취소 신청 승인을 한 곳에서(#10 탭 통합) */}
+      {tab === 'decide' && (
+        <>
+          <h3 className="section-head">{t('TAB_APPROVALS')}</h3>
+          <ApprovalsTab />
+          <h3 className="section-head">{t('TAB_CANCELS')}</h3>
+          <CancellationsTab />
+        </>
+      )}
       {tab === 'members' && <MembersTab />}
       {tab === 'types' && <TypesTab />}
     </div>
@@ -270,6 +275,8 @@ function MembersTab() {
   const [members, setMembers] = useState<MemberLeaveSummary[]>([])
   const [error, setError] = useState<string | null>(null)
   const [detail, setDetail] = useState<MemberLeaveDetail | null>(null)
+  const [bulkOpen, setBulkOpen] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   const reload = useCallback(async () => {
@@ -313,7 +320,20 @@ function MembersTab() {
         <button onClick={() => void recomputeAll()} disabled={busy}>
           {t('RECOMPUTE_ALL')}
         </button>
+        <button
+          className="primary"
+          onClick={() => { setNotice(null); setBulkOpen(true) }}
+          disabled={members.length === 0}
+        >
+          {t('BULK_GRANT')}
+        </button>
       </div>
+      {notice && (
+        <div className="banner" role="status">
+          <p className="success">{notice}</p>
+          <button onClick={() => setNotice(null)}>{t('CLOSE')}</button>
+        </div>
+      )}
       {error && <p className="error" role="alert">{error}</p>}
       {members.length === 0 ? (
         <p className="muted center">{t('EMPTY')}</p>
@@ -364,7 +384,137 @@ function MembersTab() {
           }}
         />
       )}
+
+      {bulkOpen && (
+        <BulkGrantModal
+          members={members}
+          onClose={() => setBulkOpen(false)}
+          onDone={async (count) => {
+            setBulkOpen(false)
+            setNotice(`${t('BULK_GRANT')} — ${count}`)
+            await reload()
+          }}
+        />
+      )}
     </>
+  )
+}
+
+/** 일괄 부여 모달(#9) — 멤버 다중 선택 + 종류·일수·만기·메모 → 한 번에 부여. */
+function BulkGrantModal({
+  members,
+  onClose,
+  onDone,
+}: {
+  members: MemberLeaveSummary[]
+  onClose: () => void
+  onDone: (count: number) => Promise<void>
+}) {
+  const { t } = useApp()
+  const [types, setTypes] = useState<LeaveType[]>([])
+  const [selected, setSelected] = useState<Set<number>>(new Set())
+  const [leaveTypeId, setLeaveTypeId] = useState(0)
+  const [days, setDays] = useState('1')
+  const [expiresOn, setExpiresOn] = useState('')
+  const [memo, setMemo] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    tenantLeaveApi
+      .types()
+      .then((list) => {
+        setTypes(list)
+        setLeaveTypeId((cur) => (cur === 0 ? list[0]?.leaveTypeId ?? 0 : cur))
+      })
+      .catch((e) => setError(e instanceof ApiError ? e.message : String(e)))
+  }, [])
+
+  const allChecked = members.length > 0 && selected.size === members.length
+
+  function toggle(userId: number) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(userId)) next.delete(userId)
+      else next.add(userId)
+      return next
+    })
+  }
+
+  function toggleAll() {
+    setSelected(allChecked ? new Set() : new Set(members.map((m) => m.userId)))
+  }
+
+  async function submit() {
+    setBusy(true)
+    setError(null)
+    try {
+      const result = await tenantLeaveApi.grantBulk({
+        userIds: [...selected],
+        leaveTypeId,
+        days: Number(days),
+        expiresOn: expiresOn || null,
+        memo: memo.trim() || null,
+      })
+      await onDone(result.count)
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Modal title={t('BULK_GRANT')} onClose={onClose}>
+      <div className="field-group">
+        <SelectField
+          value={String(leaveTypeId)}
+          options={types.map((ty) => ({ value: String(ty.leaveTypeId), label: ty.name }))}
+          onChange={(v) => setLeaveTypeId(Number(v))}
+          ariaLabel={t('LEAVE_TYPE')}
+        />
+        <label>
+          {t('GRANT_MINUTES')}
+          <input type="number" step="0.5" value={days} onChange={(e) => setDays(e.target.value)} />
+        </label>
+        <label>
+          {t('EXPIRES')}
+          <DateField value={expiresOn} onChange={setExpiresOn} ariaLabel={t('EXPIRES')} />
+        </label>
+      </div>
+      <input
+        placeholder={t('MEMO')}
+        value={memo}
+        onChange={(e) => setMemo(e.target.value)}
+        maxLength={200}
+      />
+
+      <label className="check-inline" style={{ marginTop: '0.75rem' }}>
+        <input type="checkbox" checked={allChecked} onChange={toggleAll} />
+        {t('SELECT_ALL')} ({selected.size}/{members.length})
+      </label>
+      <div className="checklist">
+        {members.map((m) => (
+          <label key={m.userId} className="check-inline">
+            <input
+              type="checkbox"
+              checked={selected.has(m.userId)}
+              onChange={() => toggle(m.userId)}
+            />
+            {m.name}
+          </label>
+        ))}
+      </div>
+
+      {error && <p className="error" role="alert">{error}</p>}
+      <button
+        className="primary"
+        disabled={busy || selected.size === 0 || leaveTypeId === 0}
+        onClick={() => void submit()}
+      >
+        {t('GRANT')}
+      </button>
+    </Modal>
   )
 }
 
@@ -412,7 +562,7 @@ function MemberDetailModal({
       <div className="field-group">
         <label>
           {t('START_DATE')}
-          <input type="date" value={hireDate} onChange={(e) => setHireDate(e.target.value)} />
+          <DateField value={hireDate} onChange={setHireDate} ariaLabel={t('START_DATE')} />
         </label>
         <button
           type="button"
@@ -560,8 +710,6 @@ function MemberDetailModal({
 
 // ===== 휴가 종류 =====
 
-const UNIT_OPTIONS: LeaveUnit[] = ['DAY', 'HOUR']
-
 function TypesTab() {
   const { t } = useApp()
   const [types, setTypes] = useState<LeaveType[]>([])
@@ -595,7 +743,6 @@ function TypesTab() {
             <tr>
               <th>{t('CODE')}</th>
               <th>{t('NAME')}</th>
-              <th>{t('UNIT')}</th>
               <th>{t('PAID')}</th>
               <th>{t('REQUIRES_APPROVAL')}</th>
               <th>{t('ACTIVE')}</th>
@@ -607,7 +754,6 @@ function TypesTab() {
               <tr key={ty.leaveTypeId}>
                 <td>{ty.code}</td>
                 <td>{ty.name}</td>
-                <td>{ty.unit === 'DAY' ? t('MODE_DAY') : t('MODE_HOUR')}</td>
                 <td>{ty.paid ? '✓' : ''}</td>
                 <td>{ty.requiresApproval ? '✓' : ''}</td>
                 <td>{ty.active ? '✓' : ''}</td>
@@ -646,7 +792,6 @@ function TypeModal({
   const { t } = useApp()
   const [code, setCode] = useState(initial?.code ?? '')
   const [name, setName] = useState(initial?.name ?? '')
-  const [unit, setUnit] = useState<LeaveUnit>(initial?.unit ?? 'DAY')
   const [paid, setPaid] = useState(initial?.paid ?? true)
   const [requiresApproval, setRequiresApproval] = useState(initial?.requiresApproval ?? true)
   const [active, setActive] = useState(initial?.active ?? true)
@@ -662,7 +807,7 @@ function TypeModal({
         await tenantLeaveApi.updateType(initial.leaveTypeId, {
           name: name.trim(),
           paid,
-          unit,
+          unit: 'DAY',
           requiresApproval,
           active,
           sortOrder: initial.sortOrder,
@@ -672,7 +817,7 @@ function TypeModal({
           code: code.trim().toUpperCase(),
           name: name.trim(),
           paid,
-          unit,
+          unit: 'DAY',
           requiresApproval,
           sortOrder: 0,
         })
@@ -697,18 +842,6 @@ function TypeModal({
         <label>
           {t('NAME')}
           <input value={name} onChange={(e) => setName(e.target.value)} maxLength={50} required />
-        </label>
-        <label>
-          {t('UNIT')}
-          <SelectField
-            value={unit}
-            options={UNIT_OPTIONS.map((u) => ({
-              value: u,
-              label: u === 'DAY' ? t('MODE_DAY') : t('MODE_HOUR'),
-            }))}
-            onChange={(v) => setUnit(v as LeaveUnit)}
-            ariaLabel={t('UNIT')}
-          />
         </label>
         <label className="check-inline">
           <input type="checkbox" checked={paid} onChange={(e) => setPaid(e.target.checked)} />

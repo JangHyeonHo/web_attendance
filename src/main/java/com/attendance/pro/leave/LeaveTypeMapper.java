@@ -35,6 +35,18 @@ public interface LeaveTypeMapper {
             + "AND is_annual = TRUE ORDER BY leave_type_id ASC LIMIT 1")
     LeaveType findAnnual(@Param("tenantId") long tenantId);
 
+    /** 신규 테넌트 기본 시드 — 유급휴가(연차, 자동계산). uk(tenant_id, code) 중복은 IGNORE. */
+    @Insert("INSERT IGNORE INTO leave_type "
+            + "(tenant_id, code, name, paid, unit, requires_approval, is_annual, active, sort_order) "
+            + "VALUES (#{tenantId}, 'ANNUAL', '유급휴가', TRUE, 'DAY', TRUE, TRUE, TRUE, 0)")
+    int seedAnnualType(@Param("tenantId") long tenantId);
+
+    /** 신규 테넌트 기본 시드 — 여름휴가(비연차). uk(tenant_id, code) 중복은 IGNORE. */
+    @Insert("INSERT IGNORE INTO leave_type "
+            + "(tenant_id, code, name, paid, unit, requires_approval, is_annual, active, sort_order) "
+            + "VALUES (#{tenantId}, 'SUMMER', '여름휴가', TRUE, 'DAY', TRUE, FALSE, TRUE, 1)")
+    int seedSummerType(@Param("tenantId") long tenantId);
+
     /** 신규는 항상 is_annual=FALSE(연차는 시드 전용). 중복 코드는 DuplicateKeyException → 서비스 409. */
     @Insert("""
             INSERT INTO leave_type (tenant_id, code, name, paid, unit, requires_approval,

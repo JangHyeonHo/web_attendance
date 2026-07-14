@@ -1,16 +1,17 @@
 package com.attendance.pro;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 /**
- * 애플리케이션 컨텍스트 기동 테스트.
- * 기동시 Flyway 마이그레이션이 실제 MariaDB 접속을 필요로 하므로
- * DB가 없는 CI 환경에서는 비활성화한다.
- * 로컬에서 docker compose up -d 로 DB를 띄운 뒤 @Disabled를 제거하고 실행한다.
+ * 애플리케이션 컨텍스트 기동 테스트 — 전체 빈 그래프가 실제로 조립되는지(DI 배선) 검증한다.
+ * 단위 테스트(Mockito)는 개별 빈만 검사하므로 생성자 다중정의·@Autowired 누락 같은
+ * 배선 회귀를 잡지 못한다 → 이 테스트가 그 공백을 메운다.
+ *
+ * 기동 시 Flyway 마이그레이션이 실제 MariaDB 접속을 요구한다(DB_URL/DB_USERNAME/DB_PASSWORD).
+ * 현재 별도 CI가 없고 테스트는 DB가 있는 환경에서만 실행되므로 상시 활성화한다.
+ * DB 없는 CI를 도입하면 이 클래스만 프로파일/조건으로 분리할 것.
  */
-@Disabled("실행에 MariaDB 접속(DB_URL/DB_USERNAME/DB_PASSWORD)이 필요")
 @SpringBootTest
 class WebAttendanceApplicationTests {
 

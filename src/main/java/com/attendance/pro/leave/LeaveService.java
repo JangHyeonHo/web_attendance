@@ -6,7 +6,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -21,6 +23,8 @@ import com.attendance.pro.holiday.Holiday;
 import com.attendance.pro.holiday.HolidayMapper;
 import com.attendance.pro.leave.LeaveDtos.LeaveApplyRequest;
 import com.attendance.pro.leave.LeaveDtos.LeaveBalanceResponse;
+import com.attendance.pro.leave.LeaveDtos.LeaveBalanceRowResponse;
+import com.attendance.pro.leave.LeaveDtos.LeaveBulkGrantRequest;
 import com.attendance.pro.leave.LeaveDtos.LeaveGrantRequest;
 import com.attendance.pro.leave.LeaveDtos.LeaveRequestResponse;
 import com.attendance.pro.leave.LeaveDtos.LeaveTypeCreateRequest;
@@ -88,6 +92,12 @@ public class LeaveService {
         return typeMapper.findActiveByTenant(tenantId).stream().map(LeaveTypeResponse::of).toList();
     }
 
+    /** 신규 테넌트 기본 휴가 종류(유급휴가·여름휴가) 시드 — 테넌트 생성 Tx에서 호출. 재실행 안전(IGNORE). */
+    public void seedDefaults(long tenantId) {
+        typeMapper.seedAnnualType(tenantId);
+        typeMapper.seedSummerType(tenantId);
+    }
+
     @Transactional
     public LeaveTypeResponse createType(long tenantId, LeaveTypeCreateRequest req) {
         LeaveTypeCreate create = new LeaveTypeCreate(tenantId, req.code().trim(), req.name().trim(),
@@ -148,6 +158,61 @@ public class LeaveService {
             int remaining = granted - used;
             out.add(new LeaveBalanceResponse(type.leaveTypeId(), type.code(), type.name(),
                     type.unit(), type.isAnnual(), granted, used, pending, remaining, dayMinutes));
+        }
+        return out;
+    }
+
+    /**
+     * 만기일별 잔여 목록(멤버 잔여 화면) — 부여 행 하나당 남은 분 + 만기일.
+     * 사용분(승인·취소신청중)과 음수 조정은 <b>만기 임박순(FIFO)</b>으로 차감해, 먼저 소멸하는
+     * 부여부터 소진된 것으로 본다. 남은 분이 0 초과인 행만 반환(만기 임박순).
+     */
+    public List<LeaveBalanceRowResponse> balanceRows(long tenantId, long userId) {
+        User user = requireUser(tenantId, userId);
+        ProfileCountry country = countryOf(tenantId);
+        int dayMinutes = standardDayMinutes(user, country);
+        LocalDate today = LocalDate.now(clock);
+        List<LeaveRequestView> requests = requestMapper.findViewByUser(tenantId, userId);
+        //만기 임박순 정렬된 활성 부여 행
+        Map<Long, List<LeaveGrant>> grantsByType = new LinkedHashMap<>();
+        for (LeaveGrant grant : grantMapper.findActiveByUser(tenantId, userId, today)) {
+            grantsByType.computeIfAbsent(grant.leaveTypeId(), k -> new ArrayList<>()).add(grant);
+        }
+        Map<Long, LeaveType> typeById = new LinkedHashMap<>();
+        for (LeaveType type : typeMapper.findByTenant(tenantId)) {
+            typeById.put(type.leaveTypeId(), type);
+        }
+        List<LeaveBalanceRowResponse> out = new ArrayList<>();
+        for (Map.Entry<Long, List<LeaveGrant>> entry : grantsByType.entrySet()) {
+            LeaveType type = typeById.get(entry.getKey());
+            if (type == null) {
+                continue;
+            }
+            //차감 풀 = 사용분(승인·취소신청중) + 음수 부여(조정). 대기(PENDING)는 잔여에서 빼지 않는다(집계와 동일).
+            int consume = 0;
+            for (LeaveRequestView r : requests) {
+                if (r.leaveTypeId() == type.leaveTypeId()
+                        && (r.status() == LeaveStatus.APPROVED || r.status() == LeaveStatus.CANCEL_REQUESTED)) {
+                    consume += r.minutes();
+                }
+            }
+            List<LeaveGrant> positives = new ArrayList<>();
+            for (LeaveGrant grant : entry.getValue()) {
+                if (grant.minutes() >= 0) {
+                    positives.add(grant); //이미 만기 임박순
+                } else {
+                    consume += -grant.minutes();
+                }
+            }
+            for (LeaveGrant grant : positives) {
+                int take = Math.min(grant.minutes(), consume);
+                consume -= take;
+                int remaining = grant.minutes() - take;
+                if (remaining > 0) {
+                    out.add(new LeaveBalanceRowResponse(type.leaveTypeId(), type.name(), type.unit(),
+                            remaining, grant.expiresOn(), dayMinutes));
+                }
+            }
         }
         return out;
     }
@@ -346,6 +411,28 @@ public class LeaveService {
         grantMapper.insert(tenantId, user.userId(), type.leaveTypeId(), minutes,
                 LocalDate.now(clock), req.expiresOn(), LeaveSource.MANUAL, null,
                 trimToNull(req.memo()), granterId);
+    }
+
+    /**
+     * 일괄 부여(#9) — 여러 멤버에 같은 종류·일수를 한 트랜잭션으로 부여. 부여 일수(분)는
+     * 멤버별 표준 근무분이 다를 수 있어 각자 환산한다. 하나라도 검증 실패면 전체 롤백.
+     *
+     * @return 부여한 멤버 수
+     */
+    @Transactional
+    public int grantManualBulk(long tenantId, long granterId, LeaveBulkGrantRequest req) {
+        LeaveType type = requireType(tenantId, req.leaveTypeId());
+        ProfileCountry country = countryOf(tenantId);
+        String memo = trimToNull(req.memo());
+        LocalDate effectiveFrom = LocalDate.now(clock);
+        //중복 userId는 한 번만(같은 멤버 두 번 부여 방지)
+        for (long userId : req.userIds().stream().distinct().toList()) {
+            User user = requireUser(tenantId, userId);
+            int minutes = (int) Math.round(req.days() * standardDayMinutes(user, country));
+            grantMapper.insert(tenantId, user.userId(), type.leaveTypeId(), minutes,
+                    effectiveFrom, req.expiresOn(), LeaveSource.MANUAL, null, memo, granterId);
+        }
+        return (int) req.userIds().stream().distinct().count();
     }
 
     /** 연차 자동 재계산(멤버 1인) — 현 연도 AUTO 연차 grant upsert. */

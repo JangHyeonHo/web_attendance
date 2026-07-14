@@ -17,6 +17,7 @@ import com.attendance.pro.leave.LeaveDtos.HireDateRequest;
 import com.attendance.pro.leave.LeaveDtos.LeaveCancelRequest;
 import com.attendance.pro.leave.LeaveDtos.LeaveDecisionRequest;
 import com.attendance.pro.leave.LeaveDtos.LeaveNoteRequest;
+import com.attendance.pro.leave.LeaveDtos.LeaveBulkGrantRequest;
 import com.attendance.pro.leave.LeaveDtos.LeaveGrantRequest;
 import com.attendance.pro.leave.LeaveDtos.LeaveRequestResponse;
 import com.attendance.pro.leave.LeaveDtos.LeaveTypeCreateRequest;
@@ -110,6 +111,13 @@ public class TenantLeaveController {
     @PostMapping("/grants")
     public void grant(@LoginUser SessionUser user, @Valid @RequestBody LeaveGrantRequest request) {
         leaveService.grantManual(user.tenantId(), user.userId(), request);
+    }
+
+    @Operation(summary = "api.leave.admin.grant-bulk")
+    @PostMapping("/grants/bulk")
+    public Map<String, Integer> grantBulk(@LoginUser SessionUser user,
+            @Valid @RequestBody LeaveBulkGrantRequest request) {
+        return Map.of("count", leaveService.grantManualBulk(user.tenantId(), user.userId(), request));
     }
 
     @Operation(summary = "api.leave.admin.recompute")

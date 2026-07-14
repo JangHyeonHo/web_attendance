@@ -69,10 +69,11 @@ public class TenantMailTemplateController {
     @Operation(summary = "api.tenant-mail-template.preview.summary",
             description = "api.tenant-mail-template.preview.description")
     @PostMapping("/preview")
-    public MailTemplatePreviewResponse preview(@Valid @RequestBody MailTemplatePreviewRequest request) {
-        //검증·샘플 치환은 전역과 동일 규칙(저장 전 확인용 — 저장하지 않는다)
-        return mailTemplateService.preview(request.purpose(), request.lang(),
-                request.subject(), request.body());
+    public MailTemplatePreviewResponse preview(@LoginUser SessionUser user,
+            @Valid @RequestBody MailTemplatePreviewRequest request) {
+        //실제 회사명·미리보는 관리자 이름으로 치환(#11 — 저장 전 확인용, 저장하지 않는다)
+        return mailTemplateService.previewForTenant(user.tenantId(), user.name(),
+                request.purpose(), request.lang(), request.subject(), request.body());
     }
 
 }

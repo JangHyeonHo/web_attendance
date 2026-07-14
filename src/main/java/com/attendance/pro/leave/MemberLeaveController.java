@@ -15,6 +15,7 @@ import com.attendance.pro.auth.LoginUser;
 import com.attendance.pro.auth.SessionUser;
 import com.attendance.pro.leave.LeaveDtos.LeaveApplyRequest;
 import com.attendance.pro.leave.LeaveDtos.LeaveBalanceResponse;
+import com.attendance.pro.leave.LeaveDtos.LeaveBalanceRowResponse;
 import com.attendance.pro.leave.LeaveDtos.LeaveCancelRequest;
 import com.attendance.pro.leave.LeaveDtos.LeaveRequestResponse;
 import com.attendance.pro.leave.LeaveDtos.LeaveTypeResponse;
@@ -48,6 +49,12 @@ public class MemberLeaveController {
     @GetMapping("/balances")
     public List<LeaveBalanceResponse> balances(@LoginUser SessionUser user) {
         return leaveService.balances(user.tenantId(), user.userId());
+    }
+
+    @Operation(summary = "api.leave.balance-rows")
+    @GetMapping("/balances/rows")
+    public List<LeaveBalanceRowResponse> balanceRows(@LoginUser SessionUser user) {
+        return leaveService.balanceRows(user.tenantId(), user.userId());
     }
 
     @Operation(summary = "api.leave.requests")

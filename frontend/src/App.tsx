@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useApp } from './app/AppContext'
 import { LandingScreen } from './screens/LandingScreen'
 import { LoginScreen } from './screens/LoginScreen'
@@ -15,9 +16,47 @@ import { LeaveScreen } from './screens/LeaveScreen'
 import { AdminLeaveScreen } from './screens/AdminLeaveScreen'
 import { AuditLogScreen } from './screens/AuditLogScreen'
 import { BillingScreen } from './screens/BillingScreen'
-import type { Lang, ScreenCode } from './api/types'
+import { SelectField } from './components/fields'
+import { BottomNav } from './components/BottomNav'
+import type { BottomNavItem } from './components/BottomNav'
+import { BottomSheet } from './components/BottomSheet'
+import { Button } from './components/Button'
+import { useIsMobile } from './hooks/useIsMobile'
+import type { Lang, Role, ScreenCode } from './api/types'
 
 const LANGS: Lang[] = ['KOR', 'ENG', 'JPN']
+const LANG_LABEL: Record<Lang, string> = { KOR: '한국어', ENG: 'English', JPN: '日本語' }
+
+/** 화면 코드 → 헤더 라벨 키(t로 해석). */
+const LABEL_KEY: Partial<Record<ScreenCode, string>> = {
+  W005: 'ATTEND',
+  W015: 'LEAVE',
+  W009: 'MEMBERS',
+  W013: 'HOLIDAYS',
+  W016: 'LEAVE_ADMIN',
+  W014: 'MAIL_TEMPLATES',
+  W018: 'BILLING',
+  W007: 'TENANTS',
+  W012: 'MAIL_TEMPLATES',
+  W017: 'AUDIT_LOG',
+  W004: 'ADMIN',
+}
+
+/** role별 메뉴 — core(하단탭/주요 탭) + more(더보기 시트). 모바일 하단탭은 core+더보기≤4. */
+function roleNav(role: Role | null): { core: ScreenCode[]; more: ScreenCode[] } {
+  switch (role) {
+    case 'MEMBER':
+      return { core: ['W005', 'W015'], more: [] }
+    case 'HR_ADMIN':
+      return { core: ['W005', 'W015', 'W009'], more: ['W013', 'W016'] }
+    case 'TENANT_ADMIN':
+      return { core: ['W005', 'W015', 'W009'], more: ['W013', 'W016', 'W014', 'W018'] }
+    case 'SYSTEM_ADMIN':
+      return { core: ['W007', 'W017'], more: ['W012', 'W004'] }
+    default:
+      return { core: [], more: [] }
+  }
+}
 
 /**
  * 화면 코드 → 컴포넌트 매핑.
@@ -64,130 +103,154 @@ function ScreenBody({ screen }: { screen: ScreenCode }) {
   }
 }
 
+/** 헤더/시트 공용 — 언어 전환. 네이티브 select 대신 커스텀 SelectField(#2). */
+function LanguageSelect() {
+  const { lang, screen, navigate } = useApp()
+  return (
+    <SelectField
+      value={lang}
+      ariaLabel="언어"
+      compact
+      options={LANGS.map((l) => ({ value: l, label: LANG_LABEL[l] }))}
+      onChange={(v) => void navigate(screen, v as Lang)}
+    />
+  )
+}
+
+/** 데스크톱 상단 탭 — 조용한 텍스트 탭(현재 화면만 밑줄). */
+function DesktopNav() {
+  const { screen, userName, role, navigate, t } = useApp()
+  const current = (code: ScreenCode) =>
+    screen === code || (code === 'W007' && screen === 'W008') ? 'page' : undefined
+  const { core, more } = roleNav(role)
+  const items = [...core, ...more]
+  return (
+    <nav>
+      {!userName && (
+        <>
+          <button aria-current={current('W000')} onClick={() => void navigate('W000')}>
+            {t('HOME')}
+          </button>
+          <button aria-current={current('W001')} onClick={() => void navigate('W001')}>
+            {t('LOGIN')}
+          </button>
+        </>
+      )}
+      {items.map((code) => (
+        <button key={code} aria-current={current(code)} onClick={() => void navigate(code)}>
+          {t(LABEL_KEY[code] ?? code)}
+        </button>
+      ))}
+      {userName && <button onClick={() => void navigate('W002')}>{t('LOGOUT')}</button>}
+    </nav>
+  )
+}
+
+/** 모바일 하단 탭 + 더보기 시트. */
+function MobileNav() {
+  const { screen, role, navigate, t } = useApp()
+  const [moreOpen, setMoreOpen] = useState(false)
+  const { core, more } = roleNav(role)
+
+  const items: BottomNavItem[] = core.map((code) => ({
+    key: code,
+    label: t(LABEL_KEY[code] ?? code),
+    active: screen === code,
+    onClick: () => void navigate(code),
+  }))
+  items.push({
+    key: 'more',
+    label: t('MORE'),
+    active: moreOpen,
+    onClick: () => setMoreOpen(true),
+  })
+
+  return (
+    <>
+      <BottomNav items={items} />
+      <BottomSheet open={moreOpen} onClose={() => setMoreOpen(false)} title={t('MORE')}>
+        <div className="sheet-list">
+          {more.map((code) => (
+            <button
+              key={code}
+              className="sheet-item"
+              onClick={() => {
+                setMoreOpen(false)
+                void navigate(code)
+              }}
+            >
+              {t(LABEL_KEY[code] ?? code)}
+            </button>
+          ))}
+          <div className="sheet-row">
+            <span className="muted">{t('LANGUAGE') || '언어'}</span>
+            <LanguageSelect />
+          </div>
+          <button
+            className="sheet-item danger"
+            onClick={() => {
+              setMoreOpen(false)
+              void navigate('W002')
+            }}
+          >
+            {t('LOGOUT')}
+          </button>
+        </div>
+      </BottomSheet>
+    </>
+  )
+}
+
 export default function App() {
-  const { screen, userName, role, tenantName, lang, t, navigate, ready, navError, getPasswordToken } =
-    useApp()
+  const { screen, userName, role, tenantName, navigate, ready, navError, getPasswordToken, t } = useApp()
+  const isMobile = useIsMobile()
 
   if (!ready) {
-    //첫 navigation 응답 전에는 서버 텍스트가 없다 — 실패시에만 언어 중립(3개국어 병기) 재시도 화면
     if (navError) {
       return (
         <div className="panel center">
           <p className="error" role="alert">
             서버에 연결할 수 없습니다 / Cannot reach the server / サーバーに接続できません
           </p>
-          {/* 토큰 진입(메일 링크) 실패 재시도는 W010 의도를 유지한다 — 기본 화면으로 새지 않게 */}
-          <button className="primary" onClick={() => void navigate(getPasswordToken() ? 'W010' : undefined)}>
+          <Button variant="primary" onClick={() => void navigate(getPasswordToken() ? 'W010' : undefined)}>
             재시도 / Retry / 再試行
-          </button>
+          </Button>
         </div>
       )
     }
     return <div className="panel center muted">...</div>
   }
 
-  //현재 화면의 내비 필 강조(aria-current). W008은 W007에 임베드 전개되므로 W007로 취급
-  const current = (code: ScreenCode) =>
-    (screen === code || (code === 'W007' && screen === 'W008') ? 'page' : undefined)
+  const showBottomNav = isMobile && !!userName && roleNav(role).core.length > 0
 
   return (
-    <div className="app">
+    <div className={`app${showBottomNav ? ' has-bottom-nav' : ''}`}>
       <header className="header">
         <span className="brand" aria-hidden="true">
           Web<em>Attendance</em>
         </span>
-        <nav>
-          {/* 로그인 상태에서 '홈'은 자기 홈으로 재전개될 뿐이라 비로그인일 때만 노출(모바일 탭 수 절약) */}
-          {!userName && (
-            <button aria-current={current('W000')} onClick={() => void navigate('W000')}>
-              {t('HOME')}
-            </button>
-          )}
-          {!userName && (
-            <button aria-current={current('W001')} onClick={() => void navigate('W001')}>
-              {t('LOGIN')}
-            </button>
-          )}
-          {(role === 'MEMBER' || role === 'HR_ADMIN' || role === 'TENANT_ADMIN') && (
-            <>
-              <button aria-current={current('W005')} onClick={() => void navigate('W005')}>
-                {t('ATTEND')}
-              </button>
-              <button aria-current={current('W015')} onClick={() => void navigate('W015')}>
-                {t('LEAVE')}
-              </button>
-            </>
-          )}
-          {/* 멤버·공휴일·휴가관리는 인사관리자+총관리자 공통 */}
-          {(role === 'HR_ADMIN' || role === 'TENANT_ADMIN') && (
-            <>
-              <button aria-current={current('W009')} onClick={() => void navigate('W009')}>
-                {t('MEMBERS')}
-              </button>
-              <button aria-current={current('W013')} onClick={() => void navigate('W013')}>
-                {t('HOLIDAYS')}
-              </button>
-              <button aria-current={current('W016')} onClick={() => void navigate('W016')}>
-                {t('LEAVE_ADMIN')}
-              </button>
-            </>
-          )}
-          {/* 회사 메일 템플릿·청구서는 총관리자 전용(직권 분산·재무 정보) */}
-          {role === 'TENANT_ADMIN' && (
-            <>
-              <button aria-current={current('W014')} onClick={() => void navigate('W014')}>
-                {t('MAIL_TEMPLATES')}
-              </button>
-              <button aria-current={current('W018')} onClick={() => void navigate('W018')}>
-                {t('BILLING')}
-              </button>
-            </>
-          )}
-          {role === 'SYSTEM_ADMIN' && (
-            <>
-              <button aria-current={current('W007')} onClick={() => void navigate('W007')}>
-                {t('TENANTS')}
-              </button>
-              <button aria-current={current('W012')} onClick={() => void navigate('W012')}>
-                {t('MAIL_TEMPLATES')}
-              </button>
-              <button aria-current={current('W017')} onClick={() => void navigate('W017')}>
-                {t('AUDIT_LOG')}
-              </button>
-              <button aria-current={current('W004')} onClick={() => void navigate('W004')}>
-                {t('ADMIN')}
-              </button>
-            </>
-          )}
-          {userName && <button onClick={() => void navigate('W002')}>{t('LOGOUT')}</button>}
-        </nav>
+        {!isMobile && <DesktopNav />}
         <div className="header-right">
           {userName && <span className="user-name">{userName}</span>}
-          {tenantName && role !== 'SYSTEM_ADMIN' && (
-            <span className="tenant-badge">{tenantName}</span>
+          {tenantName && role !== 'SYSTEM_ADMIN' && <span className="tenant-badge">{tenantName}</span>}
+          {/* 모바일 비로그인은 상단에 로그인 버튼(하단탭 없음) */}
+          {isMobile && !userName && (
+            <Button size="sm" variant="primary" onClick={() => void navigate('W001')}>
+              {t('LOGIN')}
+            </Button>
           )}
-          <select
-            aria-label="language"
-            value={lang}
-            onChange={(e) => void navigate(screen, e.target.value as Lang)}
-          >
-            {LANGS.map((l) => (
-              <option key={l} value={l}>
-                {l}
-              </option>
-            ))}
-          </select>
+          <LanguageSelect />
         </div>
       </header>
       <main>
         {navError && (
-          //화면 전환 실패(네트워크/5xx) — 현재 화면은 유지하고 배너로만 알린다
           <p className="error" role="alert">
             {navError}
           </p>
         )}
         <ScreenBody screen={screen} />
       </main>
+      {showBottomNav && <MobileNav />}
     </div>
   )
 }

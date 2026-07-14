@@ -10,14 +10,15 @@ import type {
   HolidayCreateRequest,
   HolidayEntry,
   HolidaySyncResult,
-  HolidayUpdateRequest,
   InviteResponse,
   LanguageEntry,
   LanguageUpsertRequest,
   Lang,
   LeaveApplyRequest,
   LeaveBalance,
+  LeaveBalanceRow,
   LeaveDecisionRequest,
+  LeaveBulkGrantRequest,
   LeaveGrantRequest,
   LeaveRequestItem,
   LeaveType,
@@ -169,16 +170,15 @@ export const tenantMemberApi = {
     put<MemberSummary>(`/api/v1/tenant/members/${userId}/schedule`, request),
 }
 
-/** TENANT_ADMIN 전용 — 공휴일(W013). 식별자는 날짜 자체(yyyy-MM-dd) */
+/** TENANT_ADMIN 전용 — 공휴일(W013). 읽기전용 목록 + 회사 공휴일 등록 + 국가 공휴일 동기화(#7) */
 export const tenantHolidayApi = {
   list: (year: number) => get<HolidayEntry[]>(`/api/v1/tenant/holidays?year=${year}`),
   sync: (year: number) =>
     post<HolidaySyncResult>(`/api/v1/tenant/holidays/sync?year=${year}`),
   create: (request: HolidayCreateRequest) =>
     post<HolidayEntry>('/api/v1/tenant/holidays', request),
-  update: (holidayDate: string, request: HolidayUpdateRequest) =>
-    put<HolidayEntry>(`/api/v1/tenant/holidays/${holidayDate}`, request),
-  remove: (holidayDate: string) => del<void>(`/api/v1/tenant/holidays/${holidayDate}`),
+  /** 회사 공휴일만 삭제(국가 공휴일은 서버가 차단, #7) — 대리키 기준 */
+  remove: (holidayId: number) => del<void>(`/api/v1/tenant/holidays/${holidayId}`),
 }
 
 export const attendanceApi = {
@@ -204,6 +204,7 @@ export const attendanceApi = {
 export const leaveApi = {
   types: () => get<LeaveType[]>('/api/v1/attendance/leave/types'),
   balances: () => get<LeaveBalance[]>('/api/v1/attendance/leave/balances'),
+  balanceRows: () => get<LeaveBalanceRow[]>('/api/v1/attendance/leave/balances/rows'),
   myRequests: () => get<LeaveRequestItem[]>('/api/v1/attendance/leave/requests'),
   apply: (request: LeaveApplyRequest) =>
     post<LeaveRequestItem>('/api/v1/attendance/leave/requests', request),
@@ -230,6 +231,8 @@ export const tenantLeaveApi = {
   rejectCancel: (requestId: number, note: string) =>
     post<void>(`/api/v1/tenant/leave/requests/${requestId}/cancel-reject`, { note }),
   grant: (request: LeaveGrantRequest) => post<void>('/api/v1/tenant/leave/grants', request),
+  grantBulk: (request: LeaveBulkGrantRequest) =>
+    post<{ count: number }>('/api/v1/tenant/leave/grants/bulk', request),
   recompute: (userId: number) =>
     post<void>(`/api/v1/tenant/leave/members/${userId}/recompute`),
   recomputeAll: () => post<{ count: number }>('/api/v1/tenant/leave/recompute'),

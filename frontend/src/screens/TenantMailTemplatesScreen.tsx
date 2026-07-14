@@ -3,13 +3,8 @@ import type { FormEvent } from 'react'
 import { tenantMailTemplateApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
+import { MailVarsTable } from '../components/MailVarsTable'
 import type { MailTemplatePreviewResponse, TenantMailTemplateResponse } from '../api/types'
-
-/** 허용 변수 힌트(검증 정본은 서버 — W012와 동일 계약 문자열) */
-const TEMPLATE_VARS: Record<TenantMailTemplateResponse['purpose'], string[]> = {
-  INVITE: ['{memberName}', '{tenantName}', '{actionUrl}', '{expiresAt}', '{inviterName}'],
-  RESET: ['{memberName}', '{tenantName}', '{actionUrl}', '{expiresAt}'],
-}
 
 interface EditTarget {
   purpose: TenantMailTemplateResponse['purpose']
@@ -129,7 +124,6 @@ export function TenantMailTemplatesScreen() {
         <thead>
           <tr>
             <th>{t('TPL_PURPOSE')}</th>
-            <th>{t('LANG')}</th>
             <th>{t('TPL_SOURCE')}</th>
             <th>{t('TPL_SUBJECT')}</th>
             <th>{t('UPDATED_AT')}</th>
@@ -144,7 +138,6 @@ export function TenantMailTemplatesScreen() {
             return (
               <tr key={key}>
                 <td>{template.purpose}</td>
-                <td>{template.lang}</td>
                 <td>
                   <span className={template.overridden ? 'tenant-badge' : 'muted'}>
                     {template.overridden ? t('TPL_OVERRIDDEN') : t('TPL_DEFAULT')}
@@ -180,17 +173,8 @@ export function TenantMailTemplatesScreen() {
       {target && (
         <div className="tpl-edit">
           <form onSubmit={onSave}>
-            <h3>
-              {target.purpose} / {target.lang}
-            </h3>
-            <p className="hint">
-              {t('TPL_VARS_HINT')}{' '}
-              {TEMPLATE_VARS[target.purpose].map((variable) => (
-                <code key={variable} className="tpl-var">
-                  {variable}
-                </code>
-              ))}
-            </p>
+            <h3>{target.purpose}</h3>
+            <MailVarsTable purpose={target.purpose} t={t} />
             <label>
               {t('TPL_SUBJECT')}
               <input value={subject} onChange={(e) => setSubject(e.target.value)} required />
@@ -225,7 +209,11 @@ export function TenantMailTemplatesScreen() {
                 <dt>{t('TPL_SUBJECT')}</dt>
                 <dd>{preview.subject}</dd>
               </dl>
-              <pre className="tpl-preview-body">{preview.body}</pre>
+              {/* HTML 지원(#11) — 태그 렌더 + 평문 줄바꿈 보존(pre-wrap). 실제 발송도 동일 래핑 */}
+              <div
+                className="tpl-preview-body tpl-preview-html"
+                dangerouslySetInnerHTML={{ __html: preview.body }}
+              />
             </div>
           )}
         </div>

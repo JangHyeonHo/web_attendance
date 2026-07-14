@@ -5,7 +5,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
@@ -54,6 +54,15 @@ public final class LeaveDtos {
             long leaveTypeId, String code, String name, LeaveUnit unit, boolean isAnnual,
             int grantedMinutes, int usedMinutes, int pendingMinutes, int remainingMinutes,
             int standardDayMinutes) {
+    }
+
+    /**
+     * 만기일별 잔여 한 행 — 부여 행 하나의 남은 분과 만기일. 만기 임박순 FIFO로 사용분을 차감해 산출.
+     * (예: 유급휴가 3일 2026-07-15 / 유급휴가 2일 2027-07-15). expiresOn null = 무기한.
+     */
+    public record LeaveBalanceRowResponse(
+            long leaveTypeId, String name, LeaveUnit unit, int remainingMinutes,
+            LocalDate expiresOn, int standardDayMinutes) {
     }
 
     // ---- 신청(멤버) ----
@@ -113,6 +122,15 @@ public final class LeaveDtos {
     /** 수동 부여/조정 — days(음수 가능=차감 조정). expiresOn 생략 시 무기한. */
     public record LeaveGrantRequest(
             @NotNull(message = "{validation.required}") Long userId,
+            @NotNull(message = "{validation.required}") Long leaveTypeId,
+            @NotNull(message = "{validation.required}") Double days,
+            LocalDate expiresOn,
+            @Size(max = 200) String memo) {
+    }
+
+    /** 일괄 부여 — 여러 멤버에 같은 종류·일수를 한 번에(#9). userIds 최소 1명. */
+    public record LeaveBulkGrantRequest(
+            @NotEmpty(message = "{validation.required}") List<Long> userIds,
             @NotNull(message = "{validation.required}") Long leaveTypeId,
             @NotNull(message = "{validation.required}") Double days,
             LocalDate expiresOn,

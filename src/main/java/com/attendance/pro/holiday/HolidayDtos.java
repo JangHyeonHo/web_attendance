@@ -18,13 +18,14 @@ public final class HolidayDtos {
 
     @Schema(description = "schema.holiday-response")
     public record HolidayResponse(
+            long holidayId,
             @Schema(description = "schema.field.holiday-date") LocalDate holidayDate,
             @Schema(description = "schema.field.holiday-name") String holidayName,
             @Schema(description = "schema.holiday-type") HolidayType holidayType,
             LocalDateTime updatedAt) {
 
         public static HolidayResponse from(Holiday holiday) {
-            return new HolidayResponse(holiday.holidayDate(), holiday.holidayName(),
+            return new HolidayResponse(holiday.holidayId(), holiday.holidayDate(), holiday.holidayName(),
                     holiday.holidayType(), holiday.updatedAt());
         }
     }
@@ -48,14 +49,6 @@ public final class HolidayDtos {
             @NotBlank(message = "{validation.holiday-name.required}")
             @Size(max = 100, message = "{validation.holiday-name.size}")
             String holidayName) {   //type 없음 — 수동 등록은 항상 COMPANY(동기화 불가침)
-    }
-
-    @Schema(description = "schema.holiday-update-request")
-    public record HolidayUpdateRequest(
-            @Schema(description = "schema.field.holiday-name")
-            @NotBlank(message = "{validation.holiday-name.required}")
-            @Size(max = 100, message = "{validation.holiday-name.size}")
-            String holidayName) {   //명칭만 수정 가능 — 유형 변경 불가(§3-3)
     }
 
 }
