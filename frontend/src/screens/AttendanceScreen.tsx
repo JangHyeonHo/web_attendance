@@ -183,7 +183,8 @@ export function AttendanceScreen() {
 
       {pending && !confirmation && (
         <Modal title={t(TYPE_LABEL_KEYS[pending.type])} onClose={() => setPending(null)}>
-          <div className="center">
+          {/* form 래핑 — 엔터로 바로 등록(#1) */}
+          <form className="center" onSubmit={(e) => { e.preventDefault(); void submit() }}>
             <p className="stamp-meta">
               {t('CURRENT_TIME')}: {now.toLocaleTimeString(localeOf(lang))}
             </p>
@@ -194,13 +195,13 @@ export function AttendanceScreen() {
             {pending.geoError && <p className="error">{pending.geoError}</p>}
             <p>{t('CONFIRM_STAMP')}</p>
             <div className="btn-row">
-              <button className="primary" onClick={() => void submit()}>
+              <button type="submit" className="primary">
                 {t('SUBMIT')}
               </button>
-              <button onClick={() => selectType(pending.type)}>{t('RETRY')}</button>
-              <button onClick={() => setPending(null)}>{t('CANCEL')}</button>
+              <button type="button" onClick={() => selectType(pending.type)}>{t('RETRY')}</button>
+              <button type="button" onClick={() => setPending(null)}>{t('CANCEL')}</button>
             </div>
-          </div>
+          </form>
         </Modal>
       )}
 
@@ -210,18 +211,19 @@ export function AttendanceScreen() {
           onClose={() => setConfirmation(null)}
           danger
         >
-          <div className="center">
+          {/* form 래핑 — 엔터로 바로 확정(#1) */}
+          <form
+            className="center"
+            onSubmit={(e) => { e.preventDefault(); void confirmStamp(confirmation.request, confirmation.token) }}
+          >
             <p>{confirmation.message}</p>
             <div className="btn-row">
-              <button
-                className="primary"
-                onClick={() => void confirmStamp(confirmation.request, confirmation.token)}
-              >
+              <button type="submit" className="primary">
                 {t('SUBMIT')}
               </button>
-              <button onClick={() => setConfirmation(null)}>{t('CANCEL')}</button>
+              <button type="button" onClick={() => setConfirmation(null)}>{t('CANCEL')}</button>
             </div>
-          </div>
+          </form>
         </Modal>
       )}
 

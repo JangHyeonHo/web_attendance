@@ -47,6 +47,19 @@ public interface LeaveTypeMapper {
             + "VALUES (#{tenantId}, 'SUMMER', '여름휴가', TRUE, 'DAY', TRUE, FALSE, TRUE, 1)")
     int seedSummerType(@Param("tenantId") long tenantId);
 
+    /**
+     * 국가별 기본 휴가 종류 시드(#10) — 소재국 보편 휴가를 한 행씩. 단위는 DAY 고정, 중복 코드는 IGNORE.
+     * 명칭은 소재국 언어로 넣는다(KR=한국어 / JP=일본어).
+     */
+    @Insert("INSERT IGNORE INTO leave_type "
+            + "(tenant_id, code, name, paid, unit, requires_approval, is_annual, active, sort_order) "
+            + "VALUES (#{tenantId}, #{code}, #{name}, #{paid}, 'DAY', #{requiresApproval}, "
+            + "#{isAnnual}, TRUE, #{sortOrder})")
+    int seedType(@Param("tenantId") long tenantId, @Param("code") String code,
+            @Param("name") String name, @Param("paid") boolean paid,
+            @Param("requiresApproval") boolean requiresApproval,
+            @Param("isAnnual") boolean isAnnual, @Param("sortOrder") int sortOrder);
+
     /** 신규는 항상 is_annual=FALSE(연차는 시드 전용). 중복 코드는 DuplicateKeyException → 서비스 409. */
     @Insert("""
             INSERT INTO leave_type (tenant_id, code, name, paid, unit, requires_approval,

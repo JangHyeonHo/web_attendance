@@ -274,6 +274,17 @@ export interface TenantBillingResponse {
 }
 
 /** 월별 청구서 한 건(금액은 원, 부가세 별도). status=PROVISIONAL(진행 중)/ISSUED(마감 확정). */
+/** 회사 결제 정보(#14) — 결제수단·청구 이메일·비고. 가격/카드정보는 다루지 않는다. */
+export interface BillingProfileResponse {
+  billingMethod: BillingMethod
+  billingEmail: string | null
+  memo: string | null
+}
+export interface BillingProfileRequest {
+  billingMethod: BillingMethod
+  billingEmail: string | null
+  memo: string | null
+}
 export interface InvoiceEntry {
   ym: string // YYYY-MM
   maxSeats: number
@@ -586,7 +597,7 @@ export interface LeaveType {
 }
 
 export interface LeaveTypeCreateRequest {
-  code: string
+  /** 코드는 서버가 자동 생성 — 클라이언트는 보내지 않는다(#10) */
   name: string
   paid: boolean
   unit: LeaveUnit

@@ -1476,11 +1476,6 @@ button.cta:hover {
 }
 
 .field-select-list {
-  position: absolute;
-  z-index: 60;
-  top: calc(100% + 4px);
-  left: 0;
-  min-width: 100%;
   max-height: 240px;
   overflow-y: auto;
   background: var(--surface);
@@ -1628,10 +1623,6 @@ button.day-link:hover {
 }
 
 .time-picker-panel {
-  position: absolute;
-  z-index: 60;
-  top: calc(100% + 4px);
-  right: 0;
   display: flex;
   gap: 4px;
   background: var(--surface);
@@ -1792,22 +1783,53 @@ button.day-link:hover {
   opacity: 0.7;
 }
 
-.suggest-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
-  margin: 4px 0 14px;
+/* 법정 연차 제안 카드(#11) — 제안 vs 현재 잔여를 나란히 비교 + 적용 버튼 */
+.suggest-card {
+  padding: 14px 16px;
+  margin: 6px 0 18px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface-alt);
 }
-.suggest-row strong {
-  font-size: 18px;
+.suggest-card-title {
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 700;
+}
+.suggest-compare {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.suggest-cell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.suggest-cell span {
+  font-size: 12px;
+}
+.suggest-cell strong {
+  font-size: 20px;
+  font-weight: 750;
   font-variant-numeric: tabular-nums;
 }
-.suggest-row button {
-  margin-left: auto;
+.suggest-arrow {
+  align-self: center;
+  color: var(--muted);
+  font-size: 18px;
+}
+.suggest-card .hint {
+  margin: 0 0 12px;
+}
+.suggest-card button.primary {
+  width: 100%;
 }
 
 /* ---- 감사 로그 (W017) ---- */
@@ -1884,13 +1906,14 @@ button.day-link:hover {
 .date-value.muted {
   color: var(--muted);
 }
+/* 포털 팝오버 공통 — document.body 로 떠서 fixed 좌표(JS 계산)로 배치(#7·#8). */
+.popover-portal {
+  position: fixed;
+  z-index: 80;
+}
 .date-panel {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  z-index: 30;
   width: 264px;
-  max-width: 88vw;
+  max-width: 92vw;
   background: var(--surface);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
@@ -2127,41 +2150,26 @@ button.day-link:hover {
 }
 
 /* ---- 청구서(W018) 달력형: 달 선택 + 상세(#13) ---- */
-.bill-months {
+/* 달 선택 — 드롭다운(예전 알약 버튼이 글자 깨지던 문제 해소, #14) */
+.bill-month-pick {
   display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  padding-bottom: 6px;
-  margin: 8px 0 20px;
-  scrollbar-width: thin;
-}
-.bill-months button {
-  min-width: 0;
-  min-height: 0;
-  padding: 7px 14px;
-  border: 1px solid var(--border-strong);
-  border-radius: 999px;
-  background: var(--surface);
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 600;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-  display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
+  margin: 8px 0 18px;
 }
-.bill-months button.active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-contrast);
+.bill-month-pick .field-select {
+  min-width: 200px;
 }
-.bill-months .bill-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 999px;
-  background: currentColor;
-  opacity: 0.7;
+/* 결제 정보 카드(#14) */
+.bill-profile {
+  margin-bottom: 20px;
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-alt);
+}
+.bill-profile form button.primary {
+  margin-top: 12px;
 }
 .bill-detail {
   border: 1px solid var(--border);
@@ -2233,39 +2241,65 @@ button.day-link:hover {
   border-bottom: 1px solid var(--border);
   font-size: 0.9rem;
 }
-.mail-vars-table {
-  width: 100%;
-  border-collapse: collapse;
+.mail-vars-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
-.mail-vars-table td {
-  padding: 0.35rem 0.75rem;
+.mail-vars-list li + li {
   border-top: 1px solid var(--border);
-  vertical-align: middle;
 }
-.mail-vars-table tr:first-child td {
-  border-top: none;
-}
-.var-chip {
-  display: inline-flex;
+/* 한 변수 = 한 줄 버튼. 이름(뜻) 왼쪽, 코드 오른쪽. 누르면 코드 복사. */
+.var-row {
+  position: relative;
+  display: flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.15rem 0.5rem;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
+  gap: 0.75rem;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 0.5rem 0.75rem;
+  min-height: 0;
+  font-weight: 400;
   cursor: pointer;
-  font-size: 0.85rem;
 }
-.var-chip:hover {
-  border-color: var(--accent);
-  color: var(--accent-dark);
+.var-row:hover {
+  background: var(--surface-alt);
+  color: var(--text);
 }
-.var-chip code {
+.var-row-name {
+  flex: 1;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.var-row-token {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+  color: var(--muted);
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.1rem 0.4rem;
 }
-.var-copied {
-  color: var(--success);
-  font-size: 0.75rem;
+/* "복사됨"은 절대배치 — 코드 위에 겹쳐 떠서 줄 너비를 밀지 않는다(#12) */
+.var-row-copied {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--accent-contrast);
+  background: var(--success, var(--accent));
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.var-row-copied:not([aria-hidden='true']) {
+  opacity: 1;
 }
 .tpl-preview-html {
   white-space: pre-wrap;

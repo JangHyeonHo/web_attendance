@@ -30,7 +30,8 @@ public final class LeaveDtos {
     }
 
     public record LeaveTypeCreateRequest(
-            @NotBlank(message = "{validation.required}") @Size(max = 30) String code,
+            //코드는 서버 자동생성(#10) — 명칭만 필수. (구 클라이언트 호환 위해 필드는 남기되 검증/사용 안 함)
+            @Size(max = 30) String code,
             @NotBlank(message = "{validation.required}") @Size(max = 50) String name,
             boolean paid,
             @NotNull(message = "{validation.required}") LeaveUnit unit,

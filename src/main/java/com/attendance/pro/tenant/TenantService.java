@@ -80,8 +80,8 @@ public class TenantService {
             tenantMapper.insert(create);
             long adminUserId = memberService.registerPendingAdmin(create.getTenantId(),
                     request.adminEmail(), request.adminName());
-            //기본 휴가 종류(유급휴가·여름휴가) 시드 — 연차 자동계산이 findAnnual에 의존하므로 생성 시점에 보장
-            leaveService.seedDefaults(create.getTenantId());
+            //국가별 기본 휴가 종류 시드(#10) — 연차 자동계산이 findAnnual에 의존하므로 생성 시점에 보장
+            leaveService.seedDefaults(create.getTenantId(), country.name());
             return new Provisioned(create.getTenantId(), adminUserId);
         });
         //① INVITE 메일({inviterName}=SA 세션 name) — 실패해도 생성은 성공(admin-invite 재발송이 수습)

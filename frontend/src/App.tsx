@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { useApp } from './app/AppContext'
 import { LandingScreen } from './screens/LandingScreen'
 import { LoginScreen } from './screens/LoginScreen'
@@ -19,7 +18,6 @@ import { BillingScreen } from './screens/BillingScreen'
 import { SelectField } from './components/fields'
 import { BottomNav } from './components/BottomNav'
 import type { BottomNavItem } from './components/BottomNav'
-import { BottomSheet } from './components/BottomSheet'
 import { Button } from './components/Button'
 import { useIsMobile } from './hooks/useIsMobile'
 import type { Lang, Role, ScreenCode } from './api/types'
@@ -42,7 +40,7 @@ const LABEL_KEY: Partial<Record<ScreenCode, string>> = {
   W004: 'ADMIN',
 }
 
-/** role별 메뉴 — core(하단탭/주요 탭) + more(더보기 시트). 모바일 하단탭은 core+더보기≤4. */
+/** role별 메뉴 — core(주요 탭) + more(부가 탭). 데스크톱 상단 내비 구성용. */
 function roleNav(role: Role | null): { core: ScreenCode[]; more: ScreenCode[] } {
   switch (role) {
     case 'MEMBER':
@@ -56,6 +54,42 @@ function roleNav(role: Role | null): { core: ScreenCode[]; more: ScreenCode[] } 
     default:
       return { core: [], more: [] }
   }
+}
+
+/**
+ * 관리자 밀집 화면 — 표/다중 컬럼이 많아 모바일에서 억지로 욱여넣지 않고 PC 전용으로 안내(#4).
+ * 멤버 본인용(출근 W005·휴가 W015·상세 W006)만 모바일 네이티브로 제공한다.
+ */
+const PC_ONLY_SCREENS = new Set<ScreenCode>([
+  'W004', 'W007', 'W008', 'W009', 'W012', 'W013', 'W014', 'W016', 'W017', 'W018',
+])
+
+/** 모바일 하단 탭 — 멤버 본인용 화면만(관리 화면은 PC 전용, #4). SYSTEM_ADMIN은 하단탭 없음. */
+function mobileTabs(role: Role | null): ScreenCode[] {
+  switch (role) {
+    case 'MEMBER':
+    case 'HR_ADMIN':
+    case 'TENANT_ADMIN':
+      return ['W005', 'W015']
+    default:
+      return []
+  }
+}
+
+/** 모바일에서 관리 화면 진입 시 — 표가 깨지지 않도록 PC 이용 안내(하드코딩 3개국어, 서버 텍스트 불요). */
+function MobilePcOnlyNotice() {
+  return (
+    <div className="panel center pc-only-notice">
+      <p className="pc-only-emoji" aria-hidden="true">🖥️</p>
+      <p>
+        이 화면은 PC(넓은 화면)에서 이용해 주세요.
+        <br />
+        Please use this screen on a desktop (wide screen).
+        <br />
+        この画面はPC（広い画面）でご利用ください。
+      </p>
+    </div>
+  )
 }
 
 /**
@@ -146,59 +180,16 @@ function DesktopNav() {
   )
 }
 
-/** 모바일 하단 탭 + 더보기 시트. */
+/** 모바일 하단 탭 — 멤버 본인용 화면(출근·휴가)만. 더보기 시트 폐지(언어=헤더, 로그아웃=헤더, 관리=PC전용). */
 function MobileNav() {
   const { screen, role, navigate, t } = useApp()
-  const [moreOpen, setMoreOpen] = useState(false)
-  const { core, more } = roleNav(role)
-
-  const items: BottomNavItem[] = core.map((code) => ({
+  const items: BottomNavItem[] = mobileTabs(role).map((code) => ({
     key: code,
     label: t(LABEL_KEY[code] ?? code),
     active: screen === code,
     onClick: () => void navigate(code),
   }))
-  items.push({
-    key: 'more',
-    label: t('MORE'),
-    active: moreOpen,
-    onClick: () => setMoreOpen(true),
-  })
-
-  return (
-    <>
-      <BottomNav items={items} />
-      <BottomSheet open={moreOpen} onClose={() => setMoreOpen(false)} title={t('MORE')}>
-        <div className="sheet-list">
-          {more.map((code) => (
-            <button
-              key={code}
-              className="sheet-item"
-              onClick={() => {
-                setMoreOpen(false)
-                void navigate(code)
-              }}
-            >
-              {t(LABEL_KEY[code] ?? code)}
-            </button>
-          ))}
-          <div className="sheet-row">
-            <span className="muted">{t('LANGUAGE') || '언어'}</span>
-            <LanguageSelect />
-          </div>
-          <button
-            className="sheet-item danger"
-            onClick={() => {
-              setMoreOpen(false)
-              void navigate('W002')
-            }}
-          >
-            {t('LOGOUT')}
-          </button>
-        </div>
-      </BottomSheet>
-    </>
-  )
+  return <BottomNav items={items} />
 }
 
 export default function App() {
@@ -221,7 +212,9 @@ export default function App() {
     return <div className="panel center muted">...</div>
   }
 
-  const showBottomNav = isMobile && !!userName && roleNav(role).core.length > 0
+  const showBottomNav = isMobile && !!userName && mobileTabs(role).length > 0
+  //모바일에서 관리 화면 진입 시 표가 깨지므로 PC 이용 안내로 대체(#4)
+  const showPcOnly = isMobile && !!userName && PC_ONLY_SCREENS.has(screen)
 
   return (
     <div className={`app${showBottomNav ? ' has-bottom-nav' : ''}`}>
@@ -240,6 +233,12 @@ export default function App() {
             </Button>
           )}
           <LanguageSelect />
+          {/* 로그아웃은 상단 고정 — 더보기에서 오조작(2번 탭)되던 문제 해소(#5) */}
+          {isMobile && userName && (
+            <Button size="sm" onClick={() => void navigate('W002')}>
+              {t('LOGOUT')}
+            </Button>
+          )}
         </div>
       </header>
       <main>
@@ -248,7 +247,7 @@ export default function App() {
             {navError}
           </p>
         )}
-        <ScreenBody screen={screen} />
+        {showPcOnly ? <MobilePcOnlyNotice /> : <ScreenBody screen={screen} />}
       </main>
       {showBottomNav && <MobileNav />}
     </div>

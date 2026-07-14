@@ -92,22 +92,61 @@ public class LeaveService {
         return typeMapper.findActiveByTenant(tenantId).stream().map(LeaveTypeResponse::of).toList();
     }
 
-    /** 신규 테넌트 기본 휴가 종류(유급휴가·여름휴가) 시드 — 테넌트 생성 Tx에서 호출. 재실행 안전(IGNORE). */
-    public void seedDefaults(long tenantId) {
-        typeMapper.seedAnnualType(tenantId);
-        typeMapper.seedSummerType(tenantId);
+    /** 시드용 기본 휴가 종류 한 줄(코드·명칭·유급·승인필요·연차성격·정렬). */
+    private record DefaultLeaveType(String code, String name, boolean paid,
+            boolean requiresApproval, boolean isAnnual, int sortOrder) {
+    }
+
+    /**
+     * 국가별 기본 휴가 종류(#10) — 소재국에서 보편적인 휴가를 소재국 언어 명칭으로 시드.
+     * 유급휴가(연차)·여름휴가에 더해 경조/병가/생리휴가까지. 명칭·유급여부는 되돌릴 수 있는 기본값
+     * (관리자가 종류 화면에서 수정·비활성 가능). 미지원 국가는 KR 기본으로 방어.
+     */
+    private static List<DefaultLeaveType> defaultTypesFor(String country) {
+        if ("JP".equals(country)) {
+            return List.of(
+                    new DefaultLeaveType("ANNUAL", "有給休暇", true, true, true, 0),
+                    new DefaultLeaveType("SUMMER", "夏季休暇", true, true, false, 1),
+                    new DefaultLeaveType("CONDOLENCE", "慶弔休暇", true, true, false, 2),
+                    new DefaultLeaveType("SICK", "病気休暇", false, true, false, 3),
+                    new DefaultLeaveType("MENSTRUAL", "生理休暇", false, true, false, 4));
+        }
+        //KR(기본)
+        return List.of(
+                new DefaultLeaveType("ANNUAL", "유급휴가", true, true, true, 0),
+                new DefaultLeaveType("SUMMER", "여름휴가", true, true, false, 1),
+                new DefaultLeaveType("CONDOLENCE", "경조휴가", true, true, false, 2),
+                new DefaultLeaveType("SICK", "병가", false, true, false, 3),
+                new DefaultLeaveType("MENSTRUAL", "생리휴가", false, true, false, 4));
+    }
+
+    /** 신규 테넌트 국가별 기본 휴가 종류 시드 — 테넌트 생성 Tx에서 호출. 재실행 안전(IGNORE). */
+    public void seedDefaults(long tenantId, String country) {
+        for (DefaultLeaveType d : defaultTypesFor(country)) {
+            typeMapper.seedType(tenantId, d.code(), d.name(), d.paid(),
+                    d.requiresApproval(), d.isAnnual(), d.sortOrder());
+        }
     }
 
     @Transactional
     public LeaveTypeResponse createType(long tenantId, LeaveTypeCreateRequest req) {
-        LeaveTypeCreate create = new LeaveTypeCreate(tenantId, req.code().trim(), req.name().trim(),
-                req.paid(), req.unit(), req.requiresApproval(), req.sortOrder());
-        try {
-            typeMapper.insert(create);
-        } catch (DuplicateKeyException e) {
-            throw ApiException.conflict("LEAVE_TYPE_CODE_DUP", "leave.type.code.duplicated");
+        //코드는 서버 자동생성(#10) — 사용자는 명칭만 입력. 클라이언트가 코드를 보내도 무시하고 유일 코드를 만든다.
+        for (int attempt = 0; attempt < 5; attempt++) {
+            LeaveTypeCreate create = new LeaveTypeCreate(tenantId, generateTypeCode(), req.name().trim(),
+                    req.paid(), req.unit(), req.requiresApproval(), req.sortOrder());
+            try {
+                typeMapper.insert(create);
+                return LeaveTypeResponse.of(typeMapper.findById(tenantId, create.getLeaveTypeId()));
+            } catch (DuplicateKeyException e) {
+                //자동 코드가 드물게 충돌하면 재생성해 재시도(명칭 중복은 허용 — 코드만 유일)
+            }
         }
-        return LeaveTypeResponse.of(typeMapper.findById(tenantId, create.getLeaveTypeId()));
+        throw ApiException.conflict("LEAVE_TYPE_CODE_DUP", "leave.type.code.duplicated");
+    }
+
+    /** 사용자에게 보이지 않는 내부 식별 코드 자동생성(≤30자, 테넌트 내 유일). */
+    private static String generateTypeCode() {
+        return "LT" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase();
     }
 
     @Transactional

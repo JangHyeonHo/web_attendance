@@ -91,6 +91,31 @@ export function LeaveScreen() {
   const labels = { day: t('UNIT_DAY'), hour: t('UNIT_HOUR'), min: t('UNIT_MIN') }
   const amt = (m: number, unit: LeaveUnit, dm: number) => formatLeaveAmount(m, unit, dm, labels)
 
+  //잔여가 없어도 회사의 모든 휴가 종류를 보여준다 — 어떤 휴가가 있는지 확인 가능하게(#3).
+  //부여 이력이 있는 종류는 만기일별 행 그대로, 없는 종류는 잔여 0 한 행으로 채운다.
+  const displayRows = useMemo<LeaveBalanceRow[]>(() => {
+    const rows = [...balanceRows]
+    const withRows = new Set(balanceRows.map((r) => r.leaveTypeId))
+    for (const ty of types) {
+      if (!withRows.has(ty.leaveTypeId)) {
+        rows.push({
+          leaveTypeId: ty.leaveTypeId,
+          name: ty.name,
+          unit: ty.unit,
+          remainingMinutes: 0,
+          expiresOn: null,
+          standardDayMinutes: stdDay,
+        })
+      }
+    }
+    //종류 등록 순서(sortOrder)를 따르되, 같은 종류의 여러 만기 행은 원래 순서 유지
+    const order = new Map(types.map((ty, i) => [ty.leaveTypeId, i]))
+    return rows
+      .map((r, i) => ({ r, i }))
+      .sort((a, b) => (order.get(a.r.leaveTypeId) ?? 0) - (order.get(b.r.leaveTypeId) ?? 0) || a.i - b.i)
+      .map(({ r }) => r)
+  }, [balanceRows, types, stdDay])
+
   async function runCancel(id: number) {
     setCancelTarget(null)
     setRowError(null)
@@ -137,12 +162,12 @@ export function LeaveScreen() {
 
       {listError && <p className="error" role="alert">{listError}</p>}
 
-      {/* 잔여는 만기일별 한 표 — 종류·남은·만기일(먼저 만료되는 부여부터 소진, #4/#5). */}
-      {balanceRows.length === 0 && !listError ? (
+      {/* 잔여는 만기일별 한 표 — 종류·남은·만기일. 잔여 없는 종류도 0으로 노출(#3). */}
+      {displayRows.length === 0 && !listError ? (
         <p className="muted">{t('EMPTY')}</p>
       ) : isMobile ? (
         <div className="lv-cards">
-          {balanceRows.map((r, i) => (
+          {displayRows.map((r, i) => (
             <div className="lv-bal-card" key={`${r.leaveTypeId}-${r.expiresOn ?? 'none'}-${i}`}>
               <div className="lv-bal-main">
                 <span className="lv-bal-name">{r.name}</span>
@@ -165,7 +190,7 @@ export function LeaveScreen() {
               </tr>
             </thead>
             <tbody>
-              {balanceRows.map((r, i) => (
+              {displayRows.map((r, i) => (
                 <tr key={`${r.leaveTypeId}-${r.expiresOn ?? 'none'}-${i}`}>
                   <td>{r.name}</td>
                   <td className="num">{amt(r.remainingMinutes, r.unit, r.standardDayMinutes)}</td>

@@ -43,6 +43,8 @@ import type {
   NavigateRequest,
   NavigateResponse,
   InvoiceEntry,
+  BillingProfileResponse,
+  BillingProfileRequest,
   PasswordResetRequest,
   PasswordSetRequest,
   StampResponse,
@@ -110,9 +112,12 @@ export const systemTenantApi = {
     post<InvoiceEntry>(`/api/v1/system/tenants/${tenantId}/invoices/${ym}/close`),
 }
 
-/** 회사(TENANT_ADMIN) 전용 — 자사 월별 청구서 조회(W018). 진행 중=잠정, 마감=확정 */
+/** 회사(TENANT_ADMIN) 전용 — 자사 월별 청구서 조회 + 결제 정보 등록(W018). 진행 중=잠정, 마감=확정 */
 export const tenantBillingApi = {
   invoices: () => get<InvoiceEntry[]>('/api/v1/tenant/billing/invoices'),
+  profile: () => get<BillingProfileResponse>('/api/v1/tenant/billing/profile'),
+  updateProfile: (request: BillingProfileRequest) =>
+    put<BillingProfileResponse>('/api/v1/tenant/billing/profile', request),
 }
 
 /** SYSTEM_ADMIN 전용 — 감사 로그 조회(W017). 전역 최신순 + category 필터 */
