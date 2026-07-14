@@ -2055,3 +2055,64 @@ button.day-link:hover {
 @media (min-width: 641px) {
   .bottom-nav { display: none; }
 }
+
+/* ---- Phase 2: 모바일 셸(하단탭 고정 + 더보기 시트) + 헤더 언어 셀렉트 조용화 ---- */
+.bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+}
+.app.has-bottom-nav main {
+  padding-bottom: 72px;
+}
+/* 더보기 시트 리스트 */
+.sheet-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.sheet-item {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  padding: 13px 12px;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text);
+  min-height: 0;
+}
+.sheet-item:hover {
+  background: var(--surface-alt);
+  border: 0;
+  color: var(--text);
+}
+.sheet-item.danger {
+  color: var(--error);
+}
+.sheet-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  margin: 4px 0;
+}
+/* 헤더의 SelectField는 조용하게(테두리 없이) — 기존 native select 톤 유지 */
+.header-right .field-select-trigger {
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+  padding: 6px 8px;
+  min-height: 0;
+  font-size: 13px;
+}
+.header-right .field-select-trigger:hover {
+  color: var(--text);
+  border-color: var(--border);
+}
