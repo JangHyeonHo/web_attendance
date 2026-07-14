@@ -2215,3 +2215,65 @@ button.day-link:hover {
 .checklist .check-inline {
   margin: 0;
 }
+
+/* 메일 템플릿 변수 안내표(#12) + HTML 미리보기(#11) */
+.mail-vars {
+  margin: 0.5rem 0 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.mail-vars-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--surface-alt);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9rem;
+}
+.mail-vars-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.mail-vars-table td {
+  padding: 0.35rem 0.75rem;
+  border-top: 1px solid var(--border);
+  vertical-align: middle;
+}
+.mail-vars-table tr:first-child td {
+  border-top: none;
+}
+.var-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.15rem 0.5rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.var-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent-dark);
+}
+.var-chip code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.var-copied {
+  color: var(--success);
+  font-size: 0.75rem;
+}
+.tpl-preview-html {
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: sans-serif;
+  line-height: 1.5;
+}

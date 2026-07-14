@@ -31,9 +31,12 @@ class MailTemplateServiceTest {
     private MailTemplateMapper mailTemplateMapper;
     @Mock
     private TenantMailTemplateMapper tenantMailTemplateMapper;
+    @Mock
+    private com.attendance.pro.tenant.TenantMapper tenantMapper;
 
     private MailTemplateService service() {
-        return new MailTemplateService(mailTemplateMapper, tenantMailTemplateMapper);
+        return new MailTemplateService(mailTemplateMapper, tenantMailTemplateMapper,
+                tenantMapper, new MailLanguageResolver());
     }
 
     private static MailTemplate template(TokenPurpose purpose, String subject, String body) {
@@ -174,8 +177,12 @@ class MailTemplateServiceTest {
     }
 
     @Test
-    @DisplayName("TPL-04c: 유효 목록은 전역 6행 기준 — 오버라이드 행만 overridden=true·내용 대체")
+    @DisplayName("TPL-04c: 유효 목록은 소재국 언어(KOR) 기준 — 오버라이드 행만 overridden=true·내용 대체(#12)")
     void listEffectiveMergesOverrides() {
+        //KR 테넌트 → KOR 언어만 노출
+        when(tenantMapper.findById(10L)).thenReturn(new com.attendance.pro.tenant.Tenant(
+                10L, "ACME", "에이크미(주)", "KR",
+                com.attendance.pro.tenant.TenantStatus.ACTIVE, LocalDateTime.now()));
         when(mailTemplateMapper.findAll()).thenReturn(java.util.List.of(
                 template(TokenPurpose.INVITE, "기본 초대", "{actionUrl}"),
                 template(TokenPurpose.RESET, "기본 재설정", "{actionUrl}")));

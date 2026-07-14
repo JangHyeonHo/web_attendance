@@ -3,16 +3,8 @@ import type { FormEvent } from 'react'
 import { mailTemplateApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
+import { MailVarsTable } from '../components/MailVarsTable'
 import type { MailTemplatePreviewResponse, MailTemplateResponse } from '../api/types'
-
-/**
- * 허용 변수(email-onboarding §4.4) — 검증의 정본은 서버.
- * 여기서는 편집 힌트로만 표시한다(변수 식별자는 번역 대상이 아닌 계약 문자열).
- */
-const TEMPLATE_VARS: Record<MailTemplateResponse['purpose'], string[]> = {
-  INVITE: ['{memberName}', '{tenantName}', '{actionUrl}', '{expiresAt}', '{inviterName}'],
-  RESET: ['{memberName}', '{tenantName}', '{actionUrl}', '{expiresAt}'],
-}
 
 /** 편집 대상 식별(행 집합은 시드 6행 고정 — purpose×lang이 자연키) */
 interface EditTarget {
@@ -144,14 +136,7 @@ export function MailTemplatesScreen() {
             <h3>
               {target.purpose} / {target.lang}
             </h3>
-            <p className="hint">
-              {t('TPL_VARS_HINT')}{' '}
-              {TEMPLATE_VARS[target.purpose].map((variable) => (
-                <code key={variable} className="tpl-var">
-                  {variable}
-                </code>
-              ))}
-            </p>
+            <MailVarsTable purpose={target.purpose} t={t} />
             <label>
               {t('TPL_SUBJECT')}
               <input value={subject} onChange={(e) => setSubject(e.target.value)} required />
@@ -186,7 +171,11 @@ export function MailTemplatesScreen() {
                 <dt>{t('TPL_SUBJECT')}</dt>
                 <dd>{preview.subject}</dd>
               </dl>
-              <pre className="tpl-preview-body">{preview.body}</pre>
+              {/* HTML 지원(#11) — 태그 렌더 + 평문 줄바꿈 보존(pre-wrap) */}
+              <div
+                className="tpl-preview-body tpl-preview-html"
+                dangerouslySetInnerHTML={{ __html: preview.body }}
+              />
             </div>
           )}
         </div>

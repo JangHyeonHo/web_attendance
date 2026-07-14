@@ -17,6 +17,7 @@ import com.attendance.pro.common.ApiException;
 import com.attendance.pro.mail.MailTemplateDtos.MailTemplatePreviewResponse;
 import com.attendance.pro.mail.MailTemplateDtos.MailTemplateResponse;
 import com.attendance.pro.mail.MailTemplateDtos.TenantMailTemplateResponse;
+import com.attendance.pro.tenant.TenantMapper;
 import com.attendance.pro.user.TokenPurpose;
 
 /**
@@ -43,11 +44,16 @@ public class MailTemplateService {
 
     private final MailTemplateMapper mailTemplateMapper;
     private final TenantMailTemplateMapper tenantMailTemplateMapper;
+    private final TenantMapper tenantMapper;
+    private final MailLanguageResolver mailLanguageResolver;
 
     public MailTemplateService(MailTemplateMapper mailTemplateMapper,
-            TenantMailTemplateMapper tenantMailTemplateMapper) {
+            TenantMailTemplateMapper tenantMailTemplateMapper,
+            TenantMapper tenantMapper, MailLanguageResolver mailLanguageResolver) {
         this.mailTemplateMapper = mailTemplateMapper;
         this.tenantMailTemplateMapper = tenantMailTemplateMapper;
+        this.tenantMapper = tenantMapper;
+        this.mailLanguageResolver = mailLanguageResolver;
     }
 
     public List<MailTemplateResponse> list() {
@@ -70,13 +76,28 @@ public class MailTemplateService {
     }
 
     /**
-     * 미리보기 — 저장하지 않고 샘플 값으로 치환한 결과를 돌려준다(저장과 같은 검증을 먼저 통과 가능).
+     * 미리보기(전역/W012) — 저장하지 않고 대표 샘플 값으로 치환. 저장과 같은 검증을 먼저 통과.
      */
     public MailTemplatePreviewResponse preview(String purpose, String lang, String subject, String body) {
         TokenPurpose resolved = resolvePurpose(purpose);
         resolveLang(lang);
         validate(resolved, subject, body);
-        Map<String, String> samples = sampleVariables(resolved);
+        Map<String, String> samples = sampleVariables(resolved, "에이크미(주)", "홍길동", "김관리");
+        return new MailTemplatePreviewResponse(substitute(subject, samples), substitute(body, samples));
+    }
+
+    /**
+     * 회사 미리보기(W014, #11) — 실제 회사명·미리보는 관리자 이름으로 치환해 실제 발송 결과에 가깝게 보여준다.
+     */
+    public MailTemplatePreviewResponse previewForTenant(long tenantId, String actorName,
+            String purpose, String lang, String subject, String body) {
+        TokenPurpose resolved = resolvePurpose(purpose);
+        resolveLang(lang);
+        validate(resolved, subject, body);
+        var tenant = tenantMapper.findById(tenantId);
+        String tenantName = tenant == null ? "" : tenant.name();
+        String name = actorName == null || actorName.isBlank() ? "홍길동" : actorName;
+        Map<String, String> samples = sampleVariables(resolved, tenantName, name, name);
         return new MailTemplatePreviewResponse(substitute(subject, samples), substitute(body, samples));
     }
 
@@ -85,22 +106,32 @@ public class MailTemplateService {
     // ---------------------------------------------------------
 
     /**
-     * 테넌트의 유효 템플릿 목록 — 전역 6행을 기준으로 오버라이드가 있으면 그 내용으로 대체해 돌려준다.
+     * 테넌트의 유효 템플릿 목록 — 전역 기준으로 오버라이드가 있으면 그 내용으로 대체.
+     * 회사에는 소재국 언어(country→lang)만 노출한다(#12 — 3개 언어 동시 노출 제거).
      */
     public List<TenantMailTemplateResponse> listEffective(long tenantId) {
+        String lang = tenantLang(tenantId);
         Map<String, TenantMailTemplate> overrides = new LinkedHashMap<>();
         for (TenantMailTemplate override : tenantMailTemplateMapper.findByTenant(tenantId)) {
             overrides.put(override.purpose() + ":" + override.lang(), override);
         }
-        return mailTemplateMapper.findAll().stream().map(base -> {
-            TenantMailTemplate override = overrides.get(base.purpose() + ":" + base.lang());
-            if (override == null) {
-                return new TenantMailTemplateResponse(base.purpose(), base.lang(),
-                        base.subject(), base.body(), false, base.updatedAt());
-            }
-            return new TenantMailTemplateResponse(override.purpose(), override.lang(),
-                    override.subject(), override.body(), true, override.updatedAt());
-        }).toList();
+        return mailTemplateMapper.findAll().stream()
+                .filter(base -> base.lang().equals(lang))
+                .map(base -> {
+                    TenantMailTemplate override = overrides.get(base.purpose() + ":" + base.lang());
+                    if (override == null) {
+                        return new TenantMailTemplateResponse(base.purpose(), base.lang(),
+                                base.subject(), base.body(), false, base.updatedAt());
+                    }
+                    return new TenantMailTemplateResponse(override.purpose(), override.lang(),
+                            override.subject(), override.body(), true, override.updatedAt());
+                }).toList();
+    }
+
+    /** 테넌트 소재국 → 메일 언어(KR→KOR, JP→JPN, 그 외 ENG). 미존재 테넌트는 ENG 방어. */
+    private String tenantLang(long tenantId) {
+        var tenant = tenantMapper.findById(tenantId);
+        return mailLanguageResolver.resolve(tenant == null ? null : tenant.country());
     }
 
     /**
@@ -170,15 +201,16 @@ public class MailTemplateService {
         return new RenderedMail(substitute(subjectTemplate, variables), substitute(bodyTemplate, variables));
     }
 
-    /** 미리보기 샘플 값(email-onboarding §6.1). */
-    private Map<String, String> sampleVariables(TokenPurpose purpose) {
+    /** 미리보기 샘플 값 — 회사명·이름은 호출부가 전달(전역=대표값, 회사=실데이터). */
+    private Map<String, String> sampleVariables(TokenPurpose purpose, String tenantName,
+            String memberName, String inviterName) {
         Map<String, String> samples = new LinkedHashMap<>();
-        samples.put("memberName", "홍길동");
-        samples.put("tenantName", "에이크미(주)");
-        samples.put("actionUrl", "https://acme.webatt.example/?token=SAMPLE");
+        samples.put("memberName", memberName);
+        samples.put("tenantName", tenantName);
+        samples.put("actionUrl", "https://webatt.example/?token=SAMPLE");
         samples.put("expiresAt", LocalDateTime.now().plus(purpose.ttl()).format(EXPIRES_FORMAT));
         if (purpose == TokenPurpose.INVITE) {
-            samples.put("inviterName", "김관리");
+            samples.put("inviterName", inviterName);
         }
         return samples;
     }
