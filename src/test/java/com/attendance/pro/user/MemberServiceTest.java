@@ -282,7 +282,7 @@ class MemberServiceTest {
     class Create {
 
         private MemberCreateRequest request(String workStart, String workEnd) {
-            return new MemberCreateRequest("hong@acme.co.kr", "홍길동", "DEV01", workStart, workEnd);
+            return new MemberCreateRequest("hong@acme.co.kr", "홍길동", "DEV01", workStart, workEnd, null);
         }
 
         @Test

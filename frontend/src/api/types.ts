@@ -328,6 +328,8 @@ export interface MemberCreateRequest {
   workStart?: string | null
   /** "HH:mm" — 미지정(null)은 18:00 */
   workEnd?: string | null
+  /** "YYYY-MM-DD" 입사일(선택) — 미지정(null)은 등록일. 연차 계산 기준(#11) */
+  hireDate?: string | null
 }
 
 /**

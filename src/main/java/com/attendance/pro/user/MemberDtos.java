@@ -55,7 +55,12 @@ public final class MemberDtos {
 
             @Schema(description = "schema.field.work-end", example = "18:00")
             @Pattern(regexp = TIME_PATTERN, message = "{validation.work-time.format}")
-            String workEnd) {    //null 허용 → 18:00
+            String workEnd,      //null 허용 → 18:00
+
+            //입사일(선택, ISO yyyy-MM-dd) — 미입력 시 등록일(CURDATE). 연차 계산 기준(#11)
+            @Schema(description = "schema.field.hire-date", example = "2023-03-02")
+            @Pattern(regexp = "^\\d{4}-\\d{2}-\\d{2}$", message = "{validation.date.format}")
+            String hireDate) {
     }
 
     //통합 최종 계약(이메일 × 스케줄 병합 — 교차 리뷰 CR3-3 확정). initialPassword 폐지.

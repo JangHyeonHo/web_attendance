@@ -5,6 +5,7 @@ import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { Modal } from '../components/Modal'
 import { SelectField, TimeField } from '../components/fields'
+import { DateField } from '../components/DateField'
 import { localeOf } from '../i18n/lang'
 import type { MemberSummary, Role, UserStatus } from '../api/types'
 
@@ -79,6 +80,7 @@ export function MembersScreen() {
   const [departCd, setDepartCd] = useState('')
   const [workStart, setWorkStart] = useState(DEFAULT_WORK_START)
   const [workEnd, setWorkEnd] = useState(DEFAULT_WORK_END)
+  const [hireDate, setHireDate] = useState('') //입사일(선택) — 연차 계산 기준(#11)
   const [formError, setFormError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
@@ -140,6 +142,7 @@ export function MembersScreen() {
         departCd: departCd.trim() || null,
         workStart,
         workEnd,
+        hireDate: hireDate || null,
       })
       //mailSent=false여도 멤버는 PENDING으로 생성됨(201) — 재발송이 수습 경로
       setCreated({ email: response.email, mailSent: response.mailSent })
@@ -148,6 +151,7 @@ export function MembersScreen() {
       setDepartCd('')
       setWorkStart(DEFAULT_WORK_START)
       setWorkEnd(DEFAULT_WORK_END)
+      setHireDate('')
       await reload()
     } catch (e) {
       //오류 시 폼 값을 유지한 채 등록 모달을 다시 연다(오타 수정 후 재시도)
@@ -307,6 +311,17 @@ export function MembersScreen() {
                 {fieldErrors.workEnd && <span className="error">{fieldErrors.workEnd}</span>}
               </label>
             </div>
+            {/* 입사일(선택) — 연차 계산 기준. 미입력 시 등록일(#11) */}
+            <label>
+              {t('HIRE_DATE')}
+              <DateField
+                value={hireDate}
+                onChange={setHireDate}
+                ariaLabel={t('HIRE_DATE')}
+                placeholder={t('HIRE_DATE_PLACEHOLDER')}
+              />
+              {fieldErrors.hireDate && <span className="error">{fieldErrors.hireDate}</span>}
+            </label>
             {formError && <p className="error" role="alert">{formError}</p>}
             <button type="submit" className="primary" disabled={submitting}>
               {t('MEMBER_CREATE')}

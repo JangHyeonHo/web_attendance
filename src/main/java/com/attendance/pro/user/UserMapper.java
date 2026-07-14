@@ -60,7 +60,7 @@ public interface UserMapper {
             INSERT INTO users (tenant_id, email, password_hash, name, depart_cd,
                                default_work_start, default_work_end, hire_date, role, status)
             VALUES (#{tenantId}, #{email}, #{passwordHash}, #{name}, #{departCd},
-                    #{defaultWorkStart}, #{defaultWorkEnd}, CURDATE(), #{role}, #{status})
+                    #{defaultWorkStart}, #{defaultWorkEnd}, COALESCE(#{hireDate}, CURDATE()), #{role}, #{status})
             """)
     @Options(useGeneratedKeys = true, keyProperty = "userId", keyColumn = "user_id")
     int insert(UserCreate user);

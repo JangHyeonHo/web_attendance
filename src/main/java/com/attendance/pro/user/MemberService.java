@@ -78,9 +78,12 @@ public class MemberService {
         LocalTime workStart = parseOrDefault(request.workStart(), DEFAULT_WORK_START);
         LocalTime workEnd = parseOrDefault(request.workEnd(), DEFAULT_WORK_END);
         validateWorkRange(workStart, workEnd);
+        //입사일 선택 — 미입력 시 null(매퍼가 CURDATE로 채움). 연차 계산 기준(#11)
+        java.time.LocalDate hireDate = (request.hireDate() == null || request.hireDate().isBlank())
+                ? null : java.time.LocalDate.parse(request.hireDate());
         UserCreate create = new UserCreate(tenantId, request.email(),
                 unusablePasswordHash(), request.name(), request.departCd(),
-                workStart, workEnd, Role.MEMBER, UserStatus.PENDING);
+                workStart, workEnd, Role.MEMBER, UserStatus.PENDING, hireDate);
         try {
             userMapper.insert(create);
         } catch (DuplicateKeyException e) {
@@ -201,7 +204,7 @@ public class MemberService {
      */
     public long registerPendingAdmin(long tenantId, String email, String name) {
         UserCreate create = new UserCreate(tenantId, email, unusablePasswordHash(), name, null,
-                DEFAULT_WORK_START, DEFAULT_WORK_END, Role.TENANT_ADMIN, UserStatus.PENDING);
+                DEFAULT_WORK_START, DEFAULT_WORK_END, Role.TENANT_ADMIN, UserStatus.PENDING, null);
         userMapper.insert(create);
         return create.getUserId();
     }
