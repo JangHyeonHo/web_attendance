@@ -2404,6 +2404,71 @@ button.day-link:hover {
   font-variant-numeric: tabular-nums;
   font-size: 0.9rem;
 }
+/* 모바일 출결 아코디언(#4) — 접힌 상태는 한 줄, 펴면 상세 */
+.att-acc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.att-acc {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  overflow: hidden;
+}
+.att-acc.off {
+  background: var(--surface-alt);
+}
+.att-acc-sum {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.85rem;
+  cursor: pointer;
+  list-style: none;
+}
+.att-acc-sum::-webkit-details-marker {
+  display: none;
+}
+/* 펼침 표시(▸ → ▾) — CSS 삼각형 */
+.att-acc-sum::after {
+  content: '';
+  margin-left: 0.25rem;
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid var(--muted);
+  border-bottom: 1.5px solid var(--muted);
+  transform: rotate(-45deg);
+  transition: transform 0.15s ease;
+}
+.att-acc[open] .att-acc-sum::after {
+  transform: rotate(45deg);
+}
+.att-acc-date {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+.att-acc-date.sun { color: var(--error); }
+.att-acc-date.sat { color: var(--info); }
+.att-acc-work {
+  margin-left: auto;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-dark);
+}
+.att-acc-body {
+  padding: 0 0.85rem 0.7rem;
+  border-top: 1px solid var(--border);
+}
+.att-acc-body .att-card-body {
+  margin-top: 0.6rem;
+}
+.att-acc-open {
+  margin-top: 0.6rem;
+  width: 100%;
+  min-height: 38px;
+  font-size: 0.85rem;
+}
 .att-total-card {
   display: flex;
   justify-content: space-between;
