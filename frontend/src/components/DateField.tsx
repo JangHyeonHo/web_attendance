@@ -7,6 +7,8 @@ interface DateFieldProps {
   ariaLabel: string
   /** 빨간색으로 표시할 공휴일(ISO yyyy-MM-dd) */
   holidays?: string[]
+  /** 이 날짜 이전은 선택 불가(ISO yyyy-MM-dd) */
+  min?: string
   disabled?: boolean
   /** 표시용 플레이스홀더(미선택 시) */
   placeholder?: string
@@ -30,7 +32,7 @@ function todayIso(): string {
  * 트리거를 누르면 달력 패널이 열리고, 월 이동·날짜 선택으로 값이 정해진다.
  * SelectField/TimeField와 동일한 팝오버 규약(바깥 클릭·ESC로 닫힘, 모달 안에서도 안전).
  */
-export function DateField({ value, onChange, ariaLabel, holidays, disabled, placeholder }: DateFieldProps) {
+export function DateField({ value, onChange, ariaLabel, holidays, min, disabled, placeholder }: DateFieldProps) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
   const holidaySet = holidays ? new Set(holidays) : null
@@ -127,12 +129,14 @@ export function DateField({ value, onChange, ariaLabel, holidays, disabled, plac
             ))}
             {cells.map((cell, idx) => {
               const cellIso = iso(cell.year, cell.month0, cell.day)
+              const blocked = min ? cellIso < min : false
               const cls = [
                 'date-cell',
                 cell.inMonth ? '' : 'off',
                 cellIso === value ? 'sel' : '',
                 cellIso === today ? 'today' : '',
                 holidaySet?.has(cellIso) ? 'hol' : '',
+                blocked ? 'blocked' : '',
               ]
                 .filter(Boolean)
                 .join(' ')
@@ -141,6 +145,7 @@ export function DateField({ value, onChange, ariaLabel, holidays, disabled, plac
                   key={idx}
                   type="button"
                   className={cls}
+                  disabled={blocked}
                   onClick={() => {
                     onChange(cellIso)
                     setOpen(false)

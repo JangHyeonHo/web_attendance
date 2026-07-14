@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { languageApi, systemTenantApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
+import { DateField } from '../components/DateField'
 import type {
   BillingMethod,
   InvoiceEntry,
@@ -494,11 +495,7 @@ export function TenantDetailScreen({ tenantId, country }: { tenantId: number; co
             </label>
             <label>
               {t('BILLED_FROM')}
-              <input
-                type="date"
-                value={billedFrom}
-                onChange={(e) => setBilledFrom(e.target.value)}
-              />
+              <DateField value={billedFrom} onChange={setBilledFrom} ariaLabel={t('BILLED_FROM')} placeholder="-" />
               {billingFieldErrors.billedFrom && (
                 <span className="error">{billingFieldErrors.billedFrom}</span>
               )}

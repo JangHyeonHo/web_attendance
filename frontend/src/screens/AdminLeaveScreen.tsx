@@ -5,6 +5,7 @@ import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { Modal } from '../components/Modal'
 import { SelectField } from '../components/fields'
+import { DateField } from '../components/DateField'
 import { formatLeaveAmount } from '../util/leaveFormat'
 import type {
   LeaveRequestItem,
@@ -412,7 +413,7 @@ function MemberDetailModal({
       <div className="field-group">
         <label>
           {t('START_DATE')}
-          <input type="date" value={hireDate} onChange={(e) => setHireDate(e.target.value)} />
+          <DateField value={hireDate} onChange={setHireDate} ariaLabel={t('START_DATE')} />
         </label>
         <button
           type="button"

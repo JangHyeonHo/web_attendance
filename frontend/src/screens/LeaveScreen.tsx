@@ -5,6 +5,7 @@ import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { Modal } from '../components/Modal'
 import { SelectField, TimeField } from '../components/fields'
+import { DateField } from '../components/DateField'
 import { formatLeaveAmount } from '../util/leaveFormat'
 import type { LeaveBalance, LeaveRequestItem, LeaveStatus, LeaveType, LeaveUnit } from '../api/types'
 
@@ -354,25 +355,18 @@ function ApplyModal({
           <div className="field-group">
             <label>
               {t('START_DATE')}
-              <input
-                type="date"
+              <DateField
                 value={startDate}
-                onChange={(e) => {
-                  setStartDate(e.target.value)
-                  if (e.target.value > endDate) setEndDate(e.target.value)
+                ariaLabel={t('START_DATE')}
+                onChange={(v) => {
+                  setStartDate(v)
+                  if (v > endDate) setEndDate(v)
                 }}
-                required
               />
             </label>
             <label>
               {t('END_DATE')}
-              <input
-                type="date"
-                value={endDate}
-                min={startDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                required
-              />
+              <DateField value={endDate} min={startDate} onChange={setEndDate} ariaLabel={t('END_DATE')} />
             </label>
             {singleDay && (
               <label className="check-inline">
@@ -389,12 +383,7 @@ function ApplyModal({
           <div className="field-group">
             <label>
               {t('START_DATE')}
-              <input
-                type="date"
-                value={hourDate}
-                onChange={(e) => setHourDate(e.target.value)}
-                required
-              />
+              <DateField value={hourDate} onChange={setHourDate} ariaLabel={t('START_DATE')} />
             </label>
             <label>
               {t('START_TIME')}

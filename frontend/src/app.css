@@ -2116,3 +2116,12 @@ button.day-link:hover {
   color: var(--text);
   border-color: var(--border);
 }
+
+.date-cell.blocked, .date-cell:disabled {
+  color: var(--border-strong);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.date-cell.blocked:hover, .date-cell:disabled:hover {
+  background: transparent;
+}

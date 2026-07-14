@@ -4,6 +4,7 @@ import { tenantHolidayApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { Modal } from '../components/Modal'
+import { DateField } from '../components/DateField'
 import { localeOf } from '../i18n/lang'
 import type { HolidayEntry, HolidaySyncResult } from '../api/types'
 
@@ -210,7 +211,7 @@ export function HolidaysScreen() {
           <form onSubmit={onCreate}>
             <label>
               {t('DATE')}
-              <input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} required />
+              <DateField value={newDate} onChange={setNewDate} ariaLabel={t('DATE')} />
               {fieldErrors.holidayDate && <span className="error">{fieldErrors.holidayDate}</span>}
             </label>
             <label>

@@ -4,7 +4,7 @@ import { authApi, tenantMemberApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { Modal } from '../components/Modal'
-import { SelectField } from '../components/fields'
+import { SelectField, TimeField } from '../components/fields'
 import { localeOf } from '../i18n/lang'
 import type { MemberSummary, Role, UserStatus } from '../api/types'
 
@@ -298,22 +298,12 @@ export function MembersScreen() {
             <div className="field-row">
               <label>
                 {t('WORK_START')}
-                <input
-                  type="time"
-                  value={workStart}
-                  onChange={(e) => setWorkStart(e.target.value)}
-                  required
-                />
+                <TimeField value={workStart} onChange={setWorkStart} ariaLabel={t('WORK_START')} />
                 {fieldErrors.workStart && <span className="error">{fieldErrors.workStart}</span>}
               </label>
               <label>
                 {t('WORK_END')}
-                <input
-                  type="time"
-                  value={workEnd}
-                  onChange={(e) => setWorkEnd(e.target.value)}
-                  required
-                />
+                <TimeField value={workEnd} onChange={setWorkEnd} ariaLabel={t('WORK_END')} />
                 {fieldErrors.workEnd && <span className="error">{fieldErrors.workEnd}</span>}
               </label>
             </div>
@@ -359,20 +349,18 @@ export function MembersScreen() {
           <div className="field-row">
             <label>
               {t('WORK_START')}
-              <input
-                type="time"
+              <TimeField
                 value={scheduleEdit.workStart}
-                onChange={(e) => setScheduleEdit({ ...scheduleEdit, workStart: e.target.value })}
-                required
+                onChange={(v) => setScheduleEdit({ ...scheduleEdit, workStart: v })}
+                ariaLabel={t('WORK_START')}
               />
             </label>
             <label>
               {t('WORK_END')}
-              <input
-                type="time"
+              <TimeField
                 value={scheduleEdit.workEnd}
-                onChange={(e) => setScheduleEdit({ ...scheduleEdit, workEnd: e.target.value })}
-                required
+                onChange={(v) => setScheduleEdit({ ...scheduleEdit, workEnd: v })}
+                ariaLabel={t('WORK_END')}
               />
             </label>
           </div>
