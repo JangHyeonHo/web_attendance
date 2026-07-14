@@ -277,7 +277,6 @@ function MembersTab() {
   const [detail, setDetail] = useState<MemberLeaveDetail | null>(null)
   const [bulkOpen, setBulkOpen] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
 
   const reload = useCallback(async () => {
     try {
@@ -301,25 +300,10 @@ function MembersTab() {
     }
   }
 
-  async function recomputeAll() {
-    setBusy(true)
-    setError(null)
-    try {
-      await tenantLeaveApi.recomputeAll()
-      await reload()
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : String(e))
-    } finally {
-      setBusy(false)
-    }
-  }
-
   return (
     <>
+      {/* 법정 연차 '제안/재계산'은 요구조건 재정의 전까지 보류(#11) — 부여는 아래 '일괄 부여'/개별 부여로 */}
       <div className="toolbar-actions" style={{ justifyContent: 'flex-end', marginBottom: '0.75rem' }}>
-        <button onClick={() => void recomputeAll()} disabled={busy}>
-          {t('RECOMPUTE_ALL')}
-        </button>
         <button
           className="primary"
           onClick={() => { setNotice(null); setBulkOpen(true) }}
@@ -344,7 +328,6 @@ function MembersTab() {
               <tr>
                 <th>{t('MEMBER')}</th>
                 <th>{t('START_DATE')}</th>
-                <th>{t('SUGGESTED')}</th>
                 <th>{t('BALANCE')}</th>
                 <th />
               </tr>
@@ -354,11 +337,6 @@ function MembersTab() {
                 <tr key={m.userId}>
                   <td>{m.name}</td>
                   <td>{m.hireDate ?? '—'}</td>
-                  <td className="num muted">
-                    {m.suggestedAnnualMinutes != null
-                      ? amt(m.suggestedAnnualMinutes, 'DAY', m.standardDayMinutes)
-                      : '—'}
-                  </td>
                   <td className="num">
                     {m.annualRemainingMinutes != null
                       ? amt(m.annualRemainingMinutes, 'DAY', m.standardDayMinutes)
@@ -553,7 +531,6 @@ function MemberDetailModal({
 }) {
   const { t } = useApp()
   const amt = useAmountFormatter(t)
-  const [hireDate, setHireDate] = useState(detail.hireDate ?? '')
   const [grantTypeId, setGrantTypeId] = useState(detail.balances[0]?.leaveTypeId ?? 0)
   const [grantDays, setGrantDays] = useState('1')
   const [memo, setMemo] = useState('')
@@ -583,57 +560,10 @@ function MemberDetailModal({
     <Modal title={detail.name} onClose={onClose}>
       {error && <p className="error" role="alert">{error}</p>}
 
-      <div className="field-group">
-        <label>
-          {t('START_DATE')}
-          <DateField value={hireDate} onChange={setHireDate} ariaLabel={t('START_DATE')} />
-        </label>
-        <button
-          type="button"
-          disabled={busy || !hireDate}
-          onClick={() => void run(() => tenantLeaveApi.updateHireDate(detail.userId, hireDate))}
-        >
-          {t('SUBMIT')}
-        </button>
-      </div>
-
-      {/* 법정 제안은 미리보기 — 관리자가 "제안 적용"을 눌러야 부여된다(자동 부여 아님, D3).
-          법정 제안 vs 현재 연차 잔여를 나란히 비교해 판단을 돕는다(#11). */}
-      <div className="suggest-card">
-        <p className="suggest-card-title">{t('SUGGEST_TITLE')}</p>
-        {detail.suggestedAnnualMinutes == null ? (
-          <p className="hint">{t('SUGGEST_NEED_HIRE')}</p>
-        ) : (
-          <>
-            <div className="suggest-compare">
-              <div className="suggest-cell">
-                <span className="muted">{t('SUGGESTED')}</span>
-                <strong>{amt(detail.suggestedAnnualMinutes, 'DAY', detail.standardDayMinutes)}</strong>
-              </div>
-              <span className="suggest-arrow" aria-hidden="true">→</span>
-              <div className="suggest-cell">
-                <span className="muted">{t('SUGGEST_CURRENT')}</span>
-                <strong>
-                  {amt(
-                    detail.balances.find((b) => b.isAnnual)?.remainingMinutes ?? 0,
-                    'DAY',
-                    detail.standardDayMinutes,
-                  )}
-                </strong>
-              </div>
-            </div>
-            <p className="hint">{t('SUGGEST_HINT')}</p>
-            <button
-              type="button"
-              className="primary"
-              disabled={busy}
-              onClick={() => void run(() => tenantLeaveApi.recompute(detail.userId))}
-            >
-              {t('RECOMPUTE')}
-            </button>
-          </>
-        )}
-      </div>
+      {/* 입사일은 멤버 관리 화면에서 등록/수정(#11) — 여기서는 참고 표시만 */}
+      <p className="muted" style={{ marginTop: 0 }}>
+        {t('START_DATE')}: {detail.hireDate ?? '—'}
+      </p>
 
       <table className="detail-table compact">
         <thead>
