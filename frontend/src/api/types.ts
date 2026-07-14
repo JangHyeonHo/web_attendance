@@ -671,6 +671,15 @@ export interface LeaveGrantRequest {
   memo?: string | null
 }
 
+/** 일괄 부여(#9) — 여러 멤버에 같은 종류·일수 */
+export interface LeaveBulkGrantRequest {
+  userIds: number[]
+  leaveTypeId: number
+  days: number
+  expiresOn?: string | null
+  memo?: string | null
+}
+
 export interface MemberLeaveSummary {
   userId: number
   name: string

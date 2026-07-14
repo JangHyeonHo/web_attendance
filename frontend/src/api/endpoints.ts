@@ -18,6 +18,7 @@ import type {
   LeaveBalance,
   LeaveBalanceRow,
   LeaveDecisionRequest,
+  LeaveBulkGrantRequest,
   LeaveGrantRequest,
   LeaveRequestItem,
   LeaveType,
@@ -228,6 +229,8 @@ export const tenantLeaveApi = {
   rejectCancel: (requestId: number, note: string) =>
     post<void>(`/api/v1/tenant/leave/requests/${requestId}/cancel-reject`, { note }),
   grant: (request: LeaveGrantRequest) => post<void>('/api/v1/tenant/leave/grants', request),
+  grantBulk: (request: LeaveBulkGrantRequest) =>
+    post<{ count: number }>('/api/v1/tenant/leave/grants/bulk', request),
   recompute: (userId: number) =>
     post<void>(`/api/v1/tenant/leave/members/${userId}/recompute`),
   recomputeAll: () => post<{ count: number }>('/api/v1/tenant/leave/recompute'),

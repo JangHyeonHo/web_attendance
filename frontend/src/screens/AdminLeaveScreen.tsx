@@ -275,6 +275,8 @@ function MembersTab() {
   const [members, setMembers] = useState<MemberLeaveSummary[]>([])
   const [error, setError] = useState<string | null>(null)
   const [detail, setDetail] = useState<MemberLeaveDetail | null>(null)
+  const [bulkOpen, setBulkOpen] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   const reload = useCallback(async () => {
@@ -318,7 +320,20 @@ function MembersTab() {
         <button onClick={() => void recomputeAll()} disabled={busy}>
           {t('RECOMPUTE_ALL')}
         </button>
+        <button
+          className="primary"
+          onClick={() => { setNotice(null); setBulkOpen(true) }}
+          disabled={members.length === 0}
+        >
+          {t('BULK_GRANT')}
+        </button>
       </div>
+      {notice && (
+        <div className="banner" role="status">
+          <p className="success">{notice}</p>
+          <button onClick={() => setNotice(null)}>{t('CLOSE')}</button>
+        </div>
+      )}
       {error && <p className="error" role="alert">{error}</p>}
       {members.length === 0 ? (
         <p className="muted center">{t('EMPTY')}</p>
@@ -369,7 +384,137 @@ function MembersTab() {
           }}
         />
       )}
+
+      {bulkOpen && (
+        <BulkGrantModal
+          members={members}
+          onClose={() => setBulkOpen(false)}
+          onDone={async (count) => {
+            setBulkOpen(false)
+            setNotice(`${t('BULK_GRANT')} — ${count}`)
+            await reload()
+          }}
+        />
+      )}
     </>
+  )
+}
+
+/** 일괄 부여 모달(#9) — 멤버 다중 선택 + 종류·일수·만기·메모 → 한 번에 부여. */
+function BulkGrantModal({
+  members,
+  onClose,
+  onDone,
+}: {
+  members: MemberLeaveSummary[]
+  onClose: () => void
+  onDone: (count: number) => Promise<void>
+}) {
+  const { t } = useApp()
+  const [types, setTypes] = useState<LeaveType[]>([])
+  const [selected, setSelected] = useState<Set<number>>(new Set())
+  const [leaveTypeId, setLeaveTypeId] = useState(0)
+  const [days, setDays] = useState('1')
+  const [expiresOn, setExpiresOn] = useState('')
+  const [memo, setMemo] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    tenantLeaveApi
+      .types()
+      .then((list) => {
+        setTypes(list)
+        setLeaveTypeId((cur) => (cur === 0 ? list[0]?.leaveTypeId ?? 0 : cur))
+      })
+      .catch((e) => setError(e instanceof ApiError ? e.message : String(e)))
+  }, [])
+
+  const allChecked = members.length > 0 && selected.size === members.length
+
+  function toggle(userId: number) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(userId)) next.delete(userId)
+      else next.add(userId)
+      return next
+    })
+  }
+
+  function toggleAll() {
+    setSelected(allChecked ? new Set() : new Set(members.map((m) => m.userId)))
+  }
+
+  async function submit() {
+    setBusy(true)
+    setError(null)
+    try {
+      const result = await tenantLeaveApi.grantBulk({
+        userIds: [...selected],
+        leaveTypeId,
+        days: Number(days),
+        expiresOn: expiresOn || null,
+        memo: memo.trim() || null,
+      })
+      await onDone(result.count)
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Modal title={t('BULK_GRANT')} onClose={onClose}>
+      <div className="field-group">
+        <SelectField
+          value={String(leaveTypeId)}
+          options={types.map((ty) => ({ value: String(ty.leaveTypeId), label: ty.name }))}
+          onChange={(v) => setLeaveTypeId(Number(v))}
+          ariaLabel={t('LEAVE_TYPE')}
+        />
+        <label>
+          {t('GRANT_MINUTES')}
+          <input type="number" step="0.5" value={days} onChange={(e) => setDays(e.target.value)} />
+        </label>
+        <label>
+          {t('EXPIRES')}
+          <DateField value={expiresOn} onChange={setExpiresOn} ariaLabel={t('EXPIRES')} />
+        </label>
+      </div>
+      <input
+        placeholder={t('MEMO')}
+        value={memo}
+        onChange={(e) => setMemo(e.target.value)}
+        maxLength={200}
+      />
+
+      <label className="check-inline" style={{ marginTop: '0.75rem' }}>
+        <input type="checkbox" checked={allChecked} onChange={toggleAll} />
+        {t('SELECT_ALL')} ({selected.size}/{members.length})
+      </label>
+      <div className="checklist">
+        {members.map((m) => (
+          <label key={m.userId} className="check-inline">
+            <input
+              type="checkbox"
+              checked={selected.has(m.userId)}
+              onChange={() => toggle(m.userId)}
+            />
+            {m.name}
+          </label>
+        ))}
+      </div>
+
+      {error && <p className="error" role="alert">{error}</p>}
+      <button
+        className="primary"
+        disabled={busy || selected.size === 0 || leaveTypeId === 0}
+        onClick={() => void submit()}
+      >
+        {t('GRANT')}
+      </button>
+    </Modal>
   )
 }
 

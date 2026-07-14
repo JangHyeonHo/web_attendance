@@ -301,4 +301,30 @@ class LeaveServiceTest {
                 any(), any(), eq(2026), any(), eq(3L));
         assertThat(minutes.getValue()).isEqualTo(16 * 480);
     }
+
+    // ===== 일괄 부여(#9) =====
+
+    @Test
+    @DisplayName("BULK-01: 두 멤버에 3일 일괄 부여 → 각자 표준분 환산(480×3=1440)으로 insert 2회, 중복 userId는 1회")
+    void grantBulk() {
+        long user2 = 5L;
+        User u1 = member(LocalTime.of(9, 0), LocalTime.of(18, 0), "1111100", LocalDate.of(2023, 1, 1));
+        User u2 = new User(user2, TENANT, "kim@acme.co.kr", "hash", null, "김철수", null,
+                LocalTime.of(9, 0), LocalTime.of(18, 0), "1111100", LocalDate.of(2024, 1, 1),
+                Role.MEMBER, UserStatus.ACTIVE, false, LocalDateTime.now(), LocalDateTime.now());
+        when(typeMapper.findById(TENANT, ANNUAL_ID)).thenReturn(annual());
+        when(userMapper.findById(TENANT, USER)).thenReturn(u1);
+        when(userMapper.findById(TENANT, user2)).thenReturn(u2);
+        stubCountry();
+
+        //중복 USER는 한 번만 부여되어야 한다
+        int count = service().grantManualBulk(TENANT, 9L,
+                new LeaveDtos.LeaveBulkGrantRequest(List.of(USER, user2, USER), ANNUAL_ID, 3.0, null, "여름 특별"));
+
+        assertThat(count).isEqualTo(2);
+        verify(grantMapper).insert(eq(TENANT), eq(USER), eq(ANNUAL_ID), eq(1440),
+                any(), any(), eq(LeaveSource.MANUAL), any(), eq("여름 특별"), eq(9L));
+        verify(grantMapper).insert(eq(TENANT), eq(user2), eq(ANNUAL_ID), eq(1440),
+                any(), any(), eq(LeaveSource.MANUAL), any(), eq("여름 특별"), eq(9L));
+    }
 }

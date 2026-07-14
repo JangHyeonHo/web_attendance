@@ -5,7 +5,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
@@ -122,6 +122,15 @@ public final class LeaveDtos {
     /** 수동 부여/조정 — days(음수 가능=차감 조정). expiresOn 생략 시 무기한. */
     public record LeaveGrantRequest(
             @NotNull(message = "{validation.required}") Long userId,
+            @NotNull(message = "{validation.required}") Long leaveTypeId,
+            @NotNull(message = "{validation.required}") Double days,
+            LocalDate expiresOn,
+            @Size(max = 200) String memo) {
+    }
+
+    /** 일괄 부여 — 여러 멤버에 같은 종류·일수를 한 번에(#9). userIds 최소 1명. */
+    public record LeaveBulkGrantRequest(
+            @NotEmpty(message = "{validation.required}") List<Long> userIds,
             @NotNull(message = "{validation.required}") Long leaveTypeId,
             @NotNull(message = "{validation.required}") Double days,
             LocalDate expiresOn,

@@ -2198,3 +2198,20 @@ button.day-link:hover {
   font-weight: 800;
   color: var(--accent-dark);
 }
+
+/* 일괄 부여 멤버 체크리스트(#9) — 스크롤 가능한 다중 선택 */
+.checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-height: 240px;
+  overflow-y: auto;
+  margin: 0.5rem 0 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-alt);
+}
+.checklist .check-inline {
+  margin: 0;
+}

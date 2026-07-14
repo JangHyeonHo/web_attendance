@@ -24,6 +24,7 @@ import com.attendance.pro.holiday.HolidayMapper;
 import com.attendance.pro.leave.LeaveDtos.LeaveApplyRequest;
 import com.attendance.pro.leave.LeaveDtos.LeaveBalanceResponse;
 import com.attendance.pro.leave.LeaveDtos.LeaveBalanceRowResponse;
+import com.attendance.pro.leave.LeaveDtos.LeaveBulkGrantRequest;
 import com.attendance.pro.leave.LeaveDtos.LeaveGrantRequest;
 import com.attendance.pro.leave.LeaveDtos.LeaveRequestResponse;
 import com.attendance.pro.leave.LeaveDtos.LeaveTypeCreateRequest;
@@ -410,6 +411,28 @@ public class LeaveService {
         grantMapper.insert(tenantId, user.userId(), type.leaveTypeId(), minutes,
                 LocalDate.now(clock), req.expiresOn(), LeaveSource.MANUAL, null,
                 trimToNull(req.memo()), granterId);
+    }
+
+    /**
+     * 일괄 부여(#9) — 여러 멤버에 같은 종류·일수를 한 트랜잭션으로 부여. 부여 일수(분)는
+     * 멤버별 표준 근무분이 다를 수 있어 각자 환산한다. 하나라도 검증 실패면 전체 롤백.
+     *
+     * @return 부여한 멤버 수
+     */
+    @Transactional
+    public int grantManualBulk(long tenantId, long granterId, LeaveBulkGrantRequest req) {
+        LeaveType type = requireType(tenantId, req.leaveTypeId());
+        ProfileCountry country = countryOf(tenantId);
+        String memo = trimToNull(req.memo());
+        LocalDate effectiveFrom = LocalDate.now(clock);
+        //중복 userId는 한 번만(같은 멤버 두 번 부여 방지)
+        for (long userId : req.userIds().stream().distinct().toList()) {
+            User user = requireUser(tenantId, userId);
+            int minutes = (int) Math.round(req.days() * standardDayMinutes(user, country));
+            grantMapper.insert(tenantId, user.userId(), type.leaveTypeId(), minutes,
+                    effectiveFrom, req.expiresOn(), LeaveSource.MANUAL, null, memo, granterId);
+        }
+        return (int) req.userIds().stream().distinct().count();
     }
 
     /** 연차 자동 재계산(멤버 1인) — 현 연도 AUTO 연차 grant upsert. */
