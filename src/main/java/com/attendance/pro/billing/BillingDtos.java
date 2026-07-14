@@ -33,6 +33,17 @@ public final class BillingDtos {
             @Size(max = 500) String memo) {
     }
 
+    /**
+     * 회사에 보여주는 계약 요약(#14) — 읽기 전용. 요금제·인당 단가·무료 좌석은 운영사(계약)가 정하는 값이라
+     * 회사는 조회만 한다("5명 넘으면 과금" 같은 조건을 회사가 확인할 수 있게).
+     */
+    @Schema(description = "schema.billing-contract")
+    public record ContractSummaryResponse(
+            String plan,
+            int perSeatAmount,
+            int freeSeats) {
+    }
+
     /** 청구서 확정 상태 — PROVISIONAL(진행 중/미마감, 실시간 계산) / ISSUED(마감 확정 스냅샷). */
     public enum InvoiceStatus {
         PROVISIONAL, ISSUED

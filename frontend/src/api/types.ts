@@ -23,6 +23,7 @@ export type ScreenCode =
   | 'W016' // 휴가 관리 (인사관리자+총관리자 — 결재·부여·종류)
   | 'W017' // 감사 로그 조회 (SYSTEM_ADMIN)
   | 'W018' // 청구서 (TENANT_ADMIN — 자사 월별 청구서)
+  | 'W019' // 회사 정보/결제 설정 (TENANT_ADMIN — 사업자정보·결제 + 계약 요약)
   | 'W999' // 공통(헤더)
 
 export type Lang = 'KOR' | 'ENG' | 'JPN'
@@ -284,6 +285,12 @@ export interface BillingProfileRequest {
   billingMethod: BillingMethod
   billingEmail: string | null
   memo: string | null
+}
+/** 회사에 보여주는 계약 요약(#14, 읽기전용) — 요금제·인당 단가·무료 좌석은 운영사가 정함 */
+export interface ContractSummaryResponse {
+  plan: string
+  perSeatAmount: number
+  freeSeats: number
 }
 export interface InvoiceEntry {
   ym: string // YYYY-MM

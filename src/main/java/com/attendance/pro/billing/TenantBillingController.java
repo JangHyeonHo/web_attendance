@@ -12,6 +12,7 @@ import com.attendance.pro.auth.LoginUser;
 import com.attendance.pro.auth.SessionUser;
 import com.attendance.pro.billing.BillingDtos.BillingProfileRequest;
 import com.attendance.pro.billing.BillingDtos.BillingProfileResponse;
+import com.attendance.pro.billing.BillingDtos.ContractSummaryResponse;
 import com.attendance.pro.billing.BillingDtos.InvoiceResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -51,5 +52,12 @@ public class TenantBillingController {
     public BillingProfileResponse updateProfile(@LoginUser SessionUser user,
             @Valid @RequestBody BillingProfileRequest request) {
         return billingService.updateProfile(user.tenantId(), request);
+    }
+
+    /** 회사가 조회만 하는 계약 요약(#14) — 요금제·인당 단가·무료 좌석은 운영사가 정한다. */
+    @Operation(summary = "api.tenant-billing.contract")
+    @GetMapping("/contract")
+    public ContractSummaryResponse contract(@LoginUser SessionUser user) {
+        return billingService.getContractSummary(user.tenantId());
     }
 }

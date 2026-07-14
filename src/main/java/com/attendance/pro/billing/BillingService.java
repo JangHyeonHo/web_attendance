@@ -87,6 +87,16 @@ public class BillingService {
         return result;
     }
 
+    /** 회사에 보여줄 계약 요약(#14, 읽기전용) — 요금제·인당 단가·무료 좌석. 미등록이면 기본값. */
+    public com.attendance.pro.billing.BillingDtos.ContractSummaryResponse getContractSummary(long tenantId) {
+        TenantBilling config = tenantBillingMapper.findById(tenantId);
+        if (config == null) {
+            return new com.attendance.pro.billing.BillingDtos.ContractSummaryResponse("BASIC", 2000, 5);
+        }
+        return new com.attendance.pro.billing.BillingDtos.ContractSummaryResponse(
+                config.plan(), config.perSeatAmount(), config.freeSeats());
+    }
+
     /** 회사 자사 결제 정보 조회(#14) — 미등록이면 기본값(계좌이체/미입력)을 돌려준다. */
     public BillingProfileResponse getProfile(long tenantId) {
         TenantBilling config = tenantBillingMapper.findById(tenantId);

@@ -50,6 +50,8 @@ public enum Screen {
     AUDIT("W017", Set.of(Role.SYSTEM_ADMIN)),
     /** 청구서 조회 — 회사 총관리자(TENANT_ADMIN) 전용(재무 정보) */
     BILLING("W018", Set.of(Role.TENANT_ADMIN)),
+    /** 회사 정보/결제 설정 — 회사 총관리자(TENANT_ADMIN) 전용. 사업자정보·결제수단 자율관리 + 계약 요약(읽기전용)(#14) */
+    COMPANY_PROFILE("W019", Set.of(Role.TENANT_ADMIN)),
     /** 공통(헤더) - 직접 전개하지 않고 공통 텍스트 취득용 */
     COMMON("W999", null);
 

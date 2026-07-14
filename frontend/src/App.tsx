@@ -15,6 +15,7 @@ import { LeaveScreen } from './screens/LeaveScreen'
 import { AdminLeaveScreen } from './screens/AdminLeaveScreen'
 import { AuditLogScreen } from './screens/AuditLogScreen'
 import { BillingScreen } from './screens/BillingScreen'
+import { CompanyInfoScreen } from './screens/CompanyInfoScreen'
 import { SelectField } from './components/fields'
 import { BottomNav } from './components/BottomNav'
 import type { BottomNavItem } from './components/BottomNav'
@@ -34,6 +35,7 @@ const LABEL_KEY: Partial<Record<ScreenCode, string>> = {
   W016: 'LEAVE_ADMIN',
   W014: 'MAIL_TEMPLATES',
   W018: 'BILLING',
+  W019: 'COMPANY_INFO',
   W007: 'TENANTS',
   W012: 'MAIL_TEMPLATES',
   W017: 'AUDIT_LOG',
@@ -48,7 +50,7 @@ function roleNav(role: Role | null): { core: ScreenCode[]; more: ScreenCode[] } 
     case 'HR_ADMIN':
       return { core: ['W005', 'W015', 'W009'], more: ['W013', 'W016'] }
     case 'TENANT_ADMIN':
-      return { core: ['W005', 'W015', 'W009'], more: ['W013', 'W016', 'W014', 'W018'] }
+      return { core: ['W005', 'W015', 'W009'], more: ['W013', 'W016', 'W014', 'W018', 'W019'] }
     case 'SYSTEM_ADMIN':
       return { core: ['W007', 'W017'], more: ['W012', 'W004'] }
     default:
@@ -61,7 +63,7 @@ function roleNav(role: Role | null): { core: ScreenCode[]; more: ScreenCode[] } 
  * 멤버 본인용(출근 W005·휴가 W015·상세 W006)만 모바일 네이티브로 제공한다.
  */
 const PC_ONLY_SCREENS = new Set<ScreenCode>([
-  'W004', 'W007', 'W008', 'W009', 'W012', 'W013', 'W014', 'W016', 'W017', 'W018',
+  'W004', 'W007', 'W008', 'W009', 'W012', 'W013', 'W014', 'W016', 'W017', 'W018', 'W019',
 ])
 
 /** 모바일 하단 탭 — 멤버 본인용 화면만(관리 화면은 PC 전용, #4). SYSTEM_ADMIN은 하단탭 없음. */
@@ -131,6 +133,8 @@ function ScreenBody({ screen }: { screen: ScreenCode }) {
       return <AuditLogScreen />
     case 'W018':
       return <BillingScreen />
+    case 'W019':
+      return <CompanyInfoScreen />
     case 'W000':
     default:
       return <LandingScreen />
