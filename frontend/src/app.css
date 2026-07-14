@@ -2324,7 +2324,17 @@ button.day-link:hover {
 .var-row-copied:not([aria-hidden='true']) {
   opacity: 1;
 }
+/* HTML 미리보기 — 태그를 그대로 렌더(개행에 의존하지 않음, #13). pre-wrap 안 걸어 개행 공백이 안 생김. */
 .tpl-preview-html {
+  word-break: break-word;
+  padding: 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  line-height: 1.5;
+}
+/* 평문(태그 없는) 템플릿 미리보기 — 줄바꿈 보존 */
+.tpl-preview-text {
   white-space: pre-wrap;
   word-break: break-word;
   padding: 0.75rem;
