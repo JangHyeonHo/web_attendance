@@ -109,57 +109,62 @@ function BusinessProfileSection() {
   return (
     <section className="ci-section">
       <h3 className="section-head">{t('BIZ_INFO')}</h3>
+      {/* 현재 등록값은 읽기전용 박스로만 보여준다(캡션 명시). 입력칸엔 마스킹값을 넣지 않아 '빈 칸처럼' 보이지 않게(S1-2·S1-4) */}
       {profile && (
-        <dl className="kv ci-current">
-          <dt>{bizLabel}</dt>
-          <dd>{profile.businessRegNoMasked || '—'}</dd>
-          <dt>{t('CONTACT_PHONE')}</dt>
-          <dd>{profile.contactPhoneMasked || '—'}</dd>
-        </dl>
+        <div className="info-box">
+          <p className="info-box-cap">{t('CURRENT_VALUE')}</p>
+          <dl className="kv">
+            <dt>{bizLabel}</dt>
+            <dd>{profile.businessRegNoMasked || '—'}</dd>
+            <dt>{t('CONTACT_PHONE')}</dt>
+            <dd>{profile.contactPhoneMasked || '—'}</dd>
+          </dl>
+        </div>
       )}
       <form onSubmit={save}>
-        <label>
-          {bizLabel}
-          <input
-            value={businessRegNo}
-            onChange={(e) => { setBusinessRegNo(e.target.value); setSaved(false) }}
-            placeholder={profile?.businessRegNoMasked || (profile?.country === 'JP' ? '1234567890123' : '123-45-67890')}
-            maxLength={20}
-            required
-          />
-          {fieldErrors.businessRegNo && <span className="error">{fieldErrors.businessRegNo}</span>}
-        </label>
+        {/* 짧은 필드는 2열로 묶어 가장자리가 들쭉날쭉하지 않게(S1-5) */}
         <div className="field-row">
+          <label>
+            {bizLabel}
+            <input
+              value={businessRegNo}
+              onChange={(e) => { setBusinessRegNo(e.target.value); setSaved(false) }}
+              placeholder={profile?.country === 'JP' ? '1234567890123' : '123-45-67890'}
+              maxLength={20}
+              required
+            />
+            {fieldErrors.businessRegNo && <span className="error">{fieldErrors.businessRegNo}</span>}
+          </label>
           <label>
             {t('CEO_NAME')}
             <input value={ceoName} onChange={(e) => { setCeoName(e.target.value); setSaved(false) }} maxLength={50} />
           </label>
+        </div>
+        <div className="field-row">
           <label>
             {t('CONTACT_NAME')}
             <input value={contactName} onChange={(e) => { setContactName(e.target.value); setSaved(false) }} maxLength={50} />
-          </label>
-        </div>
-        <label>
-          {t('ADDRESS')}
-          <input value={address} onChange={(e) => { setAddress(e.target.value); setSaved(false) }} maxLength={200} />
-        </label>
-        <div className="field-row">
-          <label>
-            {t('CONTACT_EMAIL')}
-            <input type="email" value={contactEmail} onChange={(e) => { setContactEmail(e.target.value); setSaved(false) }} maxLength={100} />
-            {fieldErrors.contactEmail && <span className="error">{fieldErrors.contactEmail}</span>}
           </label>
           <label>
             {t('CONTACT_PHONE')}
             <input
               value={contactPhone}
               onChange={(e) => { setContactPhone(e.target.value); setSaved(false) }}
-              placeholder={profile?.contactPhoneMasked || '010-1234-5678'}
+              placeholder="010-1234-5678"
               maxLength={20}
             />
             {fieldErrors.contactPhone && <span className="error">{fieldErrors.contactPhone}</span>}
           </label>
         </div>
+        <label>
+          {t('CONTACT_EMAIL')}
+          <input type="email" value={contactEmail} onChange={(e) => { setContactEmail(e.target.value); setSaved(false) }} maxLength={100} placeholder="biz@company.com" />
+          {fieldErrors.contactEmail && <span className="error">{fieldErrors.contactEmail}</span>}
+        </label>
+        <label>
+          {t('ADDRESS')}
+          <input value={address} onChange={(e) => { setAddress(e.target.value); setSaved(false) }} maxLength={200} />
+        </label>
         <p className="hint">{t('BIZ_REENTER_HINT')}</p>
         {error && <p className="error" role="alert">{error}</p>}
         {saved && <p className="success" role="status">{t('SAVED')}</p>}
@@ -256,14 +261,17 @@ function ContractSection() {
       <p className="hint">{t('CONTRACT_READONLY_HINT')}</p>
       {error && <p className="error" role="alert">{error}</p>}
       {contract && (
-        <dl className="kv">
-          <dt>{t('PLAN')}</dt>
-          <dd>{contract.plan}</dd>
-          <dt>{t('SEAT_PRICE')}</dt>
-          <dd className="tnum">{won(contract.perSeatAmount)}</dd>
-          <dt>{t('FREE_SEATS')}</dt>
-          <dd>{contract.freeSeats}</dd>
-        </dl>
+        /* 사업자 정보의 현재값 박스와 동일한 읽기전용 스타일로 통일(S1-3) */
+        <div className="info-box">
+          <dl className="kv">
+            <dt>{t('PLAN')}</dt>
+            <dd>{contract.plan}</dd>
+            <dt>{t('SEAT_PRICE')}</dt>
+            <dd className="tnum">{won(contract.perSeatAmount)}</dd>
+            <dt>{t('FREE_SEATS')}</dt>
+            <dd>{contract.freeSeats}</dd>
+          </dl>
+        </div>
       )}
     </section>
   )
