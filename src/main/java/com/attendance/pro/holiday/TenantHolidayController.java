@@ -1,15 +1,10 @@
 package com.attendance.pro.holiday;
 
-import java.time.LocalDate;
 import java.util.List;
 
-import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -21,7 +16,6 @@ import com.attendance.pro.auth.SessionUser;
 import com.attendance.pro.holiday.HolidayDtos.HolidayCreateRequest;
 import com.attendance.pro.holiday.HolidayDtos.HolidayResponse;
 import com.attendance.pro.holiday.HolidayDtos.HolidaySyncResponse;
-import com.attendance.pro.holiday.HolidayDtos.HolidayUpdateRequest;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -62,36 +56,13 @@ public class TenantHolidayController {
 
     @Operation(summary = "api.tenant-holiday.create.summary", description = "api.tenant-holiday.create.description")
     @ApiResponses({
-            @ApiResponse(responseCode = "201", description = "api.tenant-holiday.create.201"),
-            @ApiResponse(responseCode = "409", description = "api.tenant-holiday.create.409")
+            @ApiResponse(responseCode = "201", description = "api.tenant-holiday.create.201")
     })
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public HolidayResponse create(@LoginUser SessionUser user,
             @Valid @RequestBody HolidayCreateRequest request) {
         return holidayService.create(user.tenantId(), request);
-    }
-
-    @Operation(summary = "api.tenant-holiday.update.summary", description = "api.tenant-holiday.update.description")
-    @ApiResponses({
-            @ApiResponse(responseCode = "404", description = "api.tenant-holiday.update.404")
-    })
-    @PutMapping("/{holidayDate}")
-    public HolidayResponse update(@LoginUser SessionUser user,
-            @PathVariable("holidayDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate holidayDate,
-            @Valid @RequestBody HolidayUpdateRequest request) {
-        return holidayService.updateName(user.tenantId(), holidayDate, request.holidayName());
-    }
-
-    @Operation(summary = "api.tenant-holiday.delete.summary")
-    @ApiResponses({
-            @ApiResponse(responseCode = "404", description = "api.tenant-holiday.update.404")
-    })
-    @DeleteMapping("/{holidayDate}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@LoginUser SessionUser user,
-            @PathVariable("holidayDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate holidayDate) {
-        holidayService.delete(user.tenantId(), holidayDate);
     }
 
 }

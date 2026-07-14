@@ -524,7 +524,8 @@ export interface TenantMailTemplateResponse {
 export type HolidayType = 'NATIONAL' | 'COMPANY'
 
 export interface HolidayEntry {
-  holidayDate: string // yyyy-MM-dd (PK — 식별자는 날짜 자체)
+  holidayId: number // 대리키(날짜 중복 허용 — #7)
+  holidayDate: string // yyyy-MM-dd
   holidayName: string
   holidayType: HolidayType
   updatedAt: string
@@ -539,14 +540,9 @@ export interface HolidaySyncResult {
   skippedCompany: number
 }
 
-/** 수동 등록은 항상 COMPANY로 저장(요청에 type 없음 — holiday-plan §3-2) */
+/** 수동 등록은 항상 COMPANY로 저장(요청에 type 없음). 날짜 중복 허용(#7) */
 export interface HolidayCreateRequest {
   holidayDate: string
-  holidayName: string
-}
-
-/** 명칭만 수정 가능 — 유형 변경 불가(holiday-plan §3-3) */
-export interface HolidayUpdateRequest {
   holidayName: string
 }
 

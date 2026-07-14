@@ -10,7 +10,6 @@ import type {
   HolidayCreateRequest,
   HolidayEntry,
   HolidaySyncResult,
-  HolidayUpdateRequest,
   InviteResponse,
   LanguageEntry,
   LanguageUpsertRequest,
@@ -170,16 +169,13 @@ export const tenantMemberApi = {
     put<MemberSummary>(`/api/v1/tenant/members/${userId}/schedule`, request),
 }
 
-/** TENANT_ADMIN 전용 — 공휴일(W013). 식별자는 날짜 자체(yyyy-MM-dd) */
+/** TENANT_ADMIN 전용 — 공휴일(W013). 읽기전용 목록 + 회사 공휴일 등록 + 국가 공휴일 동기화(#7) */
 export const tenantHolidayApi = {
   list: (year: number) => get<HolidayEntry[]>(`/api/v1/tenant/holidays?year=${year}`),
   sync: (year: number) =>
     post<HolidaySyncResult>(`/api/v1/tenant/holidays/sync?year=${year}`),
   create: (request: HolidayCreateRequest) =>
     post<HolidayEntry>('/api/v1/tenant/holidays', request),
-  update: (holidayDate: string, request: HolidayUpdateRequest) =>
-    put<HolidayEntry>(`/api/v1/tenant/holidays/${holidayDate}`, request),
-  remove: (holidayDate: string) => del<void>(`/api/v1/tenant/holidays/${holidayDate}`),
 }
 
 export const attendanceApi = {
