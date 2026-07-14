@@ -290,6 +290,21 @@ class HolidayServiceTest {
         }
 
         @Test
+        @DisplayName("회사 공휴일 삭제 성공(#7), 국가 공휴일/미존재는 404(매퍼 type 한정으로 0행)")
+        void deleteCompanyOnly() {
+            //COMPANY 매칭 1행 → 성공
+            when(holidayMapper.deleteCompanyById(TENANT_ID, 7L)).thenReturn(1);
+            service().deleteCompany(TENANT_ID, 7L);
+            verify(holidayMapper).deleteCompanyById(TENANT_ID, 7L);
+
+            //국가 공휴일 id거나 미존재 → 0행 → 404
+            when(holidayMapper.deleteCompanyById(TENANT_ID, 9L)).thenReturn(0);
+            assertThatThrownBy(() -> service().deleteCompany(TENANT_ID, 9L))
+                    .isInstanceOf(ApiException.class)
+                    .satisfies(e -> assertThat(((ApiException) e).getCode()).isEqualTo("HOLIDAY_NOT_FOUND"));
+        }
+
+        @Test
         @DisplayName("목록은 연도 범위로 조회한다(tenantId 전파)")
         void listByYear() {
             when(holidayMapper.findByRange(TENANT_ID,

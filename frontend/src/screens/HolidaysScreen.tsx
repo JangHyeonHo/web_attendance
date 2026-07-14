@@ -23,8 +23,8 @@ function syncDoneText(template: string, result: HolidaySyncResult): string {
 
 /**
  * W013 공휴일 관리 — TENANT_ADMIN 전용(holiday-plan §5-1).
- * 읽기전용 목록(NATIONAL/COMPANY 뱃지) + 회사 공휴일 등록 + 국가 공휴일 동기화(#7).
- * 개별 수정/삭제는 없다 — 국가 공휴일은 동기화가 연도 단위로 교체하고, 같은 날짜 중복 등록을 허용한다.
+ * 국가 공휴일(NATIONAL)은 읽기전용(동기화만 관리) + 회사 공휴일(COMPANY)은 등록·삭제 가능(#7).
+ * 같은 날짜 중복 등록 허용(예: 창립기념일 + 광복절). 개별 명칭 수정은 없다(삭제 후 재등록).
  */
 export function HolidaysScreen() {
   const { t, lang } = useApp()
@@ -52,6 +52,10 @@ export function HolidaysScreen() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
 
+  //회사 공휴일 삭제(확인 모달) — 국가 공휴일은 삭제 불가
+  const [deleteTarget, setDeleteTarget] = useState<HolidayEntry | null>(null)
+  const [rowError, setRowError] = useState<string | null>(null)
+
   //요일 명칭은 사전 없이 Intl 표준 API로 생성(W006 방식).
   //'YYYY-MM-DD'를 new Date(문자열)로 넘기면 UTC 자정 해석 — 음수 오프셋 시간대에서 전날 요일이 되므로 로컬 성분 생성
   const weekdayOf = useMemo(() => {
@@ -76,8 +80,21 @@ export function HolidaysScreen() {
     setSyncResult(null)
     setSyncError(null)
     setSyncConfirm(false)
+    setDeleteTarget(null)
+    setRowError(null)
     void reload()
   }, [reload])
+
+  async function runDelete(holidayId: number) {
+    setDeleteTarget(null)
+    setRowError(null)
+    try {
+      await tenantHolidayApi.remove(holidayId)
+      await reload()
+    } catch (e) {
+      setRowError(e instanceof ApiError ? e.message : String(e))
+    }
+  }
 
   async function runSync() {
     setSyncConfirm(false)
@@ -184,7 +201,22 @@ export function HolidaysScreen() {
         </Modal>
       )}
 
+      {deleteTarget && (
+        <Modal title={t('DELETE')} onClose={() => setDeleteTarget(null)} danger>
+          <p className="center">
+            {deleteTarget.holidayDate} {deleteTarget.holidayName} — {t('DELETE_CONFIRM')}
+          </p>
+          <div className="btn-row">
+            <button className="primary" onClick={() => void runDelete(deleteTarget.holidayId)}>
+              {t('SUBMIT')}
+            </button>
+            <button onClick={() => setDeleteTarget(null)}>{t('CANCEL')}</button>
+          </div>
+        </Modal>
+      )}
+
       {listError && <p className="error" role="alert">{listError}</p>}
+      {rowError && <p className="error" role="alert">{rowError}</p>}
 
       {holidays.length === 0 && !listError ? (
         <p className="muted center">{t('EMPTY')}</p>
@@ -196,6 +228,7 @@ export function HolidaysScreen() {
                 <th>{t('DATE')}</th>
                 <th>{t('NAME')}</th>
                 <th>{t('TYPE')}</th>
+                <th />
               </tr>
             </thead>
             <tbody>
@@ -211,6 +244,12 @@ export function HolidaysScreen() {
                       <span className={`badge ${national ? 'badge-national' : 'badge-company'}`}>
                         {t(TYPE_LABEL_KEYS[holiday.holidayType])}
                       </span>
+                    </td>
+                    <td>
+                      {/* 회사 공휴일만 삭제 — 국가 공휴일은 동기화만 관리(읽기전용, #7) */}
+                      {!national && (
+                        <button onClick={() => setDeleteTarget(holiday)}>{t('DELETE')}</button>
+                      )}
                     </td>
                   </tr>
                 )

@@ -123,6 +123,17 @@ public class HolidayService {
     }
 
     /**
+     * 회사 공휴일 삭제(#7) — COMPANY만 삭제 가능. 국가 공휴일(NATIONAL)이거나 미존재면 404
+     * (매퍼가 type='COMPANY'로 한정하므로 국가 공휴일 id는 매칭되지 않는다 = 삭제 불가 보장).
+     */
+    @Transactional
+    public void deleteCompany(long tenantId, long holidayId) {
+        if (holidayMapper.deleteCompanyById(tenantId, holidayId) == 0) {
+            throw ApiException.notFound("HOLIDAY_NOT_FOUND", "holiday.not-found");
+        }
+    }
+
+    /**
      * §2-3 응답 검증 — 필터(global=true && Public && 국가 일치 && 지역 한정 제외) 후
      * ①1건 이상(빈 응답이 한 해를 지우는 사고 방지) ②전 date가 요청 연도(불일치 1건이라도 전체 중단)
      * ③상한 100건(오염된 대량 응답이 DB를 채우는 사고 방지 — KR/JP 실측 15~20건)

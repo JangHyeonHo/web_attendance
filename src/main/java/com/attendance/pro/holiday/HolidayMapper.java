@@ -105,6 +105,17 @@ public interface HolidayMapper {
     }
 
     /**
+     * 회사 공휴일(COMPANY) 1건 삭제 — 대리키 기준. 국가 공휴일(NATIONAL)은 이 경로로 지워지지 않는다
+     * (type 조건으로 차단 — 국가 공휴일은 동기화만 관리, #7). 매칭 0이면 서비스가 404.
+     */
+    @Delete("""
+            DELETE FROM holiday
+            WHERE tenant_id = #{tenantId} AND holiday_id = #{holidayId}
+              AND holiday_type = 'COMPANY'
+            """)
+    int deleteCompanyById(@Param("tenantId") long tenantId, @Param("holidayId") long holidayId);
+
+    /**
      * 해당 연도의 NATIONAL만 삭제(타 연도·COMPANY 불가침) — 재동기화의 교체 단계.
      */
     @Delete("""

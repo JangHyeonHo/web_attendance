@@ -177,6 +177,8 @@ export const tenantHolidayApi = {
     post<HolidaySyncResult>(`/api/v1/tenant/holidays/sync?year=${year}`),
   create: (request: HolidayCreateRequest) =>
     post<HolidayEntry>('/api/v1/tenant/holidays', request),
+  /** 회사 공휴일만 삭제(국가 공휴일은 서버가 차단, #7) — 대리키 기준 */
+  remove: (holidayId: number) => del<void>(`/api/v1/tenant/holidays/${holidayId}`),
 }
 
 export const attendanceApi = {
