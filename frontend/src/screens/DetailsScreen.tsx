@@ -338,7 +338,12 @@ export function DetailsScreen() {
           </tbody>
           <tfoot>
             <tr className="month-total">
-              <td colSpan={6}>{t('MONTH_TOTAL')}</td>
+              <td>{t('MONTH_TOTAL')}</td>
+              {/* 예정근무는 스케줄 열(4칸) 아래, 인정휴게·실근무는 각 열 아래에 정렬 */}
+              <td colSpan={4} className="num">
+                {t('EXPECTED_WORK')} {formatMinutes(monthly.totalScheduledMinutes)}
+              </td>
+              <td>{formatMinutes(monthly.totalBreakMinutes)}</td>
               <td>{formatMinutes(monthly.totalWorkMinutes)}</td>
             </tr>
           </tfoot>

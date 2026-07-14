@@ -457,12 +457,18 @@ public class AttendanceService {
                 defaults == null ? null : defaults.end(),
                 defaults == null ? null : defaults.workDays(),
                 policy);
-        int totalWorkMinutes = days.stream()
-                .map(DailyAttendance::workMinutes)
-                .filter(java.util.Objects::nonNull)
-                .mapToInt(Integer::intValue)
-                .sum();
-        return new MonthlyResponse(year, month, days, totalWorkMinutes);
+        int totalScheduledMinutes = sumNonNull(days, DailyAttendance::scheduledMinutes);
+        int totalBreakMinutes = sumNonNull(days, DailyAttendance::recognizedBreakMinutes);
+        int totalWorkMinutes = sumNonNull(days, DailyAttendance::workMinutes);
+        return new MonthlyResponse(year, month, days, totalScheduledMinutes, totalBreakMinutes,
+                totalWorkMinutes);
+    }
+
+    /** 일자 목록에서 getter가 non-null인 분을 합산(월 예정/휴게/실근무 합계 공통). */
+    private static int sumNonNull(List<DailyAttendance> days,
+            java.util.function.Function<DailyAttendance, Integer> getter) {
+        return days.stream().map(getter).filter(java.util.Objects::nonNull)
+                .mapToInt(Integer::intValue).sum();
     }
 
     /**

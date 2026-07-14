@@ -414,6 +414,8 @@ export interface DailyAttendance {
   stampOut: string | null
   /** 공휴일 명칭(NATIONAL/COMPANY). 개인 휴일(work_schedule.holiday)은 null → HOLIDAY 라벨 폴백 */
   holidayName: string | null
+  /** 예정 근무(분) = 스케줄 구간 − 법정휴게. 휴일·휴무는 null */
+  scheduledMinutes: number | null
   /** 실휴식 합(분). 출근·퇴근 미확정이면 null */
   breakMinutes: number | null
   /** 법정휴게(분). 근무일=스케줄 기반, 휴일·휴무 근무=실체류 기반, 그 외 null */
@@ -473,7 +475,11 @@ export interface MonthlyResponse {
   year: number
   month: number
   days: DailyAttendance[]
-  /** 월 합계(분) = workMinutes non-null 합 */
+  /** 월 예정근무 합(분) = scheduledMinutes non-null 합 */
+  totalScheduledMinutes: number
+  /** 월 인정휴게 합(분) = recognizedBreakMinutes non-null 합 */
+  totalBreakMinutes: number
+  /** 월 실근무 합(분) = workMinutes non-null 합 */
   totalWorkMinutes: number
 }
 

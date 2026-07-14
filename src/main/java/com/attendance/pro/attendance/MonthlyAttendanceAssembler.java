@@ -155,6 +155,10 @@ public class MonthlyAttendanceAssembler {
             //휴일·휴무는 스케줄이 없으므로 출퇴근이 확정된 날만 실체류 기반으로 산출
             Integer statutory = offDuty ? null
                     : (int) breakPolicy.requiredBreak(Duration.between(resolvedStart, resolvedEnd)).toMinutes();
+            //예정 근무(분) = 스케줄 구간 − 법정휴게. 근무일만(휴일·휴무는 null). 실근무와 비교용(#1)
+            Integer scheduledMinutes = offDuty ? null
+                    : (int) Math.max(0L,
+                            Duration.between(resolvedStart, resolvedEnd).toMinutes() - statutory);
             Integer breakMinutes = null;
             Integer recognizedBreak = null;
             Integer workMinutes = null;
@@ -173,7 +177,7 @@ public class MonthlyAttendanceAssembler {
             result.add(new DailyAttendance(day, holiday, dayOff,
                     format(resolvedStart), format(resolvedEnd),
                     stampIn, stampOut, holiday ? holidays.get(day) : null,
-                    breakMinutes, statutory, recognizedBreak, workMinutes,
+                    scheduledMinutes, breakMinutes, statutory, recognizedBreak, workMinutes,
                     manualDays.contains(day)));
         }
         return result;

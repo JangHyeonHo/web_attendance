@@ -196,6 +196,8 @@ public final class AttendanceDtos {
             @Schema(description = "schema.daily-attendance.stamp-out", example = "18:03") String stampOut,
             //공휴일 명칭(개인 휴일·근무일은 null — 프론트는 holidayName ?? t('HOLIDAY') 폴백)
             @Schema(description = "schema.daily-attendance.holiday-name", example = "삼일절") String holidayName,
+            @Schema(description = "schema.daily-attendance.scheduled-minutes", example = "480")
+            Integer scheduledMinutes,      //예정 근무(분) = 스케줄 구간 − 법정휴게. 휴일·휴무는 null
             @Schema(description = "schema.daily-attendance.break-minutes", example = "70")
             Integer breakMinutes,          //실휴식 합(분). 출근·퇴근 미확정이면 null
             @Schema(description = "schema.daily-attendance.statutory-break-minutes", example = "60")
@@ -215,8 +217,12 @@ public final class AttendanceDtos {
             @Schema(description = "schema.field.year", example = "2026") int year,
             @Schema(description = "schema.field.month", example = "7") int month,
             @Schema(description = "schema.monthly-response.days") List<DailyAttendance> days,
+            @Schema(description = "schema.monthly-response.total-scheduled-minutes", example = "10080")
+            int totalScheduledMinutes,     //월 예정근무 합 = scheduledMinutes non-null 합
+            @Schema(description = "schema.monthly-response.total-break-minutes", example = "1200")
+            int totalBreakMinutes,         //월 인정휴게 합 = recognizedBreakMinutes non-null 합
             @Schema(description = "schema.monthly-response.total-work-minutes", example = "9600")
-            int totalWorkMinutes) {        //월 합계 = workMinutes non-null 합
+            int totalWorkMinutes) {        //월 실근무 합 = workMinutes non-null 합
     }
 
 }
