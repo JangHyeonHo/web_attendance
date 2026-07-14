@@ -2125,3 +2125,76 @@ button.day-link:hover {
 .date-cell.blocked:hover, .date-cell:disabled:hover {
   background: transparent;
 }
+
+/* ---- 청구서(W018) 달력형: 달 선택 + 상세(#13) ---- */
+.bill-months {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  margin: 8px 0 20px;
+  scrollbar-width: thin;
+}
+.bill-months button {
+  min-width: 0;
+  min-height: 0;
+  padding: 7px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.bill-months button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+}
+.bill-months .bill-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.7;
+}
+.bill-detail {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 22px;
+  background: var(--surface-alt);
+}
+.bill-detail-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.bill-detail-ym {
+  font-size: 20px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+.bill-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 2px solid var(--border-strong);
+}
+.bill-total span {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.bill-total strong {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--accent-dark);
+}
