@@ -2277,3 +2277,136 @@ button.day-link:hover {
   font-family: sans-serif;
   line-height: 1.5;
 }
+
+/* 근태 상세 모바일 카드 뷰(#모바일) — 하루=한 카드 */
+.att-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.att-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  cursor: pointer;
+}
+.att-card.off {
+  background: var(--surface-alt);
+}
+.att-card-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.att-card-date {
+  font-weight: 700;
+  font-size: 1rem;
+}
+.att-card-date.sun { color: var(--error); }
+.att-card-date.sat { color: var(--info); }
+.att-card-work {
+  margin-left: auto;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-dark);
+}
+.att-card-off {
+  margin-top: 0.35rem;
+  font-size: 0.9rem;
+}
+.att-card-body {
+  display: flex;
+  gap: 0.5rem 1rem;
+  flex-wrap: wrap;
+  margin: 0.5rem 0 0;
+}
+.att-card-body > div {
+  display: flex;
+  flex-direction: column;
+}
+.att-card-body dt {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+.att-card-body dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.9rem;
+}
+.att-total-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+}
+.att-total-card > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.att-total-card span { font-size: 0.72rem; }
+.att-total-card strong {
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-dark);
+}
+
+/* 휴가(멤버) 모바일 카드 뷰(#모바일) — 잔여/신청내역 */
+.lv-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.lv-bal-card, .lv-req-card {
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+.lv-bal-main {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.lv-bal-name { font-weight: 700; }
+.lv-bal-amt {
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-dark);
+}
+.lv-bal-exp { font-size: 0.8rem; }
+.lv-req-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+.lv-req-type { font-weight: 700; }
+.lv-req-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.92rem;
+}
+.lv-req-line .num {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.lv-req-reason {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+}
+.lv-req-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}

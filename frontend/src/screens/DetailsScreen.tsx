@@ -5,8 +5,9 @@ import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { Modal } from '../components/Modal'
 import { SelectField, TimeField } from '../components/fields'
+import { useIsMobile } from '../hooks/useIsMobile'
 import { localeOf } from '../i18n/lang'
-import type { AttendanceType, DailyStampEntry, ManualReason, MonthlyResponse } from '../api/types'
+import type { AttendanceType, DailyAttendance, DailyStampEntry, ManualReason, MonthlyResponse } from '../api/types'
 
 /** 분 → "h:mm" 조립(서버는 로케일 무관 수치만 — 표기는 화면 책임). null은 '-' */
 function formatMinutes(minutes: number | null): string {
@@ -54,6 +55,7 @@ interface EditingStamp {
  */
 export function DetailsScreen() {
   const { t: commonT, lang } = useApp()
+  const isMobile = useIsMobile()
   const today = new Date()
   const [year, setYear] = useState(today.getFullYear())
   const [month, setMonth] = useState(today.getMonth() + 1) //백엔드 계약: 1~12
@@ -272,7 +274,10 @@ export function DetailsScreen() {
       )}
       {error && <p className="error center">{error}</p>}
       {loading && <p className="muted center">{commonT('LOADING')}</p>}
-      {monthly && !loading && (
+      {monthly && !loading && isMobile && (
+        <MonthlyCards monthly={monthly} weekdayOf={weekdayOf} t={t} onOpen={openDetail} />
+      )}
+      {monthly && !loading && !isMobile && (
         <div className="table-wrap">
         <table className="detail-table">
           <thead>
@@ -522,6 +527,84 @@ export function DetailsScreen() {
           </form>
         </Modal>
       )}
+    </div>
+  )
+}
+
+/**
+ * 월별 출결 — 모바일 카드 뷰(#모바일). 표를 가로 스크롤로 욱여넣지 않고 하루=한 카드로 편다.
+ * 데스크톱 표와 같은 monthly 데이터를 공유하고, 날짜 카드 탭 → 같은 일자 상세 모달로 진입한다.
+ */
+function MonthlyCards({
+  monthly,
+  weekdayOf,
+  t,
+  onOpen,
+}: {
+  monthly: MonthlyResponse
+  weekdayOf: (date: Date) => string
+  t: (key: string) => string
+  onOpen: (date: string) => void | Promise<void>
+}) {
+  return (
+    <div className="att-cards">
+      {monthly.days.map((day: DailyAttendance) => {
+        const date = new Date(day.date)
+        const weekday = date.getDay()
+        const offDuty = day.holiday || day.dayOff
+        const hasStamps = day.stampIn !== null || day.stampOut !== null
+        const offDutyLabel = day.holidayName ?? (day.holiday ? t('HOLIDAY') : t('DAY_OFF'))
+        const dowClass = weekday === 0 ? 'sun' : weekday === 6 ? 'sat' : ''
+        return (
+          <button
+            key={day.date}
+            type="button"
+            className={`att-card${offDuty ? ' off' : ''}`}
+            onClick={() => void onOpen(day.date)}
+          >
+            <div className="att-card-head">
+              <span className={`att-card-date ${dowClass}`}>
+                {date.getDate()}({weekdayOf(date)})
+              </span>
+              {day.manual && <span className="mini-badge">{t('SOURCE_MANUAL')}</span>}
+              <span className="att-card-work">{formatMinutes(day.workMinutes)}</span>
+            </div>
+            {offDuty && !hasStamps ? (
+              <div className="att-card-off muted">{offDutyLabel}</div>
+            ) : (
+              <dl className="att-card-body">
+                <div>
+                  <dt>{t('USERSCHE')}</dt>
+                  <dd>{day.scheduleStart ?? '-'} ~ {day.scheduleEnd ?? '-'}</dd>
+                </div>
+                <div>
+                  <dt>{t('INPUTTIME')}</dt>
+                  <dd>{day.stampIn ?? '-'} ~ {day.stampOut ?? '-'}</dd>
+                </div>
+                <div>
+                  <dt>{t('BREAK_RECOGNIZED')}</dt>
+                  <dd>{formatMinutes(day.recognizedBreakMinutes)}</dd>
+                </div>
+              </dl>
+            )}
+          </button>
+        )
+      })}
+      {/* 월 합계 요약 카드 — 예정/휴게/실근무 */}
+      <div className="att-total-card">
+        <div>
+          <span className="muted">{t('EXPECTED_WORK')}</span>
+          <strong>{formatMinutes(monthly.totalScheduledMinutes)}</strong>
+        </div>
+        <div>
+          <span className="muted">{t('BREAK_RECOGNIZED')}</span>
+          <strong>{formatMinutes(monthly.totalBreakMinutes)}</strong>
+        </div>
+        <div>
+          <span className="muted">{t('TOTAL_WORK')}</span>
+          <strong>{formatMinutes(monthly.totalWorkMinutes)}</strong>
+        </div>
+      </div>
     </div>
   )
 }

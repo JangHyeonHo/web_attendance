@@ -6,6 +6,7 @@ import { useApp } from '../app/AppContext'
 import { Modal } from '../components/Modal'
 import { SelectField } from '../components/fields'
 import { DateField } from '../components/DateField'
+import { useIsMobile } from '../hooks/useIsMobile'
 import { formatLeaveAmount } from '../util/leaveFormat'
 import type { LeaveBalance, LeaveBalanceRow, LeaveRequestItem, LeaveStatus, LeaveType, LeaveUnit } from '../api/types'
 
@@ -45,6 +46,7 @@ function endDateOf(iso: string): string {
  */
 export function LeaveScreen() {
   const { t } = useApp()
+  const isMobile = useIsMobile()
   const [balances, setBalances] = useState<LeaveBalance[]>([])
   const [balanceRows, setBalanceRows] = useState<LeaveBalanceRow[]>([])
   const [types, setTypes] = useState<LeaveType[]>([])
@@ -138,6 +140,20 @@ export function LeaveScreen() {
       {/* 잔여는 만기일별 한 표 — 종류·남은·만기일(먼저 만료되는 부여부터 소진, #4/#5). */}
       {balanceRows.length === 0 && !listError ? (
         <p className="muted">{t('EMPTY')}</p>
+      ) : isMobile ? (
+        <div className="lv-cards">
+          {balanceRows.map((r, i) => (
+            <div className="lv-bal-card" key={`${r.leaveTypeId}-${r.expiresOn ?? 'none'}-${i}`}>
+              <div className="lv-bal-main">
+                <span className="lv-bal-name">{r.name}</span>
+                <strong className="lv-bal-amt">{amt(r.remainingMinutes, r.unit, r.standardDayMinutes)}</strong>
+              </div>
+              <span className="muted lv-bal-exp">
+                {t('EXPIRES')} {r.expiresOn ?? t('NO_EXPIRY')}
+              </span>
+            </div>
+          ))}
+        </div>
       ) : (
         <div className="table-wrap">
           <table className="detail-table">
@@ -214,6 +230,49 @@ export function LeaveScreen() {
       <h3 className="section-head">{t('MY_REQUESTS')}</h3>
       {requests.length === 0 ? (
         <p className="muted center">{t('EMPTY')}</p>
+      ) : isMobile ? (
+        <div className="lv-cards">
+          {requests.map((r) => {
+            const canCancelPending = r.status === 'PENDING'
+            const canRequestCancel = r.status === 'APPROVED' && startsInFuture(r.startAt)
+            const approvedSameDay = r.status === 'APPROVED' && !startsInFuture(r.startAt)
+            return (
+              <div className="lv-req-card" key={r.leaveRequestId}>
+                <div className="lv-req-head">
+                  <span className="lv-req-type">{r.typeName}</span>
+                  <span className={`badge leave-${r.status.toLowerCase()}`}>{t(STATUS_KEYS[r.status])}</span>
+                </div>
+                <div className="lv-req-line">
+                  <span>{periodText(r)}</span>
+                  <span className="num">{amt(r.minutes, r.unit, dayMinutesByType.get(r.leaveTypeId) ?? stdDay)}</span>
+                </div>
+                {r.reason && <p className="lv-req-reason muted">{r.reason}</p>}
+                {r.status === 'REJECTED' && r.decisionNote && (
+                  <p className="hint">{r.decisionNote}</p>
+                )}
+                {r.status === 'CANCEL_REQUESTED' && r.cancelReason && (
+                  <p className="hint">{r.cancelReason}</p>
+                )}
+                {(canCancelPending || canRequestCancel || approvedSameDay) && (
+                  <div className="lv-req-actions">
+                    {canCancelPending && (
+                      <button onClick={() => setCancelTarget(r)}>{t('CANCEL')}</button>
+                    )}
+                    {canRequestCancel && (
+                      <button onClick={() => { setCancelReqTarget(r); setCancelReqReason('') }}>
+                        {t('REQUEST_CANCEL')}
+                      </button>
+                    )}
+                    {approvedSameDay && <span className="hint">{t('CANCEL_SAME_DAY')}</span>}
+                  </div>
+                )}
+                {rowError?.id === r.leaveRequestId && (
+                  <p className="error">{rowError.message}</p>
+                )}
+              </div>
+            )
+          })}
+        </div>
       ) : (
         <div className="table-wrap">
           <table className="detail-table">
