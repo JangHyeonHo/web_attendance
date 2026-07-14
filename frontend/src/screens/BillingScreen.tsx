@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { FormEvent } from 'react'
 import { tenantBillingApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { SelectField } from '../components/fields'
-import type { BillingMethod, InvoiceEntry } from '../api/types'
+import type { InvoiceEntry } from '../api/types'
 
 /** 금액(원) 표시 — 천단위 구분 + '원'. */
 function won(n: number): string {
@@ -47,10 +46,7 @@ export function BillingScreen() {
         </div>
       </div>
 
-      {/* 결제 정보 등록(#14) — 청구서만 있고 결제수단 등록이 없던 문제 해소 */}
-      <PaymentProfile />
-
-      <h3 className="section-head">{t('BILL_INVOICES')}</h3>
+      {/* 결제/회사 정보 등록은 별도 '회사 정보' 화면으로 분리 예정(#14) — 청구서는 내역만 */}
       <p className="muted">{t('NOTE')}</p>
       {error && <p className="error" role="alert">{error}</p>}
 
@@ -103,91 +99,5 @@ export function BillingScreen() {
         </>
       )}
     </div>
-  )
-}
-
-/** 결제 정보 카드 — 결제수단·청구 이메일·비고 등록/수정(#14). */
-function PaymentProfile() {
-  const { t } = useApp()
-  const [method, setMethod] = useState<BillingMethod>('INVOICE')
-  const [email, setEmail] = useState('')
-  const [memo, setMemo] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [saved, setSaved] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    tenantBillingApi
-      .profile()
-      .then((p) => {
-        setMethod(p.billingMethod)
-        setEmail(p.billingEmail ?? '')
-        setMemo(p.memo ?? '')
-      })
-      .catch((e) => setError(e instanceof ApiError ? e.message : String(e)))
-  }, [])
-
-  async function save(event: FormEvent) {
-    event.preventDefault()
-    setBusy(true)
-    setError(null)
-    setSaved(false)
-    try {
-      await tenantBillingApi.updateProfile({
-        billingMethod: method,
-        billingEmail: email.trim() || null,
-        memo: memo.trim() || null,
-      })
-      setSaved(true)
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : String(e))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <section className="bill-profile">
-      <h3 className="section-head">{t('BILL_PAYMENT_INFO')}</h3>
-      <form onSubmit={save}>
-        <div className="field-group">
-          <label>
-            {t('BILL_METHOD')}
-            <SelectField
-              value={method}
-              ariaLabel={t('BILL_METHOD')}
-              options={[
-                { value: 'INVOICE', label: t('BILL_METHOD_INVOICE') },
-                { value: 'CARD', label: t('BILL_METHOD_CARD') },
-              ]}
-              onChange={(v) => { setMethod(v as BillingMethod); setSaved(false) }}
-            />
-          </label>
-          <label>
-            {t('BILL_EMAIL')}
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => { setEmail(e.target.value); setSaved(false) }}
-              placeholder="billing@company.com"
-              maxLength={100}
-            />
-          </label>
-        </div>
-        <label>
-          {t('BILL_MEMO')}
-          <input
-            value={memo}
-            onChange={(e) => { setMemo(e.target.value); setSaved(false) }}
-            maxLength={500}
-          />
-        </label>
-        {error && <p className="error" role="alert">{error}</p>}
-        {saved && <p className="success" role="status">{t('SAVED')}</p>}
-        <button type="submit" className="primary" disabled={busy}>
-          {t('SUBMIT')}
-        </button>
-      </form>
-    </section>
   )
 }
