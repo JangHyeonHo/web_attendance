@@ -2477,3 +2477,75 @@ button.day-link:hover {
   gap: 0.5rem;
   margin-top: 0.6rem;
 }
+
+/* 모바일 잔여 — 한 카드에 N줄(#4) */
+.lv-bal-box {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  overflow: hidden;
+}
+.lv-bal-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.55rem 0.85rem;
+}
+.lv-bal-row + .lv-bal-row {
+  border-top: 1px solid var(--border);
+}
+.lv-bal-row .lv-bal-name { flex-shrink: 0; }
+.lv-bal-row .lv-bal-exp {
+  flex: 1;
+  text-align: right;
+}
+.lv-bal-row .lv-bal-amt {
+  min-width: 3.5rem;
+  text-align: right;
+  font-weight: 700;
+}
+
+/* 모바일 신청 내역 — 아코디언(#4) */
+.lv-acc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.lv-acc {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  overflow: hidden;
+}
+.lv-acc-sum {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.85rem;
+  cursor: pointer;
+  list-style: none;
+}
+.lv-acc-sum::-webkit-details-marker { display: none; }
+.lv-acc-sum::after {
+  content: '';
+  margin-left: 0.15rem;
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid var(--muted);
+  border-bottom: 1.5px solid var(--muted);
+  transform: rotate(-45deg);
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+.lv-acc[open] .lv-acc-sum::after { transform: rotate(45deg); }
+.lv-acc-sum .lv-req-type { flex-shrink: 0; }
+.lv-acc-amt {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.lv-acc-body {
+  padding: 0 0.85rem 0.7rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.6rem;
+}

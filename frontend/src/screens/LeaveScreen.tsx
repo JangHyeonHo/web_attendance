@@ -166,16 +166,15 @@ export function LeaveScreen() {
       {displayRows.length === 0 && !listError ? (
         <p className="muted">{t('EMPTY')}</p>
       ) : isMobile ? (
-        <div className="lv-cards">
+        /* 모바일: 종류마다 카드 1장씩(길게 스크롤) → 한 카드에 N줄로 압축(#4) */
+        <div className="lv-bal-box">
           {displayRows.map((r, i) => (
-            <div className="lv-bal-card" key={`${r.leaveTypeId}-${r.expiresOn ?? 'none'}-${i}`}>
-              <div className="lv-bal-main">
-                <span className="lv-bal-name">{r.name}</span>
-                <strong className="lv-bal-amt">{amt(r.remainingMinutes, r.unit, r.standardDayMinutes)}</strong>
-              </div>
+            <div className="lv-bal-row" key={`${r.leaveTypeId}-${r.expiresOn ?? 'none'}-${i}`}>
+              <span className="lv-bal-name">{r.name}</span>
               <span className="muted lv-bal-exp">
                 {t('EXPIRES')} {r.expiresOn ?? t('NO_EXPIRY')}
               </span>
+              <strong className="lv-bal-amt">{amt(r.remainingMinutes, r.unit, r.standardDayMinutes)}</strong>
             </div>
           ))}
         </div>
@@ -256,45 +255,48 @@ export function LeaveScreen() {
       {requests.length === 0 ? (
         <p className="muted center">{t('EMPTY')}</p>
       ) : isMobile ? (
-        <div className="lv-cards">
+        /* 모바일: 신청 1건=한 줄(요약), 펼치면 기간·사유·조치(#4 아코디언) */
+        <div className="lv-acc-list">
           {requests.map((r) => {
             const canCancelPending = r.status === 'PENDING'
             const canRequestCancel = r.status === 'APPROVED' && startsInFuture(r.startAt)
             const approvedSameDay = r.status === 'APPROVED' && !startsInFuture(r.startAt)
             return (
-              <div className="lv-req-card" key={r.leaveRequestId}>
-                <div className="lv-req-head">
+              <details className="lv-acc" key={r.leaveRequestId}>
+                <summary className="lv-acc-sum">
                   <span className="lv-req-type">{r.typeName}</span>
                   <span className={`badge leave-${r.status.toLowerCase()}`}>{t(STATUS_KEYS[r.status])}</span>
-                </div>
-                <div className="lv-req-line">
-                  <span>{periodText(r)}</span>
-                  <span className="num">{amt(r.minutes, r.unit, dayMinutesByType.get(r.leaveTypeId) ?? stdDay)}</span>
-                </div>
-                {r.reason && <p className="lv-req-reason muted">{r.reason}</p>}
-                {r.status === 'REJECTED' && r.decisionNote && (
-                  <p className="hint">{r.decisionNote}</p>
-                )}
-                {r.status === 'CANCEL_REQUESTED' && r.cancelReason && (
-                  <p className="hint">{r.cancelReason}</p>
-                )}
-                {(canCancelPending || canRequestCancel || approvedSameDay) && (
-                  <div className="lv-req-actions">
-                    {canCancelPending && (
-                      <button onClick={() => setCancelTarget(r)}>{t('CANCEL')}</button>
-                    )}
-                    {canRequestCancel && (
-                      <button onClick={() => { setCancelReqTarget(r); setCancelReqReason('') }}>
-                        {t('REQUEST_CANCEL')}
-                      </button>
-                    )}
-                    {approvedSameDay && <span className="hint">{t('CANCEL_SAME_DAY')}</span>}
+                  <span className="num lv-acc-amt">{amt(r.minutes, r.unit, dayMinutesByType.get(r.leaveTypeId) ?? stdDay)}</span>
+                </summary>
+                <div className="lv-acc-body">
+                  <div className="lv-req-line">
+                    <span>{periodText(r)}</span>
                   </div>
-                )}
-                {rowError?.id === r.leaveRequestId && (
-                  <p className="error">{rowError.message}</p>
-                )}
-              </div>
+                  {r.reason && <p className="lv-req-reason muted">{r.reason}</p>}
+                  {r.status === 'REJECTED' && r.decisionNote && (
+                    <p className="hint">{r.decisionNote}</p>
+                  )}
+                  {r.status === 'CANCEL_REQUESTED' && r.cancelReason && (
+                    <p className="hint">{r.cancelReason}</p>
+                  )}
+                  {(canCancelPending || canRequestCancel || approvedSameDay) && (
+                    <div className="lv-req-actions">
+                      {canCancelPending && (
+                        <button onClick={() => setCancelTarget(r)}>{t('CANCEL')}</button>
+                      )}
+                      {canRequestCancel && (
+                        <button onClick={() => { setCancelReqTarget(r); setCancelReqReason('') }}>
+                          {t('REQUEST_CANCEL')}
+                        </button>
+                      )}
+                      {approvedSameDay && <span className="hint">{t('CANCEL_SAME_DAY')}</span>}
+                    </div>
+                  )}
+                  {rowError?.id === r.leaveRequestId && (
+                    <p className="error">{rowError.message}</p>
+                  )}
+                </div>
+              </details>
             )
           })}
         </div>
