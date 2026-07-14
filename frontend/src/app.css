@@ -2194,6 +2194,26 @@ button.day-link:hover {
 .bill-profile form button.primary {
   margin-top: 12px;
 }
+/* 회사 정보 화면(W019, #14) — 3섹션(사업자/결제/계약) 구분 + 현재값 박스 */
+.ci-section {
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+.ci-section:first-of-type {
+  margin-top: 12px;
+  padding-top: 0;
+  border-top: none;
+}
+.ci-section form button.primary {
+  margin-top: 12px;
+}
+.ci-current {
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  background: var(--surface-alt);
+  border-radius: var(--radius-sm);
+}
 .bill-detail {
   border: 1px solid var(--border);
   border-radius: var(--radius);
