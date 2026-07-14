@@ -56,6 +56,15 @@ public final class LeaveDtos {
             int standardDayMinutes) {
     }
 
+    /**
+     * 만기일별 잔여 한 행 — 부여 행 하나의 남은 분과 만기일. 만기 임박순 FIFO로 사용분을 차감해 산출.
+     * (예: 유급휴가 3일 2026-07-15 / 유급휴가 2일 2027-07-15). expiresOn null = 무기한.
+     */
+    public record LeaveBalanceRowResponse(
+            long leaveTypeId, String name, LeaveUnit unit, int remainingMinutes,
+            LocalDate expiresOn, int standardDayMinutes) {
+    }
+
     // ---- 신청(멤버) ----
 
     /**

@@ -23,6 +23,15 @@ public interface LeaveGrantMapper {
     List<LeaveGrant> findByUser(@Param("tenantId") long tenantId, @Param("userId") long userId);
 
     /**
+     * 기준일에 유효한 부여 행 — 만기 임박순(만기 없는 것은 뒤). 만기일별 잔여 표시(FIFO 차감)용.
+     */
+    @Select("SELECT " + COLS + " FROM leave_grant WHERE tenant_id = #{tenantId} AND user_id = #{userId} "
+            + "AND effective_from <= #{asOf} AND (expires_on IS NULL OR expires_on >= #{asOf}) "
+            + "ORDER BY (expires_on IS NULL), expires_on ASC, leave_grant_id ASC")
+    List<LeaveGrant> findActiveByUser(@Param("tenantId") long tenantId, @Param("userId") long userId,
+            @Param("asOf") LocalDate asOf);
+
+    /**
      * (tenant,user,type) 부여 행을 FOR UPDATE로 잠근다 — 신청/승인 잔여 검사~기록을 직렬화해
      * 동시 결재로 인한 초과 부여를 막는다(마지막 관리자 보호의 FOR UPDATE와 같은 규율).
      * 부여 행이 없으면 잠글 행도 없지만, 그 경우 가용=0이라 초과 예약 자체가 불가능하다.

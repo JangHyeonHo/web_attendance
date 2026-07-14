@@ -7,7 +7,7 @@ import { Modal } from '../components/Modal'
 import { SelectField, TimeField } from '../components/fields'
 import { DateField } from '../components/DateField'
 import { formatLeaveAmount } from '../util/leaveFormat'
-import type { LeaveBalance, LeaveRequestItem, LeaveStatus, LeaveType, LeaveUnit } from '../api/types'
+import type { LeaveBalance, LeaveBalanceRow, LeaveRequestItem, LeaveStatus, LeaveType, LeaveUnit } from '../api/types'
 
 const STATUS_KEYS: Record<LeaveStatus, string> = {
   PENDING: 'STATUS_PENDING',
@@ -46,6 +46,7 @@ function endDateOf(iso: string): string {
 export function LeaveScreen() {
   const { t } = useApp()
   const [balances, setBalances] = useState<LeaveBalance[]>([])
+  const [balanceRows, setBalanceRows] = useState<LeaveBalanceRow[]>([])
   const [types, setTypes] = useState<LeaveType[]>([])
   const [requests, setRequests] = useState<LeaveRequestItem[]>([])
   const [listError, setListError] = useState<string | null>(null)
@@ -58,12 +59,14 @@ export function LeaveScreen() {
 
   const reload = useCallback(async () => {
     try {
-      const [b, ty, rq] = await Promise.all([
+      const [b, rows, ty, rq] = await Promise.all([
         leaveApi.balances(),
+        leaveApi.balanceRows(),
         leaveApi.types(),
         leaveApi.myRequests(),
       ])
       setBalances(b)
+      setBalanceRows(rows)
       setTypes(ty)
       setRequests(rq)
       setListError(null)
@@ -132,21 +135,31 @@ export function LeaveScreen() {
 
       {listError && <p className="error" role="alert">{listError}</p>}
 
-      <section className="balance-cards">
-        {balances.map((b) => (
-          <div className="balance-card" key={b.leaveTypeId}>
-            <span className="balance-name">{b.name}</span>
-            <span className="balance-remaining">{amt(b.remainingMinutes, b.unit, b.standardDayMinutes)}</span>
-            <span className="balance-sub muted">
-              {t('GRANTED')} {amt(b.grantedMinutes, b.unit, b.standardDayMinutes)} ·{' '}
-              {t('USED')} {amt(b.usedMinutes, b.unit, b.standardDayMinutes)}
-              {b.pendingMinutes > 0 &&
-                ` · ${t('STATUS_PENDING')} ${amt(b.pendingMinutes, b.unit, b.standardDayMinutes)}`}
-            </span>
-          </div>
-        ))}
-        {balances.length === 0 && !listError && <p className="muted">{t('EMPTY')}</p>}
-      </section>
+      {/* 잔여는 만기일별 한 표 — 종류·남은·만기일(먼저 만료되는 부여부터 소진, #4/#5). */}
+      {balanceRows.length === 0 && !listError ? (
+        <p className="muted">{t('EMPTY')}</p>
+      ) : (
+        <div className="table-wrap">
+          <table className="detail-table">
+            <thead>
+              <tr>
+                <th>{t('LEAVE_TYPE')}</th>
+                <th className="num">{t('REMAINING')}</th>
+                <th>{t('EXPIRES')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {balanceRows.map((r, i) => (
+                <tr key={`${r.leaveTypeId}-${r.expiresOn ?? 'none'}-${i}`}>
+                  <td>{r.name}</td>
+                  <td className="num">{amt(r.remainingMinutes, r.unit, r.standardDayMinutes)}</td>
+                  <td>{r.expiresOn ?? t('NO_EXPIRY')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {formOpen && (
         <ApplyModal

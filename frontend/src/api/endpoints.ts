@@ -17,6 +17,7 @@ import type {
   Lang,
   LeaveApplyRequest,
   LeaveBalance,
+  LeaveBalanceRow,
   LeaveDecisionRequest,
   LeaveGrantRequest,
   LeaveRequestItem,
@@ -204,6 +205,7 @@ export const attendanceApi = {
 export const leaveApi = {
   types: () => get<LeaveType[]>('/api/v1/attendance/leave/types'),
   balances: () => get<LeaveBalance[]>('/api/v1/attendance/leave/balances'),
+  balanceRows: () => get<LeaveBalanceRow[]>('/api/v1/attendance/leave/balances/rows'),
   myRequests: () => get<LeaveRequestItem[]>('/api/v1/attendance/leave/requests'),
   apply: (request: LeaveApplyRequest) =>
     post<LeaveRequestItem>('/api/v1/attendance/leave/requests', request),

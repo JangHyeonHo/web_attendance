@@ -107,6 +107,34 @@ class LeaveServiceTest {
         assertThat(days).isEqualTo(4);
     }
 
+    @Test
+    @DisplayName("BAL-01: 만기일별 잔여 — 만기 임박순 FIFO 차감(음수 조정 480분이 이른 부여부터 소진)")
+    void balanceRowsFifo() {
+        when(userMapper.findById(TENANT, USER))
+                .thenReturn(member(LocalTime.of(9, 0), LocalTime.of(18, 0), "1111100", null));
+        stubCountry();
+        when(typeMapper.findByTenant(TENANT)).thenReturn(List.of(annual()));
+        when(requestMapper.findViewByUser(TENANT, USER)).thenReturn(List.of());
+        //만기 임박순: 2026-07-15(3일=1440) → 2027-07-15(2일=960) → 무기한 조정 −480
+        when(grantMapper.findActiveByUser(eq(TENANT), eq(USER), any())).thenReturn(List.of(
+                new LeaveGrant(10L, TENANT, USER, ANNUAL_ID, 1440, LocalDate.of(2026, 1, 1),
+                        LocalDate.of(2026, 7, 15), LeaveSource.MANUAL, null, null, null,
+                        LocalDateTime.now(), LocalDateTime.now()),
+                new LeaveGrant(11L, TENANT, USER, ANNUAL_ID, 960, LocalDate.of(2026, 1, 1),
+                        LocalDate.of(2027, 7, 15), LeaveSource.MANUAL, null, null, null,
+                        LocalDateTime.now(), LocalDateTime.now()),
+                new LeaveGrant(12L, TENANT, USER, ANNUAL_ID, -480, LocalDate.of(2026, 1, 1), null,
+                        LeaveSource.MANUAL, null, null, null, LocalDateTime.now(), LocalDateTime.now())));
+
+        List<LeaveDtos.LeaveBalanceRowResponse> rows = service().balanceRows(TENANT, USER);
+
+        assertThat(rows).hasSize(2);
+        assertThat(rows.get(0).remainingMinutes()).isEqualTo(960); //1440 − 480(FIFO)
+        assertThat(rows.get(0).expiresOn()).isEqualTo(LocalDate.of(2026, 7, 15));
+        assertThat(rows.get(1).remainingMinutes()).isEqualTo(960); //그대로
+        assertThat(rows.get(1).expiresOn()).isEqualTo(LocalDate.of(2027, 7, 15));
+    }
+
     // ===== 신청 검증 =====
 
     @Test

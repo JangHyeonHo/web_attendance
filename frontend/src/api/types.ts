@@ -615,6 +615,16 @@ export interface LeaveBalance {
   standardDayMinutes: number
 }
 
+/** 만기일별 잔여 한 행(부여 하나의 남은 분 + 만기일). expiresOn null = 무기한. */
+export interface LeaveBalanceRow {
+  leaveTypeId: number
+  name: string
+  unit: LeaveUnit
+  remainingMinutes: number
+  expiresOn: string | null
+  standardDayMinutes: number
+}
+
 export interface LeaveApplyRequest {
   leaveTypeId: number
   dayUnit: boolean
