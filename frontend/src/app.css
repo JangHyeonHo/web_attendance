@@ -241,6 +241,29 @@ h2 {
   border-color: var(--border);
 }
 
+/* 모바일 헤더 리빌딩(#5) — 타이틀/뱃지를 접어 공간을 확보하고 어떤 버튼도 글자가 줄바꿈되지 않게.
+   로그아웃이 "로그아/웃"으로 깨지던 문제 해소. 회사명/이름은 화면 본문·시트에서 확인 가능. */
+@media (max-width: 720px) {
+  .header {
+    gap: 8px;
+  }
+  .header .brand {
+    display: none;
+  }
+  .header-right {
+    gap: 6px;
+    min-width: 0;
+  }
+  .header-right .user-name,
+  .header-right .tenant-badge {
+    display: none;
+  }
+  .header-right button {
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+}
+
 /* ---- 4. 버튼 / 입력 ---- */
 
 button {
