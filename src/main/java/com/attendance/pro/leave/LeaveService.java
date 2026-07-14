@@ -91,6 +91,12 @@ public class LeaveService {
         return typeMapper.findActiveByTenant(tenantId).stream().map(LeaveTypeResponse::of).toList();
     }
 
+    /** 신규 테넌트 기본 휴가 종류(유급휴가·여름휴가) 시드 — 테넌트 생성 Tx에서 호출. 재실행 안전(IGNORE). */
+    public void seedDefaults(long tenantId) {
+        typeMapper.seedAnnualType(tenantId);
+        typeMapper.seedSummerType(tenantId);
+    }
+
     @Transactional
     public LeaveTypeResponse createType(long tenantId, LeaveTypeCreateRequest req) {
         LeaveTypeCreate create = new LeaveTypeCreate(tenantId, req.code().trim(), req.name().trim(),

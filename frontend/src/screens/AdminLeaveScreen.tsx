@@ -565,8 +565,6 @@ function MemberDetailModal({
 
 // ===== 휴가 종류 =====
 
-const UNIT_OPTIONS: LeaveUnit[] = ['DAY', 'HOUR']
-
 function TypesTab() {
   const { t } = useApp()
   const [types, setTypes] = useState<LeaveType[]>([])
@@ -600,7 +598,6 @@ function TypesTab() {
             <tr>
               <th>{t('CODE')}</th>
               <th>{t('NAME')}</th>
-              <th>{t('UNIT')}</th>
               <th>{t('PAID')}</th>
               <th>{t('REQUIRES_APPROVAL')}</th>
               <th>{t('ACTIVE')}</th>
@@ -612,7 +609,6 @@ function TypesTab() {
               <tr key={ty.leaveTypeId}>
                 <td>{ty.code}</td>
                 <td>{ty.name}</td>
-                <td>{ty.unit === 'DAY' ? t('MODE_DAY') : t('MODE_HOUR')}</td>
                 <td>{ty.paid ? '✓' : ''}</td>
                 <td>{ty.requiresApproval ? '✓' : ''}</td>
                 <td>{ty.active ? '✓' : ''}</td>
@@ -651,7 +647,6 @@ function TypeModal({
   const { t } = useApp()
   const [code, setCode] = useState(initial?.code ?? '')
   const [name, setName] = useState(initial?.name ?? '')
-  const [unit, setUnit] = useState<LeaveUnit>(initial?.unit ?? 'DAY')
   const [paid, setPaid] = useState(initial?.paid ?? true)
   const [requiresApproval, setRequiresApproval] = useState(initial?.requiresApproval ?? true)
   const [active, setActive] = useState(initial?.active ?? true)
@@ -667,7 +662,7 @@ function TypeModal({
         await tenantLeaveApi.updateType(initial.leaveTypeId, {
           name: name.trim(),
           paid,
-          unit,
+          unit: 'DAY',
           requiresApproval,
           active,
           sortOrder: initial.sortOrder,
@@ -677,7 +672,7 @@ function TypeModal({
           code: code.trim().toUpperCase(),
           name: name.trim(),
           paid,
-          unit,
+          unit: 'DAY',
           requiresApproval,
           sortOrder: 0,
         })
@@ -702,18 +697,6 @@ function TypeModal({
         <label>
           {t('NAME')}
           <input value={name} onChange={(e) => setName(e.target.value)} maxLength={50} required />
-        </label>
-        <label>
-          {t('UNIT')}
-          <SelectField
-            value={unit}
-            options={UNIT_OPTIONS.map((u) => ({
-              value: u,
-              label: u === 'DAY' ? t('MODE_DAY') : t('MODE_HOUR'),
-            }))}
-            onChange={(v) => setUnit(v as LeaveUnit)}
-            ariaLabel={t('UNIT')}
-          />
         </label>
         <label className="check-inline">
           <input type="checkbox" checked={paid} onChange={(e) => setPaid(e.target.checked)} />
