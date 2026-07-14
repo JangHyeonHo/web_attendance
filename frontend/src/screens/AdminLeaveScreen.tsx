@@ -15,7 +15,7 @@ import type {
   MemberLeaveSummary,
 } from '../api/types'
 
-type Tab = 'approvals' | 'cancels' | 'members' | 'types'
+type Tab = 'decide' | 'members' | 'types'
 
 /** t()로 단위 라벨을 채운 수량 포매터를 만든다(각 탭 컴포넌트에서 사용). */
 function useAmountFormatter(t: (key: string) => string) {
@@ -34,7 +34,7 @@ function dateOf(iso: string) {
  */
 export function AdminLeaveScreen() {
   const { t } = useApp()
-  const [tab, setTab] = useState<Tab>('approvals')
+  const [tab, setTab] = useState<Tab>('decide')
 
   return (
     <div className="panel">
@@ -42,11 +42,8 @@ export function AdminLeaveScreen() {
         <h2>{t('TITLE')}</h2>
       </div>
       <div className="seg-toggle" role="tablist">
-        <button className={tab === 'approvals' ? 'active' : ''} onClick={() => setTab('approvals')}>
-          {t('TAB_APPROVALS')}
-        </button>
-        <button className={tab === 'cancels' ? 'active' : ''} onClick={() => setTab('cancels')}>
-          {t('TAB_CANCELS')}
+        <button className={tab === 'decide' ? 'active' : ''} onClick={() => setTab('decide')}>
+          {t('TAB_DECIDE')}
         </button>
         <button className={tab === 'members' ? 'active' : ''} onClick={() => setTab('members')}>
           {t('TAB_MEMBERS')}
@@ -56,8 +53,15 @@ export function AdminLeaveScreen() {
         </button>
       </div>
 
-      {tab === 'approvals' && <ApprovalsTab />}
-      {tab === 'cancels' && <CancellationsTab />}
+      {/* 결재: 신규 신청 승인 + 취소 신청 승인을 한 곳에서(#10 탭 통합) */}
+      {tab === 'decide' && (
+        <>
+          <h3 className="section-head">{t('TAB_APPROVALS')}</h3>
+          <ApprovalsTab />
+          <h3 className="section-head">{t('TAB_CANCELS')}</h3>
+          <CancellationsTab />
+        </>
+      )}
       {tab === 'members' && <MembersTab />}
       {tab === 'types' && <TypesTab />}
     </div>
