@@ -188,6 +188,11 @@ export function AttendanceScreen() {
         {status?.alertLabel && <p className="alert">{status.alertLabel}</p>}
       </div>
 
+      {/* 등록 결과 메시지는 버튼 묶음 위(상태 블록 아래)에 둔다 —
+          버튼 1+2 묶음과 '출결 조회'가 끊기지 않게(디자인 검증 반영) */}
+      {message && <p className="success center" role="status">{message}</p>}
+      {error && <p className="error center" role="alert">{error}</p>}
+
       {/* 주요 동작(lead)만 채움 버튼 — 나머지는 조용한 아웃라인.
           모바일: 주요=전폭 상단, 보조 2개=아래 반반(1+2). 데스크톱: 3열 유지. */}
       <div className="stamp-grid">
@@ -249,9 +254,6 @@ export function AttendanceScreen() {
           </form>
         </Modal>
       )}
-
-      {message && <p className="success center" role="status">{message}</p>}
-      {error && <p className="error center" role="alert">{error}</p>}
 
       <div className="center">
         <button className="wide" onClick={() => setShowDetails((v) => !v)}>
