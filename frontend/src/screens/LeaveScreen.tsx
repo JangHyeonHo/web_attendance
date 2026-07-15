@@ -52,9 +52,10 @@ function BalanceAmount({
     if (!r) return
     const margin = 8
     const panelW = 210
-    //값 오른쪽에 우선 배치, 뷰포트를 넘으면 왼쪽으로 뒤집는다(아래 행 열을 가리지 않게)
-    let left = r.right + 10
-    if (left + panelW > window.innerWidth - margin) left = Math.max(margin, r.left - panelW - 10)
+    //값 왼쪽에 우선 배치(더 자연스러움), 왼쪽 공간이 없으면 오른쪽으로 뒤집는다.
+    //세로는 값과 같은 높이 — 아래 행의 잔여 열을 가리지 않는다.
+    let left = r.left - panelW - 10
+    if (left < margin) left = Math.min(window.innerWidth - panelW - margin, r.right + 10)
     const top = Math.max(margin, r.top - 6)
     setPos({ left, top })
   }
