@@ -882,12 +882,19 @@ form button.primary {
 }
 
 @media (max-width: 640px) {
+  /* 모바일: 3개 버튼이 2+1로 깨지지 않게 '1 주요(전폭) + 2 보조(반반)'로(#4 후속) */
   .stamp-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .stamp-grid .lead {
+    grid-column: 1 / -1;
+    min-height: 68px;
+    font-size: 17px;
   }
 
   .stamp-grid button {
-    min-height: 76px;
+    min-height: 60px;
     font-size: 16px;
   }
 }

@@ -17,6 +17,24 @@ const TYPE_LABEL_KEYS: Record<AttendanceType, string> = {
 /** 스탬프 버튼 — 조퇴 폐지(Phase 5.2): 출근/퇴근/휴식 3버튼 */
 const STAMP_TYPES: AttendanceType[] = ['GO_TO_WORK', 'OFF_WORK', 'BREAK']
 
+/**
+ * 상태에 따라 '지금 할 동작'을 주요 버튼(상단·채움)으로, 나머지 둘을 보조로 배치한다.
+ * - 근무 중(WORKING·ON_BREAK·BREAK_ENDED): 퇴근이 주요, 출근·휴식이 보조
+ * - 그 외(출근 대기·퇴근 완료 등): 출근이 주요, 퇴근·휴식이 보조
+ * 어떤 버튼도 비활성화하지 않는다(재출근 등으로 출근을 다시 찍을 수 있게 위치만 바뀐다).
+ */
+function orderStamps(status: StatusResponse | null): {
+  primary: AttendanceType
+  secondary: AttendanceType[]
+} {
+  const s = status?.status
+  const working = s === 'WORKING' || s === 'ON_BREAK' || s === 'BREAK_ENDED'
+  const primary: AttendanceType = working ? 'OFF_WORK' : 'GO_TO_WORK'
+  //보조는 STAMP_TYPES 순서를 유지해 휴식이 항상 마지막에 오게 한다
+  const secondary = STAMP_TYPES.filter((type) => type !== primary)
+  return { primary, secondary }
+}
+
 /** 위치 취득 결과 + 선택한 타입(등록 패널 상태) */
 interface PendingStamp {
   type: AttendanceType
@@ -140,6 +158,8 @@ export function AttendanceScreen() {
     }
   }
 
+  const { primary, secondary } = orderStamps(status)
+
   return (
     <div className="panel">
       <div className="center">
@@ -168,17 +188,20 @@ export function AttendanceScreen() {
         {status?.alertLabel && <p className="alert">{status.alertLabel}</p>}
       </div>
 
+      {/* 주요 동작(lead)만 채움 버튼 — 나머지는 조용한 아웃라인.
+          모바일: 주요=전폭 상단, 보조 2개=아래 반반(1+2). 데스크톱: 3열 유지. */}
       <div className="stamp-grid">
-        {STAMP_TYPES.map((type) => (
-          //주 동작(출근)만 채움 버튼 — 나머지는 조용한 아웃라인
-          <button
-            key={type}
-            className={type === 'GO_TO_WORK' ? 'primary' : ''}
-            onClick={() => selectType(type)}
-          >
-            {t(TYPE_LABEL_KEYS[type])}
-          </button>
-        ))}
+        {[{ type: primary, lead: true }, ...secondary.map((type) => ({ type, lead: false }))].map(
+          ({ type, lead }) => (
+            <button
+              key={type}
+              className={lead ? 'primary lead' : ''}
+              onClick={() => selectType(type)}
+            >
+              {t(TYPE_LABEL_KEYS[type])}
+            </button>
+          ),
+        )}
       </div>
 
       {pending && !confirmation && (
