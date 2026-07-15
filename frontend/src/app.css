@@ -292,11 +292,13 @@ h2 {
   top: 72px;
   align-self: flex-start;
   flex-shrink: 0;
-  width: 210px;
+  width: 214px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  padding: 4px 0 12px;
+  gap: 24px;
+  /* 우측 옅은 구분선으로 '내비 레일'임을 정의(콘텐츠 카드와 분리) */
+  padding: 4px 20px 16px 0;
+  border-right: 1px solid var(--border);
 }
 
 .sidebar-group {
@@ -335,14 +337,15 @@ h2 {
   color: var(--text);
 }
 
+/* 활성 항목 — accent-soft(8%)는 너무 옅어 accent를 12%로 강화(선택 상태가 primary와 같은 계열로 읽히게) */
 .sidebar-item.is-active {
-  background: var(--accent-soft);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
   color: var(--accent);
   font-weight: 600;
 }
 
 .sidebar-item.is-active:hover {
-  background: var(--accent-soft);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
   color: var(--accent);
 }
 
