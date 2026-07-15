@@ -264,6 +264,108 @@ h2 {
   }
 }
 
+/* ---- 3-b. 관리자 좌측 사이드바(내비 방향 A) — PC + 관리자 이상, 여닫이 ---- */
+
+/* 관리 콘솔은 폭을 넓혀(사이드바+본문) 좁아 보이지 않게 */
+.app--admin {
+  max-width: 1200px;
+}
+
+.app-body {
+  display: block;
+}
+
+/* 사이드바가 열려 있을 때만 2단(사이드바 | 본문) 배치 */
+.app--admin.sidebar-open .app-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 28px;
+}
+
+.app--admin.sidebar-open .app-body > main {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar {
+  position: sticky;
+  top: 72px;
+  align-self: flex-start;
+  flex-shrink: 0;
+  width: 210px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 4px 0 12px;
+}
+
+.sidebar-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebar-group-label {
+  margin: 0 0 4px;
+  padding: 0 12px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* 사이드바 항목 — 전역 button 스타일을 눌러 조용한 세로 메뉴로 */
+.sidebar-item {
+  text-align: left;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  min-height: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.sidebar-item:hover {
+  border-color: transparent;
+  background: var(--surface-alt);
+  color: var(--text);
+}
+
+.sidebar-item.is-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.sidebar-item.is-active:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* 여닫이 토글 — 헤더 좌측 고정(접어도 다시 열 수 있게) */
+.sidebar-toggle {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  min-height: 0;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  font-size: 16px;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--border-strong);
+}
+
+.sidebar-toggle:hover {
+  color: var(--text);
+  border-color: var(--muted);
+}
+
 /* ---- 4. 버튼 / 입력 ---- */
 
 button {

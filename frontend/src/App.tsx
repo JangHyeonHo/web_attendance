@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useApp } from './app/AppContext'
 import { LandingScreen } from './screens/LandingScreen'
 import { LoginScreen } from './screens/LoginScreen'
@@ -42,19 +43,50 @@ const LABEL_KEY: Partial<Record<ScreenCode, string>> = {
   W004: 'ADMIN',
 }
 
-/** role별 메뉴 — core(주요 탭) + more(부가 탭). 데스크톱 상단 내비 구성용. */
-function roleNav(role: Role | null): { core: ScreenCode[]; more: ScreenCode[] } {
+/**
+ * 상단 헤더에 남기는 개인 업무 탭(출결·휴가).
+ * 관리 메뉴는 헤더가 아니라 좌측 사이드바(adminSections)로 내린다(내비 방향 A).
+ * SYSTEM_ADMIN(운영사)은 개인 출결/휴가가 없어 상단 탭이 비고, 전부 사이드바로 간다.
+ */
+function topTabs(role: Role | null): ScreenCode[] {
   switch (role) {
     case 'MEMBER':
-      return { core: ['W005', 'W015'], more: [] }
     case 'HR_ADMIN':
-      return { core: ['W005', 'W015', 'W009'], more: ['W013', 'W016'] }
     case 'TENANT_ADMIN':
-      return { core: ['W005', 'W015', 'W009'], more: ['W013', 'W016', 'W014', 'W018', 'W019'] }
-    case 'SYSTEM_ADMIN':
-      return { core: ['W007', 'W017'], more: ['W012', 'W004'] }
+      return ['W005', 'W015']
     default:
-      return { core: [], more: [] }
+      return []
+  }
+}
+
+/** 좌측 사이드바 한 묶음 — 섹션 라벨 키(W999) + 화면 코드들. */
+type NavSection = { key: string; items: ScreenCode[] }
+
+/**
+ * 관리 메뉴 — 좌측 사이드바(PC + 관리자 이상 전용, 내비 방향 A).
+ * 섹션(조직/휴가·근태/설정/운영)으로 묶어 세로로 전부 노출한다(더보기·스크롤 은닉 없음).
+ * 빈 배열이면 사이드바를 렌더하지 않는다(= MEMBER, 비로그인).
+ */
+function adminSections(role: Role | null): NavSection[] {
+  switch (role) {
+    case 'HR_ADMIN':
+      return [
+        { key: 'NAV_SEC_ORG', items: ['W009', 'W013'] },
+        { key: 'NAV_SEC_LEAVE', items: ['W016'] },
+      ]
+    case 'TENANT_ADMIN':
+      return [
+        { key: 'NAV_SEC_ORG', items: ['W009', 'W013'] },
+        { key: 'NAV_SEC_LEAVE', items: ['W016'] },
+        { key: 'NAV_SEC_SETTINGS', items: ['W014', 'W018', 'W019'] },
+      ]
+    case 'SYSTEM_ADMIN':
+      return [
+        { key: 'NAV_SEC_OPS', items: ['W007', 'W017'] },
+        { key: 'NAV_SEC_SETTINGS', items: ['W012', 'W004'] },
+      ]
+    default:
+      return []
   }
 }
 
@@ -155,13 +187,14 @@ function LanguageSelect() {
   )
 }
 
-/** 데스크톱 상단 탭 — 조용한 텍스트 탭(현재 화면만 밑줄). */
+/**
+ * 데스크톱 상단 탭 — 개인 업무 탭(출결·휴가)만. 조용한 텍스트 탭(현재 화면만 밑줄).
+ * 관리 메뉴는 AdminSidebar로, 로그아웃/언어는 헤더 우측 계정 영역으로 분리했다(내비 방향 A).
+ */
 function DesktopNav() {
   const { screen, userName, role, navigate, t } = useApp()
   const current = (code: ScreenCode) =>
     screen === code || (code === 'W007' && screen === 'W008') ? 'page' : undefined
-  const { core, more } = roleNav(role)
-  const items = [...core, ...more]
   return (
     <nav>
       {!userName && (
@@ -174,13 +207,40 @@ function DesktopNav() {
           </button>
         </>
       )}
-      {items.map((code) => (
+      {topTabs(role).map((code) => (
         <button key={code} aria-current={current(code)} onClick={() => void navigate(code)}>
           {t(LABEL_KEY[code] ?? code)}
         </button>
       ))}
-      {userName && <button onClick={() => void navigate('W002')}>{t('LOGOUT')}</button>}
     </nav>
+  )
+}
+
+/**
+ * 좌측 관리자 사이드바 — PC + 관리자 이상 전용, 여닫이 가능(collapsed).
+ * 섹션별로 관리 메뉴를 세로 전개. 접으면 렌더하지 않고 본문이 전체 폭을 쓴다.
+ */
+function AdminSidebar() {
+  const { screen, role, navigate, t } = useApp()
+  const isActive = (code: ScreenCode) => screen === code || (code === 'W007' && screen === 'W008')
+  return (
+    <aside className="sidebar" aria-label={t('NAV_ADMIN')}>
+      {adminSections(role).map((sec) => (
+        <div className="sidebar-group" key={sec.key}>
+          <p className="sidebar-group-label">{t(sec.key)}</p>
+          {sec.items.map((code) => (
+            <button
+              key={code}
+              className={isActive(code) ? 'sidebar-item is-active' : 'sidebar-item'}
+              aria-current={isActive(code) ? 'page' : undefined}
+              onClick={() => void navigate(code)}
+            >
+              {t(LABEL_KEY[code] ?? code)}
+            </button>
+          ))}
+        </div>
+      ))}
+    </aside>
   )
 }
 
@@ -196,9 +256,29 @@ function MobileNav() {
   return <BottomNav items={items} />
 }
 
+const SIDEBAR_KEY = 'nav.sidebar'
+
 export default function App() {
   const { screen, userName, role, tenantName, navigate, ready, navError, getPasswordToken, t } = useApp()
   const isMobile = useIsMobile()
+  //사이드바 여닫이 상태 — 새로고침 후에도 유지(localStorage)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(SIDEBAR_KEY) === 'collapsed'
+    } catch {
+      return false
+    }
+  })
+  const toggleSidebar = () =>
+    setSidebarCollapsed((prev) => {
+      const next = !prev
+      try {
+        localStorage.setItem(SIDEBAR_KEY, next ? 'collapsed' : 'open')
+      } catch {
+        //storage 접근 불가(사생활 모드 등)면 세션 내 상태만 유지
+      }
+      return next
+    })
 
   if (!ready) {
     if (navError) {
@@ -219,10 +299,29 @@ export default function App() {
   const showBottomNav = isMobile && !!userName && mobileTabs(role).length > 0
   //모바일에서 관리 화면 진입 시 표가 깨지므로 PC 이용 안내로 대체(#4)
   const showPcOnly = isMobile && !!userName && PC_ONLY_SCREENS.has(screen)
+  //좌측 관리 사이드바 — PC + 관리자 이상(관리 메뉴가 있는 role)만(내비 방향 A)
+  const hasSidebar = !isMobile && !!userName && adminSections(role).length > 0
+  const sidebarOpen = hasSidebar && !sidebarCollapsed
 
   return (
-    <div className={`app${showBottomNav ? ' has-bottom-nav' : ''}`}>
+    <div
+      className={`app${showBottomNav ? ' has-bottom-nav' : ''}${hasSidebar ? ' app--admin' : ''}${
+        sidebarOpen ? ' sidebar-open' : ''
+      }`}
+    >
       <header className="header">
+        {/* 사이드바 여닫이 토글 — 접어도 다시 열 수 있게 헤더에 고정 */}
+        {hasSidebar && (
+          <button
+            type="button"
+            className="sidebar-toggle"
+            aria-label={t('NAV_TOGGLE')}
+            aria-expanded={sidebarOpen}
+            onClick={toggleSidebar}
+          >
+            <span aria-hidden="true">☰</span>
+          </button>
+        )}
         <span className="brand" aria-hidden="true">
           Web<em>Attendance</em>
         </span>
@@ -237,22 +336,25 @@ export default function App() {
             </Button>
           )}
           <LanguageSelect />
-          {/* 로그아웃은 상단 고정 — 더보기에서 오조작(2번 탭)되던 문제 해소(#5) */}
-          {isMobile && userName && (
+          {/* 로그아웃은 우측 계정 영역에 항상 고정(PC·모바일 공통) — 탭 사이에 묻히던 문제 해소(내비 방향 A) */}
+          {userName && (
             <Button size="sm" onClick={() => void navigate('W002')}>
               {t('LOGOUT')}
             </Button>
           )}
         </div>
       </header>
-      <main>
-        {navError && (
-          <p className="error" role="alert">
-            {navError}
-          </p>
-        )}
-        {showPcOnly ? <MobilePcOnlyNotice /> : <ScreenBody screen={screen} />}
-      </main>
+      <div className="app-body">
+        {sidebarOpen && <AdminSidebar />}
+        <main>
+          {navError && (
+            <p className="error" role="alert">
+              {navError}
+            </p>
+          )}
+          {showPcOnly ? <MobilePcOnlyNotice /> : <ScreenBody screen={screen} />}
+        </main>
+      </div>
       {showBottomNav && <MobileNav />}
     </div>
   )
