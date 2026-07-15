@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { leaveApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { Modal } from '../components/Modal'
 import { SelectField } from '../components/fields'
 import { DateField } from '../components/DateField'
-import { useAnchoredPopover, PopoverPanel } from '../components/Popover'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { formatLeaveAmount } from '../util/leaveFormat'
 import type { LeaveBalance, LeaveBalanceRow, LeaveRequestItem, LeaveStatus, LeaveType, LeaveUnit } from '../api/types'
@@ -29,6 +29,7 @@ interface GroupedBalance {
 
 /**
  * '남은' 값 — 만기일별 상세가 있으면 PC는 호버 툴팁으로 펼친다(만기일 컬럼 대체).
+ * 툴팁은 값 '옆'(오른쪽 우선, 공간 없으면 왼쪽)에 띄워 아래 행의 잔여를 가리지 않는다.
  * 상세가 없으면(부여 없음·잔여 0) 값만 조용히 표시한다.
  */
 function BalanceAmount({
@@ -43,36 +44,49 @@ function BalanceAmount({
   standardDayMinutes: number
 }) {
   const { t } = useApp()
-  const [open, setOpen] = useState(false)
-  const { anchorRef, panelRef, placed } = useAnchoredPopover(open, () => setOpen(false))
+  const anchorRef = useRef<HTMLSpanElement>(null)
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null)
+
+  function show() {
+    const r = anchorRef.current?.getBoundingClientRect()
+    if (!r) return
+    const margin = 8
+    const panelW = 210
+    //값 오른쪽에 우선 배치, 뷰포트를 넘으면 왼쪽으로 뒤집는다(아래 행 열을 가리지 않게)
+    let left = r.right + 10
+    if (left + panelW > window.innerWidth - margin) left = Math.max(margin, r.left - panelW - 10)
+    const top = Math.max(margin, r.top - 6)
+    setPos({ left, top })
+  }
+
   if (details.length === 0) return <span>{amountText}</span>
   const labels = { day: t('UNIT_DAY'), hour: t('UNIT_HOUR'), min: t('UNIT_MIN') }
   return (
     <span
       className="bal-amt-anchor"
       ref={anchorRef}
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
+      onMouseEnter={show}
+      onMouseLeave={() => setPos(null)}
     >
-      <button
-        type="button"
-        className="bal-amt-trigger"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-      >
-        {amountText}
-      </button>
-      {open && (
-        <PopoverPanel panelRef={panelRef} placed={placed} className="bal-tip" role="tooltip" ariaLabel={t('EXP_BREAKDOWN')}>
-          <p className="bal-tip-title">{t('EXP_BREAKDOWN')}</p>
-          {details.map((d, i) => (
-            <div className={`bal-tip-row${i === 0 && d.expiresOn ? ' soon' : ''}`} key={`${d.expiresOn ?? 'none'}-${i}`}>
-              <span className="d">{d.expiresOn ?? t('NO_EXPIRY')}</span>
-              <b className="a">{formatLeaveAmount(d.remainingMinutes, unit, standardDayMinutes, labels)}</b>
-            </div>
-          ))}
-        </PopoverPanel>
-      )}
+      <span className="bal-amt-trigger">{amountText}</span>
+      {pos &&
+        createPortal(
+          <div
+            className="bal-tip popover-portal"
+            role="tooltip"
+            aria-label={t('EXP_BREAKDOWN')}
+            style={{ position: 'fixed', left: pos.left, top: pos.top }}
+          >
+            <p className="bal-tip-title">{t('EXP_BREAKDOWN')}</p>
+            {details.map((d, i) => (
+              <div className={`bal-tip-row${i === 0 && d.expiresOn ? ' soon' : ''}`} key={`${d.expiresOn ?? 'none'}-${i}`}>
+                <span className="d">{d.expiresOn ?? t('NO_EXPIRY')}</span>
+                <b className="a">{formatLeaveAmount(d.remainingMinutes, unit, standardDayMinutes, labels)}</b>
+              </div>
+            ))}
+          </div>,
+          document.body,
+        )}
     </span>
   )
 }
@@ -276,7 +290,9 @@ export function LeaveScreen() {
                   disabled={!hasDetail}
                 >
                   <span className="lv-bal-name">{g.name}</span>
-                  <strong className="lv-bal-amt">{amt(g.totalMinutes, g.unit, g.standardDayMinutes)}</strong>
+                  <strong className={`lv-bal-amt${g.totalMinutes === 0 ? ' is-zero' : ''}`}>
+                    {amt(g.totalMinutes, g.unit, g.standardDayMinutes)}
+                  </strong>
                   {hasDetail && <span className="lv-bal-caret" aria-hidden="true" />}
                 </button>
                 {isOpen && hasDetail && (
@@ -311,12 +327,16 @@ export function LeaveScreen() {
                 <tr key={g.leaveTypeId}>
                   <td>{g.name}</td>
                   <td className="num">
-                    <BalanceAmount
-                      amountText={amt(g.totalMinutes, g.unit, g.standardDayMinutes)}
-                      details={g.details}
-                      unit={g.unit}
-                      standardDayMinutes={g.standardDayMinutes}
-                    />
+                    {g.totalMinutes === 0 ? (
+                      <span className="bal-zero">{amt(g.totalMinutes, g.unit, g.standardDayMinutes)}</span>
+                    ) : (
+                      <BalanceAmount
+                        amountText={amt(g.totalMinutes, g.unit, g.standardDayMinutes)}
+                        details={g.details}
+                        unit={g.unit}
+                        standardDayMinutes={g.standardDayMinutes}
+                      />
+                    )}
                   </td>
                 </tr>
               ))}

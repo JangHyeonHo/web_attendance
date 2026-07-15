@@ -2725,8 +2725,23 @@ button.day-link:hover {
 .lv-bal-detail-row b {
   font-weight: 700;
 }
+/* 가장 이른 만기분 강조 — 밝은 배경에서도 보이는 따뜻한 색(PC 툴팁 앰버와 의미 일치) */
+.lv-bal-detail-row.soon,
 .lv-bal-detail-row.soon b {
-  color: var(--accent-dark);
+  color: #b26a00;
+}
+/* 잔여 0 종류는 조용하게(강조 대상 아님) */
+.lv-bal-amt.is-zero {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+/* '남은' 값 컬럼 — 헤더도 값과 같은 우측 정렬 */
+.detail-table th.num {
+  text-align: right;
+}
+.bal-zero {
+  color: var(--muted);
 }
 
 /* '남은' 값 호버 툴팁(PC) — 만기일 컬럼 대체 */
