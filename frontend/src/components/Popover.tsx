@@ -67,7 +67,14 @@ export function useAnchoredPopover(open: boolean, onClose: () => void) {
       let top = below ? anchor.bottom + 4 : anchor.top - panelH - 4
       //그래도 넘치면 뷰포트 안으로 당긴다(항상 전부 보이게)
       top = Math.max(margin, Math.min(top, vh - panelH - margin))
-      const left = Math.max(margin, Math.min(anchor.left, vw - panelW - margin))
+      //기본은 트리거 좌측 정렬. 패널이 트리거보다 넓어 우측으로 넘치면(모바일 종료일 등)
+      //트리거 우측 가장자리에 맞춰 오른쪽 정렬한다(좌측 필드=좌측 정렬과 대칭).
+      let left = anchor.left
+      if (left + panelW > vw - margin) {
+        left = anchor.right - panelW
+      }
+      //그래도 화면을 벗어나면 뷰포트 안으로 당긴다
+      left = Math.max(margin, Math.min(left, vw - panelW - margin))
       setPlaced({ left, top, minWidth: anchor.width })
     }
     compute()
