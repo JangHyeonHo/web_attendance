@@ -2650,24 +2650,133 @@ button.day-link:hover {
   background: var(--surface);
   overflow: hidden;
 }
-.lv-bal-row {
-  display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
-  padding: 0.55rem 0.85rem;
-}
-.lv-bal-row + .lv-bal-row {
+.lv-bal-item + .lv-bal-item {
   border-top: 1px solid var(--border);
 }
-.lv-bal-row .lv-bal-name { flex-shrink: 0; }
-.lv-bal-row .lv-bal-exp {
-  flex: 1;
-  text-align: right;
+/* 행 = 버튼(탭하면 만기일별 상세 펼침). 전역 button 스타일을 눌러 조용한 목록 줄로. */
+.lv-bal-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.7rem 0.85rem;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  min-height: 0;
+  text-align: left;
+  color: var(--text);
+  font: inherit;
+}
+.lv-bal-row:disabled {
+  opacity: 1;
+  cursor: default;
+}
+.lv-bal-row.tappable {
+  cursor: pointer;
+}
+.lv-bal-row.tappable:hover {
+  background: var(--surface-alt);
+  border: none;
+  color: var(--text);
+}
+.lv-bal-row .lv-bal-name {
+  flex-shrink: 0;
+  font-weight: 700;
 }
 .lv-bal-row .lv-bal-amt {
+  margin-left: auto;
   min-width: 3.5rem;
   text-align: right;
   font-weight: 700;
+}
+.lv-bal-caret {
+  flex-shrink: 0;
+  width: 0;
+  height: 0;
+  margin-left: 0.15rem;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid var(--muted);
+  transition: transform 0.15s ease;
+}
+.lv-bal-row.open .lv-bal-caret {
+  transform: rotate(180deg);
+}
+.lv-bal-detail {
+  padding: 0.1rem 0.95rem 0.7rem;
+  background: var(--surface-alt);
+}
+.lv-bal-detail-title {
+  margin: 0.55rem 0 0.15rem;
+  font-size: 0.72rem;
+  color: var(--muted);
+  letter-spacing: 0.03em;
+}
+.lv-bal-detail-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.34rem 0;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+  border-top: 1px dashed var(--border);
+}
+.lv-bal-detail-row b {
+  font-weight: 700;
+}
+.lv-bal-detail-row.soon b {
+  color: var(--accent-dark);
+}
+
+/* '남은' 값 호버 툴팁(PC) — 만기일 컬럼 대체 */
+.bal-amt-anchor {
+  position: relative;
+  display: inline-block;
+}
+.bal-amt-trigger {
+  border: none;
+  background: transparent;
+  padding: 0;
+  min-height: 0;
+  font: inherit;
+  color: var(--text);
+  cursor: help;
+  border-bottom: 1px dotted var(--border-strong);
+}
+.bal-amt-trigger:hover {
+  border: none;
+  border-bottom: 1px dotted var(--muted);
+  background: transparent;
+  color: var(--text);
+}
+.bal-tip {
+  background: #1a2226;
+  color: #fff;
+  border-radius: 10px;
+  padding: 10px 12px;
+  min-width: 190px;
+  box-shadow: var(--shadow-2);
+}
+.bal-tip-title {
+  margin: 0 0 7px;
+  font-size: 11px;
+  color: #b9c2c7;
+  letter-spacing: 0.04em;
+}
+.bal-tip-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 3px 0;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.bal-tip-row .a {
+  font-weight: 700;
+}
+.bal-tip-row.soon .a {
+  color: #ffd08a;
 }
 
 /* 모바일 신청 내역 — 아코디언(#4) */

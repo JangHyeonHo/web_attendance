@@ -6,9 +6,76 @@ import { useApp } from '../app/AppContext'
 import { Modal } from '../components/Modal'
 import { SelectField } from '../components/fields'
 import { DateField } from '../components/DateField'
+import { useAnchoredPopover, PopoverPanel } from '../components/Popover'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { formatLeaveAmount } from '../util/leaveFormat'
 import type { LeaveBalance, LeaveBalanceRow, LeaveRequestItem, LeaveStatus, LeaveType, LeaveUnit } from '../api/types'
+
+/** 만기일별 잔여 한 건(합산 행의 상세 표시용). */
+interface ExpiryDetail {
+  expiresOn: string | null
+  remainingMinutes: number
+}
+
+/** 같은 휴가 종류를 한 행으로 합산 — 총 잔여 + 만기일별 상세. */
+interface GroupedBalance {
+  leaveTypeId: number
+  name: string
+  unit: LeaveUnit
+  standardDayMinutes: number
+  totalMinutes: number
+  details: ExpiryDetail[]
+}
+
+/**
+ * '남은' 값 — 만기일별 상세가 있으면 PC는 호버 툴팁으로 펼친다(만기일 컬럼 대체).
+ * 상세가 없으면(부여 없음·잔여 0) 값만 조용히 표시한다.
+ */
+function BalanceAmount({
+  amountText,
+  details,
+  unit,
+  standardDayMinutes,
+}: {
+  amountText: string
+  details: ExpiryDetail[]
+  unit: LeaveUnit
+  standardDayMinutes: number
+}) {
+  const { t } = useApp()
+  const [open, setOpen] = useState(false)
+  const { anchorRef, panelRef, placed } = useAnchoredPopover(open, () => setOpen(false))
+  if (details.length === 0) return <span>{amountText}</span>
+  const labels = { day: t('UNIT_DAY'), hour: t('UNIT_HOUR'), min: t('UNIT_MIN') }
+  return (
+    <span
+      className="bal-amt-anchor"
+      ref={anchorRef}
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      <button
+        type="button"
+        className="bal-amt-trigger"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        {amountText}
+      </button>
+      {open && (
+        <PopoverPanel panelRef={panelRef} placed={placed} className="bal-tip" role="tooltip" ariaLabel={t('EXP_BREAKDOWN')}>
+          <p className="bal-tip-title">{t('EXP_BREAKDOWN')}</p>
+          {details.map((d, i) => (
+            <div className={`bal-tip-row${i === 0 && d.expiresOn ? ' soon' : ''}`} key={`${d.expiresOn ?? 'none'}-${i}`}>
+              <span className="d">{d.expiresOn ?? t('NO_EXPIRY')}</span>
+              <b className="a">{formatLeaveAmount(d.remainingMinutes, unit, standardDayMinutes, labels)}</b>
+            </div>
+          ))}
+        </PopoverPanel>
+      )}
+    </span>
+  )
+}
 
 const STATUS_KEYS: Record<LeaveStatus, string> = {
   PENDING: 'STATUS_PENDING',
@@ -54,6 +121,8 @@ export function LeaveScreen() {
   const [listError, setListError] = useState<string | null>(null)
 
   const [formOpen, setFormOpen] = useState(false)
+  //모바일: 만기일별 상세를 펼친 종류(호버 대신 탭)
+  const [openTypeId, setOpenTypeId] = useState<number | null>(null)
   const [cancelTarget, setCancelTarget] = useState<LeaveRequestItem | null>(null)
   const [cancelReqTarget, setCancelReqTarget] = useState<LeaveRequestItem | null>(null)
   const [cancelReqReason, setCancelReqReason] = useState('')
@@ -116,6 +185,31 @@ export function LeaveScreen() {
       .map(({ r }) => r)
   }, [balanceRows, types, stdDay])
 
+  //같은 종류를 한 행으로 합산 — 총 잔여 + 만기일별 상세(만기일 컬럼 대신 호버/탭으로 노출)
+  const grouped = useMemo<GroupedBalance[]>(() => {
+    const map = new Map<number, GroupedBalance>()
+    for (const r of displayRows) {
+      let g = map.get(r.leaveTypeId)
+      if (!g) {
+        g = {
+          leaveTypeId: r.leaveTypeId,
+          name: r.name,
+          unit: r.unit,
+          standardDayMinutes: r.standardDayMinutes,
+          totalMinutes: 0,
+          details: [],
+        }
+        map.set(r.leaveTypeId, g)
+      }
+      g.totalMinutes += r.remainingMinutes
+      //실제 부여 행만 상세로(부여 없는 종류의 합성 0행은 잔여0·만기 null이라 제외)
+      if (r.remainingMinutes > 0 || r.expiresOn) {
+        g.details.push({ expiresOn: r.expiresOn, remainingMinutes: r.remainingMinutes })
+      }
+    }
+    return [...map.values()]
+  }, [displayRows])
+
   async function runCancel(id: number) {
     setCancelTarget(null)
     setRowError(null)
@@ -162,21 +256,46 @@ export function LeaveScreen() {
 
       {listError && <p className="error" role="alert">{listError}</p>}
 
-      {/* 잔여는 만기일별 한 표 — 종류·남은·만기일. 잔여 없는 종류도 0으로 노출(#3). */}
-      {displayRows.length === 0 && !listError ? (
+      {/* 잔여는 종류별 한 행으로 합산 — 만기일 컬럼은 없애고, '남은' 값 호버(PC)/행 탭(모바일)으로
+          만기일별 내역을 펼친다. 잔여 없는 종류도 0으로 노출(#3). */}
+      {grouped.length === 0 && !listError ? (
         <p className="muted">{t('EMPTY')}</p>
       ) : isMobile ? (
-        /* 모바일: 종류마다 카드 1장씩(길게 스크롤) → 한 카드에 N줄로 압축(#4) */
+        /* 모바일: 종류마다 한 줄(합산). 상세 있으면 탭해서 만기일별로 펼침(호버 대체) */
         <div className="lv-bal-box">
-          {displayRows.map((r, i) => (
-            <div className="lv-bal-row" key={`${r.leaveTypeId}-${r.expiresOn ?? 'none'}-${i}`}>
-              <span className="lv-bal-name">{r.name}</span>
-              <span className="muted lv-bal-exp">
-                {t('EXPIRES')} {r.expiresOn ?? t('NO_EXPIRY')}
-              </span>
-              <strong className="lv-bal-amt">{amt(r.remainingMinutes, r.unit, r.standardDayMinutes)}</strong>
-            </div>
-          ))}
+          {grouped.map((g) => {
+            const hasDetail = g.details.length > 0
+            const isOpen = openTypeId === g.leaveTypeId
+            return (
+              <div key={g.leaveTypeId} className="lv-bal-item">
+                <button
+                  type="button"
+                  className={`lv-bal-row${hasDetail ? ' tappable' : ''}${isOpen ? ' open' : ''}`}
+                  onClick={() => hasDetail && setOpenTypeId(isOpen ? null : g.leaveTypeId)}
+                  aria-expanded={hasDetail ? isOpen : undefined}
+                  disabled={!hasDetail}
+                >
+                  <span className="lv-bal-name">{g.name}</span>
+                  <strong className="lv-bal-amt">{amt(g.totalMinutes, g.unit, g.standardDayMinutes)}</strong>
+                  {hasDetail && <span className="lv-bal-caret" aria-hidden="true" />}
+                </button>
+                {isOpen && hasDetail && (
+                  <div className="lv-bal-detail">
+                    <p className="lv-bal-detail-title">{t('EXP_BREAKDOWN')}</p>
+                    {g.details.map((d, i) => (
+                      <div
+                        className={`lv-bal-detail-row${i === 0 && d.expiresOn ? ' soon' : ''}`}
+                        key={`${d.expiresOn ?? 'none'}-${i}`}
+                      >
+                        <span>{d.expiresOn ?? t('NO_EXPIRY')}</span>
+                        <b>{amt(d.remainingMinutes, g.unit, g.standardDayMinutes)}</b>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       ) : (
         <div className="table-wrap">
@@ -185,15 +304,20 @@ export function LeaveScreen() {
               <tr>
                 <th>{t('LEAVE_TYPE')}</th>
                 <th className="num">{t('REMAINING')}</th>
-                <th>{t('EXPIRES')}</th>
               </tr>
             </thead>
             <tbody>
-              {displayRows.map((r, i) => (
-                <tr key={`${r.leaveTypeId}-${r.expiresOn ?? 'none'}-${i}`}>
-                  <td>{r.name}</td>
-                  <td className="num">{amt(r.remainingMinutes, r.unit, r.standardDayMinutes)}</td>
-                  <td>{r.expiresOn ?? t('NO_EXPIRY')}</td>
+              {grouped.map((g) => (
+                <tr key={g.leaveTypeId}>
+                  <td>{g.name}</td>
+                  <td className="num">
+                    <BalanceAmount
+                      amountText={amt(g.totalMinutes, g.unit, g.standardDayMinutes)}
+                      details={g.details}
+                      unit={g.unit}
+                      standardDayMinutes={g.standardDayMinutes}
+                    />
+                  </td>
                 </tr>
               ))}
             </tbody>
