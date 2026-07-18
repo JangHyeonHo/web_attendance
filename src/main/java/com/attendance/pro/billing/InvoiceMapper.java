@@ -16,19 +16,20 @@ public interface InvoiceMapper {
 
     @Insert("""
             INSERT INTO invoice
-                (tenant_id, ym, max_seats, free_seats, billed_seats,
+                (tenant_id, ym, max_seats, free_seats, billed_seats, seat_days, days_in_month,
                  unit_price, subtotal, vat, total)
             VALUES
-                (#{tenantId}, #{ym}, #{maxSeats}, #{freeSeats}, #{billedSeats},
+                (#{tenantId}, #{ym}, #{maxSeats}, #{freeSeats}, #{billedSeats}, #{seatDays}, #{daysInMonth},
                  #{unitPrice}, #{subtotal}, #{vat}, #{total})
             """)
     int insert(@Param("tenantId") long tenantId, @Param("ym") String ym,
             @Param("maxSeats") int maxSeats, @Param("freeSeats") int freeSeats,
-            @Param("billedSeats") int billedSeats, @Param("unitPrice") int unitPrice,
+            @Param("billedSeats") int billedSeats, @Param("seatDays") long seatDays,
+            @Param("daysInMonth") int daysInMonth, @Param("unitPrice") int unitPrice,
             @Param("subtotal") long subtotal, @Param("vat") long vat, @Param("total") long total);
 
     @Select("""
-            SELECT tenant_id, ym, max_seats, free_seats, billed_seats,
+            SELECT tenant_id, ym, max_seats, free_seats, billed_seats, seat_days, days_in_month,
                    unit_price, subtotal, vat, total, issued_at
             FROM invoice
             WHERE tenant_id = #{tenantId} AND ym = #{ym}
@@ -36,7 +37,7 @@ public interface InvoiceMapper {
     Invoice find(@Param("tenantId") long tenantId, @Param("ym") String ym);
 
     @Select("""
-            SELECT tenant_id, ym, max_seats, free_seats, billed_seats,
+            SELECT tenant_id, ym, max_seats, free_seats, billed_seats, seat_days, days_in_month,
                    unit_price, subtotal, vat, total, issued_at
             FROM invoice
             WHERE tenant_id = #{tenantId}

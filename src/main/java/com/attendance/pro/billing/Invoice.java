@@ -9,6 +9,8 @@ public record Invoice(
         int maxSeats,
         int freeSeats,
         int billedSeats,
+        long seatDays,
+        int daysInMonth,
         int unitPrice,
         long subtotal,
         long vat,
