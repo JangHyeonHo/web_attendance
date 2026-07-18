@@ -209,9 +209,10 @@ export function TenantMailTemplatesScreen() {
                 <dt>{t('TPL_SUBJECT')}</dt>
                 <dd>{preview.subject}</dd>
               </dl>
-              {/* HTML 지원(#11) — 태그 렌더 + 평문 줄바꿈 보존(pre-wrap). 실제 발송도 동일 래핑 */}
+              {/* HTML이면 그대로 렌더(개행 있는 편집 가능 템플릿이 pre-wrap로 깨지지 않게, #13),
+                  평문이면 pre-wrap로 줄바꿈 보존 — 실제 발송(SmtpMailSender)과 동일 규칙 */}
               <div
-                className="tpl-preview-body tpl-preview-html"
+                className={`tpl-preview-body ${/<[a-z][^>]*>/i.test(preview.body) ? 'tpl-preview-html' : 'tpl-preview-text'}`}
                 dangerouslySetInnerHTML={{ __html: preview.body }}
               />
             </div>

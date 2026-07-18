@@ -1,5 +1,6 @@
 package com.attendance.pro.user;
 
+import java.time.LocalDate;
 import java.time.LocalTime;
 
 /**
@@ -19,9 +20,12 @@ public class UserCreate {
     private final LocalTime defaultWorkEnd;
     private final Role role;
     private final UserStatus status;
+    /** 입사일(선택) — null이면 매퍼가 CURDATE()로 채운다(#11). */
+    private final LocalDate hireDate;
 
     public UserCreate(long tenantId, String email, String passwordHash, String name, String departCd,
-            LocalTime defaultWorkStart, LocalTime defaultWorkEnd, Role role, UserStatus status) {
+            LocalTime defaultWorkStart, LocalTime defaultWorkEnd, Role role, UserStatus status,
+            LocalDate hireDate) {
         this.tenantId = tenantId;
         this.email = email;
         this.passwordHash = passwordHash;
@@ -31,6 +35,7 @@ public class UserCreate {
         this.defaultWorkEnd = defaultWorkEnd;
         this.role = role;
         this.status = status;
+        this.hireDate = hireDate;
     }
 
     public Long getUserId() {
@@ -75,6 +80,10 @@ public class UserCreate {
 
     public UserStatus getStatus() {
         return status;
+    }
+
+    public LocalDate getHireDate() {
+        return hireDate;
     }
 
 }

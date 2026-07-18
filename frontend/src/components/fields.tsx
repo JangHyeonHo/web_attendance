@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useAnchoredPopover, PopoverPanel } from './Popover'
 
 export interface SelectOption {
   value: string
@@ -16,41 +17,22 @@ interface SelectFieldProps {
 
 /**
  * 전용 셀렉트 — 네이티브 <select> 대체(Phase 5.1).
- * 옵션이 리스트 패널로 열리고, 부모 리렌더(모달 포커스 관리 등)에 영향받지 않는다.
- * 바깥 클릭/ESC로 닫히고, 열릴 때 선택 항목을 가운데로 스크롤한다.
+ * 목록은 포털 팝오버로 열려 모달 overflow에 잘리지 않고(#7·#8), 바깥 클릭/ESC로 닫힌다.
+ * 열릴 때 선택 항목을 가운데로 스크롤한다.
  */
 export function SelectField({ value, options, onChange, ariaLabel, compact }: SelectFieldProps) {
   const [open, setOpen] = useState(false)
-  const rootRef = useRef<HTMLDivElement>(null)
+  const { anchorRef, panelRef, placed } = useAnchoredPopover(open, () => setOpen(false))
   const selectedRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
-    if (!open) return
-    const onPointerDown = (event: PointerEvent) => {
-      if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
-        setOpen(false)
-      }
-    }
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.stopPropagation() //모달의 ESC 닫기보다 먼저 — 리스트만 닫는다
-        setOpen(false)
-      }
-    }
-    document.addEventListener('pointerdown', onPointerDown)
-    //캡처 단계에서 ESC를 가로채 모달 전체가 닫히는 사고 방지
-    document.addEventListener('keydown', onKeyDown, true)
-    selectedRef.current?.scrollIntoView({ block: 'center' })
-    return () => {
-      document.removeEventListener('pointerdown', onPointerDown)
-      document.removeEventListener('keydown', onKeyDown, true)
-    }
+    if (open) selectedRef.current?.scrollIntoView({ block: 'center' })
   }, [open])
 
   const current = options.find((option) => option.value === value)
 
   return (
-    <div className={`field-select${compact ? ' compact' : ''}`} ref={rootRef}>
+    <div className={`field-select${compact ? ' compact' : ''}`} ref={anchorRef}>
       <button
         type="button"
         className="field-select-trigger"
@@ -63,7 +45,14 @@ export function SelectField({ value, options, onChange, ariaLabel, compact }: Se
         <span className="field-select-chevron" aria-hidden="true" />
       </button>
       {open && (
-        <div className="field-select-list" role="listbox" aria-label={ariaLabel}>
+        <PopoverPanel
+          panelRef={panelRef}
+          placed={placed}
+          className="field-select-list"
+          matchWidth
+          role="listbox"
+          ariaLabel={ariaLabel}
+        >
           {options.map((option) => {
             const selected = option.value === value
             return (
@@ -83,7 +72,7 @@ export function SelectField({ value, options, onChange, ariaLabel, compact }: Se
               </button>
             )
           })}
-        </div>
+        </PopoverPanel>
       )}
     </div>
   )
@@ -102,40 +91,23 @@ interface TimeFieldProps {
 
 /**
  * 전용 시각 선택 — 네이티브 <input type="time"> 대체.
- * "09:30" 하나의 필드이고, 누르면 시·분 2열이 한 패널로 열린다(분 선택 시 닫힘).
+ * "09:30" 하나의 필드이고, 누르면 시·분 2열이 한 패널(포털)로 열린다(분 선택 시 닫힘).
  */
 export function TimeField({ value, onChange, ariaLabel, disabled }: TimeFieldProps) {
   const [open, setOpen] = useState(false)
-  const rootRef = useRef<HTMLDivElement>(null)
+  const { anchorRef, panelRef, placed } = useAnchoredPopover(open, () => setOpen(false))
   const hourRef = useRef<HTMLButtonElement>(null)
   const minuteRef = useRef<HTMLButtonElement>(null)
   const [hour, minute] = value.split(':')
 
   useEffect(() => {
     if (!open) return
-    const onPointerDown = (event: PointerEvent) => {
-      if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
-        setOpen(false)
-      }
-    }
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.stopPropagation() //모달 전체가 닫히지 않게 — 패널만 닫는다
-        setOpen(false)
-      }
-    }
-    document.addEventListener('pointerdown', onPointerDown)
-    document.addEventListener('keydown', onKeyDown, true)
     hourRef.current?.scrollIntoView({ block: 'center' })
     minuteRef.current?.scrollIntoView({ block: 'center' })
-    return () => {
-      document.removeEventListener('pointerdown', onPointerDown)
-      document.removeEventListener('keydown', onKeyDown, true)
-    }
   }, [open])
 
   return (
-    <div className="time-picker" ref={rootRef}>
+    <div className="time-picker" ref={anchorRef}>
       <button
         type="button"
         className="field-select-trigger"
@@ -149,7 +121,7 @@ export function TimeField({ value, onChange, ariaLabel, disabled }: TimeFieldPro
         <span className="field-select-chevron" aria-hidden="true" />
       </button>
       {open && (
-        <div className="time-picker-panel">
+        <PopoverPanel panelRef={panelRef} placed={placed} className="time-picker-panel">
           <div className="time-col" role="listbox" aria-label={`${ariaLabel} (hour)`}>
             {HOURS.map((h) => (
               <button
@@ -183,7 +155,7 @@ export function TimeField({ value, onChange, ariaLabel, disabled }: TimeFieldPro
               </button>
             ))}
           </div>
-        </div>
+        </PopoverPanel>
       )}
     </div>
   )

@@ -23,6 +23,7 @@ export type ScreenCode =
   | 'W016' // 휴가 관리 (인사관리자+총관리자 — 결재·부여·종류)
   | 'W017' // 감사 로그 조회 (SYSTEM_ADMIN)
   | 'W018' // 청구서 (TENANT_ADMIN — 자사 월별 청구서)
+  | 'W019' // 회사 정보/결제 설정 (TENANT_ADMIN — 사업자정보·결제 + 계약 요약)
   | 'W999' // 공통(헤더)
 
 export type Lang = 'KOR' | 'ENG' | 'JPN'
@@ -274,6 +275,23 @@ export interface TenantBillingResponse {
 }
 
 /** 월별 청구서 한 건(금액은 원, 부가세 별도). status=PROVISIONAL(진행 중)/ISSUED(마감 확정). */
+/** 회사 결제 정보(#14) — 결제수단·청구 이메일·비고. 가격/카드정보는 다루지 않는다. */
+export interface BillingProfileResponse {
+  billingMethod: BillingMethod
+  billingEmail: string | null
+  memo: string | null
+}
+export interface BillingProfileRequest {
+  billingMethod: BillingMethod
+  billingEmail: string | null
+  memo: string | null
+}
+/** 회사에 보여주는 계약 요약(#14, 읽기전용) — 요금제·인당 단가·무료 좌석은 운영사가 정함 */
+export interface ContractSummaryResponse {
+  plan: string
+  perSeatAmount: number
+  freeSeats: number
+}
 export interface InvoiceEntry {
   ym: string // YYYY-MM
   maxSeats: number
@@ -317,6 +335,8 @@ export interface MemberCreateRequest {
   workStart?: string | null
   /** "HH:mm" — 미지정(null)은 18:00 */
   workEnd?: string | null
+  /** "YYYY-MM-DD" 입사일(선택) — 미지정(null)은 등록일. 연차 계산 기준(#11) */
+  hireDate?: string | null
 }
 
 /**
@@ -586,7 +606,7 @@ export interface LeaveType {
 }
 
 export interface LeaveTypeCreateRequest {
-  code: string
+  /** 코드는 서버가 자동 생성 — 클라이언트는 보내지 않는다(#10) */
   name: string
   paid: boolean
   unit: LeaveUnit

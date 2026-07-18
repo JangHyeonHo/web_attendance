@@ -171,9 +171,9 @@ export function MailTemplatesScreen() {
                 <dt>{t('TPL_SUBJECT')}</dt>
                 <dd>{preview.subject}</dd>
               </dl>
-              {/* HTML 지원(#11) — 태그 렌더 + 평문 줄바꿈 보존(pre-wrap) */}
+              {/* HTML이면 그대로 렌더, 평문이면 pre-wrap로 줄바꿈 보존(#13) */}
               <div
-                className="tpl-preview-body tpl-preview-html"
+                className={`tpl-preview-body ${/<[a-z][^>]*>/i.test(preview.body) ? 'tpl-preview-html' : 'tpl-preview-text'}`}
                 dangerouslySetInnerHTML={{ __html: preview.body }}
               />
             </div>

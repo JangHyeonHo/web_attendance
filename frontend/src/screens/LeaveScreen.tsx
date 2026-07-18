@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { leaveApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
@@ -9,6 +10,87 @@ import { DateField } from '../components/DateField'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { formatLeaveAmount } from '../util/leaveFormat'
 import type { LeaveBalance, LeaveBalanceRow, LeaveRequestItem, LeaveStatus, LeaveType, LeaveUnit } from '../api/types'
+
+/** 만기일별 잔여 한 건(합산 행의 상세 표시용). */
+interface ExpiryDetail {
+  expiresOn: string | null
+  remainingMinutes: number
+}
+
+/** 같은 휴가 종류를 한 행으로 합산 — 총 잔여 + 만기일별 상세. */
+interface GroupedBalance {
+  leaveTypeId: number
+  name: string
+  unit: LeaveUnit
+  standardDayMinutes: number
+  totalMinutes: number
+  details: ExpiryDetail[]
+}
+
+/**
+ * '남은' 값 — 만기일별 상세가 있으면 PC는 호버 툴팁으로 펼친다(만기일 컬럼 대체).
+ * 툴팁은 값 '옆'(오른쪽 우선, 공간 없으면 왼쪽)에 띄워 아래 행의 잔여를 가리지 않는다.
+ * 상세가 없으면(부여 없음·잔여 0) 값만 조용히 표시한다.
+ */
+function BalanceAmount({
+  amountText,
+  details,
+  unit,
+  standardDayMinutes,
+}: {
+  amountText: string
+  details: ExpiryDetail[]
+  unit: LeaveUnit
+  standardDayMinutes: number
+}) {
+  const { t } = useApp()
+  const anchorRef = useRef<HTMLSpanElement>(null)
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null)
+
+  function show() {
+    const r = anchorRef.current?.getBoundingClientRect()
+    if (!r) return
+    const margin = 8
+    const panelW = 210
+    //값 왼쪽에 우선 배치(더 자연스러움), 왼쪽 공간이 없으면 오른쪽으로 뒤집는다.
+    //세로는 값과 같은 높이 — 아래 행의 잔여 열을 가리지 않는다.
+    let left = r.left - panelW - 10
+    if (left < margin) left = Math.min(window.innerWidth - panelW - margin, r.right + 10)
+    const top = Math.max(margin, r.top - 6)
+    setPos({ left, top })
+  }
+
+  if (details.length === 0) return <span>{amountText}</span>
+  const labels = { day: t('UNIT_DAY'), hour: t('UNIT_HOUR'), min: t('UNIT_MIN') }
+  return (
+    <span
+      className="bal-amt-anchor"
+      ref={anchorRef}
+      onMouseEnter={show}
+      onMouseLeave={() => setPos(null)}
+    >
+      <span className="bal-amt-trigger">{amountText}</span>
+      {pos &&
+        createPortal(
+          <div
+            className="bal-tip popover-portal"
+            role="tooltip"
+            aria-label={t('EXP_BREAKDOWN')}
+            style={{ position: 'fixed', left: pos.left, top: pos.top }}
+          >
+            <p className="bal-tip-title">{t('EXP_BREAKDOWN')}</p>
+            {details.map((d, i) => (
+              <div className={`bal-tip-row${i === 0 && d.expiresOn ? ' soon' : ''}`} key={`${d.expiresOn ?? 'none'}-${i}`}>
+                <span className="d">{d.expiresOn ?? t('NO_EXPIRY')}</span>
+                <b className="a">{formatLeaveAmount(d.remainingMinutes, unit, standardDayMinutes, labels)}</b>
+              </div>
+            ))}
+          </div>,
+          document.body,
+        )}
+    </span>
+  )
+}
 
 const STATUS_KEYS: Record<LeaveStatus, string> = {
   PENDING: 'STATUS_PENDING',
@@ -54,6 +136,8 @@ export function LeaveScreen() {
   const [listError, setListError] = useState<string | null>(null)
 
   const [formOpen, setFormOpen] = useState(false)
+  //모바일: 만기일별 상세를 펼친 종류(호버 대신 탭)
+  const [openTypeId, setOpenTypeId] = useState<number | null>(null)
   const [cancelTarget, setCancelTarget] = useState<LeaveRequestItem | null>(null)
   const [cancelReqTarget, setCancelReqTarget] = useState<LeaveRequestItem | null>(null)
   const [cancelReqReason, setCancelReqReason] = useState('')
@@ -90,6 +174,56 @@ export function LeaveScreen() {
   const stdDay = balances[0]?.standardDayMinutes ?? 480
   const labels = { day: t('UNIT_DAY'), hour: t('UNIT_HOUR'), min: t('UNIT_MIN') }
   const amt = (m: number, unit: LeaveUnit, dm: number) => formatLeaveAmount(m, unit, dm, labels)
+
+  //잔여가 없어도 회사의 모든 휴가 종류를 보여준다 — 어떤 휴가가 있는지 확인 가능하게(#3).
+  //부여 이력이 있는 종류는 만기일별 행 그대로, 없는 종류는 잔여 0 한 행으로 채운다.
+  const displayRows = useMemo<LeaveBalanceRow[]>(() => {
+    const rows = [...balanceRows]
+    const withRows = new Set(balanceRows.map((r) => r.leaveTypeId))
+    for (const ty of types) {
+      if (!withRows.has(ty.leaveTypeId)) {
+        rows.push({
+          leaveTypeId: ty.leaveTypeId,
+          name: ty.name,
+          unit: ty.unit,
+          remainingMinutes: 0,
+          expiresOn: null,
+          standardDayMinutes: stdDay,
+        })
+      }
+    }
+    //종류 등록 순서(sortOrder)를 따르되, 같은 종류의 여러 만기 행은 원래 순서 유지
+    const order = new Map(types.map((ty, i) => [ty.leaveTypeId, i]))
+    return rows
+      .map((r, i) => ({ r, i }))
+      .sort((a, b) => (order.get(a.r.leaveTypeId) ?? 0) - (order.get(b.r.leaveTypeId) ?? 0) || a.i - b.i)
+      .map(({ r }) => r)
+  }, [balanceRows, types, stdDay])
+
+  //같은 종류를 한 행으로 합산 — 총 잔여 + 만기일별 상세(만기일 컬럼 대신 호버/탭으로 노출)
+  const grouped = useMemo<GroupedBalance[]>(() => {
+    const map = new Map<number, GroupedBalance>()
+    for (const r of displayRows) {
+      let g = map.get(r.leaveTypeId)
+      if (!g) {
+        g = {
+          leaveTypeId: r.leaveTypeId,
+          name: r.name,
+          unit: r.unit,
+          standardDayMinutes: r.standardDayMinutes,
+          totalMinutes: 0,
+          details: [],
+        }
+        map.set(r.leaveTypeId, g)
+      }
+      g.totalMinutes += r.remainingMinutes
+      //실제 부여 행만 상세로(부여 없는 종류의 합성 0행은 잔여0·만기 null이라 제외)
+      if (r.remainingMinutes > 0 || r.expiresOn) {
+        g.details.push({ expiresOn: r.expiresOn, remainingMinutes: r.remainingMinutes })
+      }
+    }
+    return [...map.values()]
+  }, [displayRows])
 
   async function runCancel(id: number) {
     setCancelTarget(null)
@@ -137,22 +271,48 @@ export function LeaveScreen() {
 
       {listError && <p className="error" role="alert">{listError}</p>}
 
-      {/* 잔여는 만기일별 한 표 — 종류·남은·만기일(먼저 만료되는 부여부터 소진, #4/#5). */}
-      {balanceRows.length === 0 && !listError ? (
+      {/* 잔여는 종류별 한 행으로 합산 — 만기일 컬럼은 없애고, '남은' 값 호버(PC)/행 탭(모바일)으로
+          만기일별 내역을 펼친다. 잔여 없는 종류도 0으로 노출(#3). */}
+      {grouped.length === 0 && !listError ? (
         <p className="muted">{t('EMPTY')}</p>
       ) : isMobile ? (
-        <div className="lv-cards">
-          {balanceRows.map((r, i) => (
-            <div className="lv-bal-card" key={`${r.leaveTypeId}-${r.expiresOn ?? 'none'}-${i}`}>
-              <div className="lv-bal-main">
-                <span className="lv-bal-name">{r.name}</span>
-                <strong className="lv-bal-amt">{amt(r.remainingMinutes, r.unit, r.standardDayMinutes)}</strong>
+        /* 모바일: 종류마다 한 줄(합산). 상세 있으면 탭해서 만기일별로 펼침(호버 대체) */
+        <div className="lv-bal-box">
+          {grouped.map((g) => {
+            const hasDetail = g.details.length > 0
+            const isOpen = openTypeId === g.leaveTypeId
+            return (
+              <div key={g.leaveTypeId} className="lv-bal-item">
+                <button
+                  type="button"
+                  className={`lv-bal-row${hasDetail ? ' tappable' : ''}${isOpen ? ' open' : ''}`}
+                  onClick={() => hasDetail && setOpenTypeId(isOpen ? null : g.leaveTypeId)}
+                  aria-expanded={hasDetail ? isOpen : undefined}
+                  disabled={!hasDetail}
+                >
+                  <span className="lv-bal-name">{g.name}</span>
+                  <strong className={`lv-bal-amt${g.totalMinutes === 0 ? ' is-zero' : ''}`}>
+                    {amt(g.totalMinutes, g.unit, g.standardDayMinutes)}
+                  </strong>
+                  {hasDetail && <span className="lv-bal-caret" aria-hidden="true" />}
+                </button>
+                {isOpen && hasDetail && (
+                  <div className="lv-bal-detail">
+                    <p className="lv-bal-detail-title">{t('EXP_BREAKDOWN')}</p>
+                    {g.details.map((d, i) => (
+                      <div
+                        className={`lv-bal-detail-row${i === 0 && d.expiresOn ? ' soon' : ''}`}
+                        key={`${d.expiresOn ?? 'none'}-${i}`}
+                      >
+                        <span>{d.expiresOn ?? t('NO_EXPIRY')}</span>
+                        <b>{amt(d.remainingMinutes, g.unit, g.standardDayMinutes)}</b>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-              <span className="muted lv-bal-exp">
-                {t('EXPIRES')} {r.expiresOn ?? t('NO_EXPIRY')}
-              </span>
-            </div>
-          ))}
+            )
+          })}
         </div>
       ) : (
         <div className="table-wrap">
@@ -161,15 +321,24 @@ export function LeaveScreen() {
               <tr>
                 <th>{t('LEAVE_TYPE')}</th>
                 <th className="num">{t('REMAINING')}</th>
-                <th>{t('EXPIRES')}</th>
               </tr>
             </thead>
             <tbody>
-              {balanceRows.map((r, i) => (
-                <tr key={`${r.leaveTypeId}-${r.expiresOn ?? 'none'}-${i}`}>
-                  <td>{r.name}</td>
-                  <td className="num">{amt(r.remainingMinutes, r.unit, r.standardDayMinutes)}</td>
-                  <td>{r.expiresOn ?? t('NO_EXPIRY')}</td>
+              {grouped.map((g) => (
+                <tr key={g.leaveTypeId}>
+                  <td>{g.name}</td>
+                  <td className="num">
+                    {g.totalMinutes === 0 ? (
+                      <span className="bal-zero">{amt(g.totalMinutes, g.unit, g.standardDayMinutes)}</span>
+                    ) : (
+                      <BalanceAmount
+                        amountText={amt(g.totalMinutes, g.unit, g.standardDayMinutes)}
+                        details={g.details}
+                        unit={g.unit}
+                        standardDayMinutes={g.standardDayMinutes}
+                      />
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -231,45 +400,48 @@ export function LeaveScreen() {
       {requests.length === 0 ? (
         <p className="muted center">{t('EMPTY')}</p>
       ) : isMobile ? (
-        <div className="lv-cards">
+        /* 모바일: 신청 1건=한 줄(요약), 펼치면 기간·사유·조치(#4 아코디언) */
+        <div className="lv-acc-list">
           {requests.map((r) => {
             const canCancelPending = r.status === 'PENDING'
             const canRequestCancel = r.status === 'APPROVED' && startsInFuture(r.startAt)
             const approvedSameDay = r.status === 'APPROVED' && !startsInFuture(r.startAt)
             return (
-              <div className="lv-req-card" key={r.leaveRequestId}>
-                <div className="lv-req-head">
+              <details className="lv-acc" key={r.leaveRequestId}>
+                <summary className="lv-acc-sum">
                   <span className="lv-req-type">{r.typeName}</span>
                   <span className={`badge leave-${r.status.toLowerCase()}`}>{t(STATUS_KEYS[r.status])}</span>
-                </div>
-                <div className="lv-req-line">
-                  <span>{periodText(r)}</span>
-                  <span className="num">{amt(r.minutes, r.unit, dayMinutesByType.get(r.leaveTypeId) ?? stdDay)}</span>
-                </div>
-                {r.reason && <p className="lv-req-reason muted">{r.reason}</p>}
-                {r.status === 'REJECTED' && r.decisionNote && (
-                  <p className="hint">{r.decisionNote}</p>
-                )}
-                {r.status === 'CANCEL_REQUESTED' && r.cancelReason && (
-                  <p className="hint">{r.cancelReason}</p>
-                )}
-                {(canCancelPending || canRequestCancel || approvedSameDay) && (
-                  <div className="lv-req-actions">
-                    {canCancelPending && (
-                      <button onClick={() => setCancelTarget(r)}>{t('CANCEL')}</button>
-                    )}
-                    {canRequestCancel && (
-                      <button onClick={() => { setCancelReqTarget(r); setCancelReqReason('') }}>
-                        {t('REQUEST_CANCEL')}
-                      </button>
-                    )}
-                    {approvedSameDay && <span className="hint">{t('CANCEL_SAME_DAY')}</span>}
+                  <span className="num lv-acc-amt">{amt(r.minutes, r.unit, dayMinutesByType.get(r.leaveTypeId) ?? stdDay)}</span>
+                </summary>
+                <div className="lv-acc-body">
+                  <div className="lv-req-line">
+                    <span>{periodText(r)}</span>
                   </div>
-                )}
-                {rowError?.id === r.leaveRequestId && (
-                  <p className="error">{rowError.message}</p>
-                )}
-              </div>
+                  {r.reason && <p className="lv-req-reason muted">{r.reason}</p>}
+                  {r.status === 'REJECTED' && r.decisionNote && (
+                    <p className="hint">{r.decisionNote}</p>
+                  )}
+                  {r.status === 'CANCEL_REQUESTED' && r.cancelReason && (
+                    <p className="hint">{r.cancelReason}</p>
+                  )}
+                  {(canCancelPending || canRequestCancel || approvedSameDay) && (
+                    <div className="lv-req-actions">
+                      {canCancelPending && (
+                        <button onClick={() => setCancelTarget(r)}>{t('CANCEL')}</button>
+                      )}
+                      {canRequestCancel && (
+                        <button onClick={() => { setCancelReqTarget(r); setCancelReqReason('') }}>
+                          {t('REQUEST_CANCEL')}
+                        </button>
+                      )}
+                      {approvedSameDay && <span className="hint">{t('CANCEL_SAME_DAY')}</span>}
+                    </div>
+                  )}
+                  {rowError?.id === r.leaveRequestId && (
+                    <p className="error">{rowError.message}</p>
+                  )}
+                </div>
+              </details>
             )
           })}
         </div>

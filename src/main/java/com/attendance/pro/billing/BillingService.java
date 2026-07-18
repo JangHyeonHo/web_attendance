@@ -10,11 +10,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import com.attendance.pro.billing.BillingDtos.BillingProfileRequest;
+import com.attendance.pro.billing.BillingDtos.BillingProfileResponse;
 import com.attendance.pro.billing.BillingDtos.InvoiceResponse;
 import com.attendance.pro.billing.BillingDtos.InvoiceStatus;
 import com.attendance.pro.common.ApiException;
 import com.attendance.pro.tenant.TenantBilling;
 import com.attendance.pro.tenant.TenantBillingMapper;
+import com.attendance.pro.tenant.TenantDtos.BillingMethod;
 
 /**
  * 인당(seat) 과금 계산·청구서 서비스.
@@ -82,6 +85,33 @@ public class BillingService {
             cursor = cursor.minusMonths(1);
         }
         return result;
+    }
+
+    /** 회사에 보여줄 계약 요약(#14, 읽기전용) — 요금제·인당 단가·무료 좌석. 미등록이면 기본값. */
+    public com.attendance.pro.billing.BillingDtos.ContractSummaryResponse getContractSummary(long tenantId) {
+        TenantBilling config = tenantBillingMapper.findById(tenantId);
+        if (config == null) {
+            return new com.attendance.pro.billing.BillingDtos.ContractSummaryResponse("BASIC", 2000, 5);
+        }
+        return new com.attendance.pro.billing.BillingDtos.ContractSummaryResponse(
+                config.plan(), config.perSeatAmount(), config.freeSeats());
+    }
+
+    /** 회사 자사 결제 정보 조회(#14) — 미등록이면 기본값(계좌이체/미입력)을 돌려준다. */
+    public BillingProfileResponse getProfile(long tenantId) {
+        TenantBilling config = tenantBillingMapper.findById(tenantId);
+        if (config == null) {
+            return new BillingProfileResponse(BillingMethod.INVOICE, null, null);
+        }
+        return new BillingProfileResponse(config.billingMethod(), config.billingEmail(), config.memo());
+    }
+
+    /** 회사 자사 결제 정보 등록/수정(#14) — 결제수단·청구 이메일·비고만(가격 필드 불변). */
+    public BillingProfileResponse updateProfile(long tenantId, BillingProfileRequest req) {
+        String email = req.billingEmail() == null || req.billingEmail().isBlank() ? null : req.billingEmail().trim();
+        String memo = req.memo() == null || req.memo().isBlank() ? null : req.memo().trim();
+        tenantBillingMapper.upsertProfile(tenantId, req.billingMethod(), email, memo);
+        return getProfile(tenantId);
     }
 
     /** 특정 월 청구서 조회(확정이면 스냅샷, 아니면 실시간 잠정 계산). */

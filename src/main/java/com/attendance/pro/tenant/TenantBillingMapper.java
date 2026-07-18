@@ -63,4 +63,25 @@ public interface TenantBillingMapper {
             @Param("billedFrom") LocalDate billedFrom,
             @Param("memo") String memo);
 
+    /**
+     * 회사(테넌트) 자사 결제 정보만 갱신 — 결제수단·청구 이메일·비고(#14).
+     * 단가/무료좌석/요금제 등 가격 필드는 운영사 전용이라 건드리지 않는다(신규 행은 기본 가격으로 생성).
+     */
+    @Insert("""
+            INSERT INTO tenant_billing
+                (tenant_id, billing_method, billing_email, memo, plan, per_seat_amount, free_seats)
+            VALUES
+                (#{tenantId},
+                 CASE #{billingMethod} WHEN 'CARD' THEN 1 ELSE 0 END,
+                 #{billingEmail}, #{memo}, 'BASIC', 2000, 5)
+            ON DUPLICATE KEY UPDATE
+                billing_method = CASE #{billingMethod} WHEN 'CARD' THEN 1 ELSE 0 END,
+                billing_email = #{billingEmail},
+                memo = #{memo}
+            """)
+    int upsertProfile(@Param("tenantId") long tenantId,
+            @Param("billingMethod") BillingMethod billingMethod,
+            @Param("billingEmail") String billingEmail,
+            @Param("memo") String memo);
+
 }

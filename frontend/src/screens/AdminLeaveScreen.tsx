@@ -277,7 +277,6 @@ function MembersTab() {
   const [detail, setDetail] = useState<MemberLeaveDetail | null>(null)
   const [bulkOpen, setBulkOpen] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
 
   const reload = useCallback(async () => {
     try {
@@ -301,25 +300,10 @@ function MembersTab() {
     }
   }
 
-  async function recomputeAll() {
-    setBusy(true)
-    setError(null)
-    try {
-      await tenantLeaveApi.recomputeAll()
-      await reload()
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : String(e))
-    } finally {
-      setBusy(false)
-    }
-  }
-
   return (
     <>
+      {/* 법정 연차 '제안/재계산'은 요구조건 재정의 전까지 보류(#11) — 부여는 아래 '일괄 부여'/개별 부여로 */}
       <div className="toolbar-actions" style={{ justifyContent: 'flex-end', marginBottom: '0.75rem' }}>
-        <button onClick={() => void recomputeAll()} disabled={busy}>
-          {t('RECOMPUTE_ALL')}
-        </button>
         <button
           className="primary"
           onClick={() => { setNotice(null); setBulkOpen(true) }}
@@ -344,7 +328,6 @@ function MembersTab() {
               <tr>
                 <th>{t('MEMBER')}</th>
                 <th>{t('START_DATE')}</th>
-                <th>{t('SUGGESTED')}</th>
                 <th>{t('BALANCE')}</th>
                 <th />
               </tr>
@@ -354,11 +337,6 @@ function MembersTab() {
                 <tr key={m.userId}>
                   <td>{m.name}</td>
                   <td>{m.hireDate ?? '—'}</td>
-                  <td className="num muted">
-                    {m.suggestedAnnualMinutes != null
-                      ? amt(m.suggestedAnnualMinutes, 'DAY', m.standardDayMinutes)
-                      : '—'}
-                  </td>
                   <td className="num">
                     {m.annualRemainingMinutes != null
                       ? amt(m.annualRemainingMinutes, 'DAY', m.standardDayMinutes)
@@ -417,6 +395,7 @@ function BulkGrantModal({
   const [days, setDays] = useState('1')
   const [expiresOn, setExpiresOn] = useState('')
   const [memo, setMemo] = useState('')
+  const [query, setQuery] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -430,7 +409,13 @@ function BulkGrantModal({
       .catch((e) => setError(e instanceof ApiError ? e.message : String(e)))
   }, [])
 
-  const allChecked = members.length > 0 && selected.size === members.length
+  //대규모 인원(수천 명)에서도 이름 검색으로 일부만 골라 부여할 수 있게(#9).
+  //전체 선택은 "검색 결과 전체"에 대해 동작한다(가려진 인원을 실수로 포함/제외하지 않게).
+  const q = query.trim().toLowerCase()
+  const filtered = q
+    ? members.filter((m) => m.name.toLowerCase().includes(q))
+    : members
+  const allChecked = filtered.length > 0 && filtered.every((m) => selected.has(m.userId))
 
   function toggle(userId: number) {
     setSelected((prev) => {
@@ -442,7 +427,12 @@ function BulkGrantModal({
   }
 
   function toggleAll() {
-    setSelected(allChecked ? new Set() : new Set(members.map((m) => m.userId)))
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (allChecked) filtered.forEach((m) => next.delete(m.userId))
+      else filtered.forEach((m) => next.add(m.userId))
+      return next
+    })
   }
 
   async function submit() {
@@ -489,21 +479,33 @@ function BulkGrantModal({
         maxLength={200}
       />
 
-      <label className="check-inline" style={{ marginTop: '0.75rem' }}>
+      {/* 대규모 인원 대비 이름 검색(#9) — 결과 안에서만 전체 선택/해제 */}
+      <input
+        className="member-search"
+        style={{ marginTop: '0.75rem' }}
+        placeholder={t('MEMBER_SEARCH')}
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+      />
+      <label className="check-inline">
         <input type="checkbox" checked={allChecked} onChange={toggleAll} />
         {t('SELECT_ALL')} ({selected.size}/{members.length})
       </label>
       <div className="checklist">
-        {members.map((m) => (
-          <label key={m.userId} className="check-inline">
-            <input
-              type="checkbox"
-              checked={selected.has(m.userId)}
-              onChange={() => toggle(m.userId)}
-            />
-            {m.name}
-          </label>
-        ))}
+        {filtered.length === 0 ? (
+          <p className="muted center" style={{ margin: '0.5rem 0' }}>{t('EMPTY')}</p>
+        ) : (
+          filtered.map((m) => (
+            <label key={m.userId} className="check-inline">
+              <input
+                type="checkbox"
+                checked={selected.has(m.userId)}
+                onChange={() => toggle(m.userId)}
+              />
+              {m.name}
+            </label>
+          ))
+        )}
       </div>
 
       {error && <p className="error" role="alert">{error}</p>}
@@ -529,7 +531,6 @@ function MemberDetailModal({
 }) {
   const { t } = useApp()
   const amt = useAmountFormatter(t)
-  const [hireDate, setHireDate] = useState(detail.hireDate ?? '')
   const [grantTypeId, setGrantTypeId] = useState(detail.balances[0]?.leaveTypeId ?? 0)
   const [grantDays, setGrantDays] = useState('1')
   const [memo, setMemo] = useState('')
@@ -559,37 +560,10 @@ function MemberDetailModal({
     <Modal title={detail.name} onClose={onClose}>
       {error && <p className="error" role="alert">{error}</p>}
 
-      <div className="field-group">
-        <label>
-          {t('START_DATE')}
-          <DateField value={hireDate} onChange={setHireDate} ariaLabel={t('START_DATE')} />
-        </label>
-        <button
-          type="button"
-          disabled={busy || !hireDate}
-          onClick={() => void run(() => tenantLeaveApi.updateHireDate(detail.userId, hireDate))}
-        >
-          {t('SUBMIT')}
-        </button>
-      </div>
-
-      {/* 법정 제안은 미리보기 — 관리자가 "제안 적용"을 눌러야 부여된다(자동 부여 아님) */}
-      <div className="suggest-row">
-        <span className="muted">{t('SUGGESTED')}</span>
-        <strong>
-          {detail.suggestedAnnualMinutes != null
-            ? amt(detail.suggestedAnnualMinutes, 'DAY', detail.standardDayMinutes)
-            : '—'}
-        </strong>
-        <button
-          type="button"
-          className="primary"
-          disabled={busy || detail.suggestedAnnualMinutes == null}
-          onClick={() => void run(() => tenantLeaveApi.recompute(detail.userId))}
-        >
-          {t('RECOMPUTE')}
-        </button>
-      </div>
+      {/* 입사일은 멤버 관리 화면에서 등록/수정(#11) — 여기서는 참고 표시만 */}
+      <p className="muted" style={{ marginTop: 0 }}>
+        {t('START_DATE')}: {detail.hireDate ?? '—'}
+      </p>
 
       <table className="detail-table compact">
         <thead>
@@ -741,7 +715,6 @@ function TypesTab() {
         <table className="detail-table">
           <thead>
             <tr>
-              <th>{t('CODE')}</th>
               <th>{t('NAME')}</th>
               <th>{t('PAID')}</th>
               <th>{t('REQUIRES_APPROVAL')}</th>
@@ -752,7 +725,6 @@ function TypesTab() {
           <tbody>
             {types.map((ty) => (
               <tr key={ty.leaveTypeId}>
-                <td>{ty.code}</td>
                 <td>{ty.name}</td>
                 <td>{ty.paid ? '✓' : ''}</td>
                 <td>{ty.requiresApproval ? '✓' : ''}</td>
@@ -790,7 +762,6 @@ function TypeModal({
   onDone: () => Promise<void>
 }) {
   const { t } = useApp()
-  const [code, setCode] = useState(initial?.code ?? '')
   const [name, setName] = useState(initial?.name ?? '')
   const [paid, setPaid] = useState(initial?.paid ?? true)
   const [requiresApproval, setRequiresApproval] = useState(initial?.requiresApproval ?? true)
@@ -813,8 +784,8 @@ function TypeModal({
           sortOrder: initial.sortOrder,
         })
       } else {
+        //코드는 서버 자동생성(#10) — 명칭만 전송
         await tenantLeaveApi.createType({
-          code: code.trim().toUpperCase(),
           name: name.trim(),
           paid,
           unit: 'DAY',
@@ -833,15 +804,10 @@ function TypeModal({
   return (
     <Modal title={initial ? t('EDIT') : t('ADD_TYPE')} onClose={onClose}>
       <form onSubmit={submit}>
-        {!initial && (
-          <label>
-            {t('CODE')}
-            <input value={code} onChange={(e) => setCode(e.target.value)} maxLength={30} required />
-          </label>
-        )}
+        {/* 코드는 서버 자동생성(#10) — 사용자는 명칭만 입력 */}
         <label>
           {t('NAME')}
-          <input value={name} onChange={(e) => setName(e.target.value)} maxLength={50} required />
+          <input value={name} onChange={(e) => setName(e.target.value)} maxLength={50} required autoFocus />
         </label>
         <label className="check-inline">
           <input type="checkbox" checked={paid} onChange={(e) => setPaid(e.target.checked)} />

@@ -37,12 +37,21 @@ public class SmtpMailSender implements MailSender {
             helper.setFrom(from);
             helper.setTo(to);
             helper.setSubject(subject);
-            //평문 시드의 줄바꿈 보존 + HTML 태그 렌더 동시 지원(pre-wrap 래퍼)
-            helper.setText("<div style=\"white-space:pre-wrap;font-family:sans-serif\">" + body + "</div>", true);
+            //본문이 HTML이면 그대로 발송(개행 있는 편집 가능 템플릿이 pre-wrap로 깨지지 않게, #13).
+            //평문(태그 없음)이면 pre-wrap 래퍼로 줄바꿈 보존.
+            String html = looksLikeHtml(body)
+                    ? body
+                    : "<div style=\"white-space:pre-wrap;font-family:sans-serif\">" + body + "</div>";
+            helper.setText(html, true);
         } catch (MessagingException e) {
             throw new MailPreparationException("failed to build HTML mail", e);
         }
         javaMailSender.send(message);
+    }
+
+    /** 본문에 HTML 태그가 있으면 HTML로 간주(<div>, <p>, <a ...> 등). */
+    private static boolean looksLikeHtml(String body) {
+        return body != null && body.matches("(?s).*<[a-zA-Z][^>]*>.*");
     }
 
 }

@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useAnchoredPopover, PopoverPanel } from './Popover'
 
 interface DateFieldProps {
   /** "YYYY-MM-DD" (빈 문자열이면 미선택 → 오늘 달을 연다) */
@@ -34,7 +35,7 @@ function todayIso(): string {
  */
 export function DateField({ value, onChange, ariaLabel, holidays, min, disabled, placeholder }: DateFieldProps) {
   const [open, setOpen] = useState(false)
-  const rootRef = useRef<HTMLDivElement>(null)
+  const { anchorRef, panelRef, placed } = useAnchoredPopover(open, () => setOpen(false))
   const holidaySet = holidays ? new Set(holidays) : null
 
   //보고 있는 달(1일 기준). 선택값이 있으면 그 달, 없으면 오늘 달.
@@ -48,23 +49,6 @@ export function DateField({ value, onChange, ariaLabel, holidays, min, disabled,
     const d = value ? new Date(`${value}T00:00:00`) : new Date()
     setViewYear(d.getFullYear())
     setViewMonth(d.getMonth())
-    const onPointerDown = (event: PointerEvent) => {
-      if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
-        setOpen(false)
-      }
-    }
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.stopPropagation() //모달 전체가 닫히지 않게 — 달력만 닫는다
-        setOpen(false)
-      }
-    }
-    document.addEventListener('pointerdown', onPointerDown)
-    document.addEventListener('keydown', onKeyDown, true)
-    return () => {
-      document.removeEventListener('pointerdown', onPointerDown)
-      document.removeEventListener('keydown', onKeyDown, true)
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
@@ -95,7 +79,7 @@ export function DateField({ value, onChange, ariaLabel, holidays, min, disabled,
   const today = todayIso()
 
   return (
-    <div className="date-field" ref={rootRef}>
+    <div className="date-field" ref={anchorRef}>
       <button
         type="button"
         className="field-select-trigger"
@@ -109,7 +93,7 @@ export function DateField({ value, onChange, ariaLabel, holidays, min, disabled,
         <span className="field-select-chevron" aria-hidden="true" />
       </button>
       {open && (
-        <div className="date-panel" role="dialog" aria-label={ariaLabel}>
+        <PopoverPanel panelRef={panelRef} placed={placed} className="date-panel" role="dialog" ariaLabel={ariaLabel}>
           <div className="date-panel-head">
             <button type="button" className="date-nav" aria-label="이전 달" onClick={() => shiftMonth(-1)}>
               ‹
@@ -156,7 +140,7 @@ export function DateField({ value, onChange, ariaLabel, holidays, min, disabled,
               )
             })}
           </div>
-        </div>
+        </PopoverPanel>
       )}
     </div>
   )

@@ -32,6 +32,7 @@ public class RoleInterceptor implements HandlerInterceptor {
             new RouteRule("/api/v1/tenant/members/*/role", Set.of(Role.TENANT_ADMIN)),
             new RouteRule("/api/v1/tenant/mail-templates/**", Set.of(Role.TENANT_ADMIN)),
             new RouteRule("/api/v1/tenant/billing/**", Set.of(Role.TENANT_ADMIN)),        //자사 청구서 — 재무 정보라 인사관리자 제외
+            new RouteRule("/api/v1/tenant/profile", Set.of(Role.TENANT_ADMIN)),           //자사 사업자정보 자율관리(#14) — 총관리자 전용
             //그 외 회사 관리(멤버·공휴일·후속 휴가)는 인사관리자+총관리자
             new RouteRule("/api/v1/tenant/**", Set.of(Role.TENANT_ADMIN, Role.HR_ADMIN)), //SYSTEM_ADMIN도 403
             new RouteRule("/api/v1/attendance/**", Set.of(Role.TENANT_ADMIN, Role.HR_ADMIN, Role.MEMBER)) //SYSTEM_ADMIN 명시 배제

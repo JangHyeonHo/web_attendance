@@ -46,21 +46,21 @@ export function MailVarsTable({
         <strong>{t('VARIABLES')}</strong>
         <span className="muted">{t('VAR_HINT')}</span>
       </div>
-      <table className="mail-vars-table">
-        <tbody>
-          {VARS[purpose].map((v) => (
-            <tr key={v.token}>
-              <td>
-                <button type="button" className="var-chip" onClick={() => void copy(v.token)}>
-                  <code>{v.token}</code>
-                  {copied === v.token && <span className="var-copied">{t('COPIED')}</span>}
-                </button>
-              </td>
-              <td className="muted">{t(v.descKey)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {/* 사용자 친화 표현(#12): 뜻(친화적 이름)이 크게, 실제 넣을 코드는 작게.
+          누르면 코드가 복사되고, "복사됨"은 절대배치 배지로 떠서 레이아웃을 밀지 않는다. */}
+      <ul className="mail-vars-list">
+        {VARS[purpose].map((v) => (
+          <li key={v.token}>
+            <button type="button" className="var-row" onClick={() => void copy(v.token)}>
+              <span className="var-row-name">{t(v.descKey)}</span>
+              <code className="var-row-token">{v.token}</code>
+              <span className="var-row-copied" aria-hidden={copied !== v.token}>
+                {copied === v.token ? t('COPIED') : ''}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }
