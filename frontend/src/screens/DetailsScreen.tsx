@@ -279,7 +279,7 @@ export function DetailsScreen() {
     <div className="panel">
       <div className="toolbar">
         <h2>{t('ATTDETAILS')}</h2>
-        <div className="toolbar-actions">
+        <div className="toolbar-actions att-detail-actions">
           <SelectField
             compact
             value={String(year)}

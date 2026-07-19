@@ -490,6 +490,20 @@ textarea:hover {
   flex-wrap: wrap;
 }
 
+/* 모바일 출결 상세 툴바 — 연·월은 한 줄에 나눠 채우고, 근무표 다운로드는 그 아래 전체폭으로.
+   기본 flex-wrap이면 3개가 제각각 개행돼 지저분하므로 의도된 레이아웃으로 정리 */
+@media (max-width: 640px) {
+  .att-detail-actions {
+    width: 100%;
+  }
+  .att-detail-actions .field-select {
+    flex: 1;
+  }
+  .att-detail-actions .field-select:last-child {
+    flex: 1 0 100%;
+  }
+}
+
 .center {
   text-align: center;
 }
