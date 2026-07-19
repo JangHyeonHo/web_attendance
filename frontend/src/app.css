@@ -2677,6 +2677,13 @@ button.day-link:hover {
   text-align: left;
 }
 
+/* 멤버·인원 검색 입력(W009 멤버 관리 · W016 휴가 관리 공용) */
+.member-search {
+  width: 100%;
+  max-width: 320px;
+  margin: 4px 0 12px;
+}
+
 .lv-bal-box {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
