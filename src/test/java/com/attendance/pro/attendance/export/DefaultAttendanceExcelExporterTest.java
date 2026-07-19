@@ -55,37 +55,39 @@ class DefaultAttendanceExcelExporterTest {
     @DisplayName("XLSX-01: 상단머리·결재란·헤더·데이터·합계가 올바른 셀에 기록된다")
     void writesExpectedCells() throws Exception {
         byte[] bytes = new DefaultAttendanceExcelExporter().toXlsx(sample(),
-                new ExportMeta("ACME 주식회사", "김총관", 2026, 7, "KOR", LocalDate.of(2026, 8, 1), true));
+                new ExportMeta("ACME 주식회사", "김총관", "인사팀", 2026, 7, "KOR", LocalDate.of(2026, 8, 1), true));
 
         try (Workbook wb = new XSSFWorkbook(new ByteArrayInputStream(bytes))) {
             Sheet sheet = wb.getSheetAt(0);
-            //상단 머리 — A=라벨 / B=값
+            //상단 머리 — A=라벨 / B=값 (날짜·회사명·부서명·이름)
             assertThat(sheet.getRow(0).getCell(0).getStringCellValue()).isEqualTo("날짜");
             assertThat(sheet.getRow(0).getCell(1).getStringCellValue()).isEqualTo("2026-08-01");
-            assertThat(sheet.getRow(1).getCell(0).getStringCellValue()).isEqualTo("회사명");
             assertThat(sheet.getRow(1).getCell(1).getStringCellValue()).isEqualTo("ACME 주식회사");
-            assertThat(sheet.getRow(2).getCell(1).getStringCellValue()).isEqualTo("김총관");
+            assertThat(sheet.getRow(2).getCell(0).getStringCellValue()).isEqualTo("부서명");
+            assertThat(sheet.getRow(2).getCell(1).getStringCellValue()).isEqualTo("인사팀");
+            assertThat(sheet.getRow(3).getCell(0).getStringCellValue()).isEqualTo("이름");
+            assertThat(sheet.getRow(3).getCell(1).getStringCellValue()).isEqualTo("김총관");
             //결재(도장)란 — stampArea=true
             assertThat(sheet.getRow(0).getCell(7).getStringCellValue()).isEqualTo("결재");
             assertThat(sheet.getRow(0).getCell(8).getStringCellValue()).isEqualTo("인사담당자");
             assertThat(sheet.getRow(0).getCell(9).getStringCellValue()).isEqualTo("총괄담당자");
 
-            //표 헤더(row 4)
-            Row header = sheet.getRow(4);
+            //표 헤더(row 5)
+            Row header = sheet.getRow(5);
             assertThat(header.getCell(0).getStringCellValue()).isEqualTo("날짜");
             assertThat(header.getCell(2).getStringCellValue()).isEqualTo("예정 출근");
             assertThat(header.getCell(6).getStringCellValue()).isEqualTo("예정 근무 시간");
             assertThat(header.getCell(9).getStringCellValue()).isEqualTo("비고");
 
-            //첫 데이터 행(row 5, 2026-07-01, 근무) — 실제 근무 468분 → 7.8시간
-            Row first = sheet.getRow(5);
+            //첫 데이터 행(row 6, 2026-07-01, 근무) — 실제 근무 468분 → 7.8시간
+            Row first = sheet.getRow(6);
             assertThat(first.getCell(1).getStringCellValue()).isEqualTo("근무");
             assertThat(first.getCell(2).getStringCellValue()).isEqualTo("09:00");
             assertThat(first.getCell(8).getNumericCellValue()).isEqualTo(468 / 60.0);
 
-            //비고(row 6, manual → 'O') · 공휴일 명칭(row 7)
-            assertThat(sheet.getRow(6).getCell(9).getStringCellValue()).isEqualTo("O");
-            assertThat(sheet.getRow(7).getCell(1).getStringCellValue()).isEqualTo("제헌절");
+            //비고(row 7, manual → 'O') · 공휴일 명칭(row 8)
+            assertThat(sheet.getRow(7).getCell(9).getStringCellValue()).isEqualTo("O");
+            assertThat(sheet.getRow(8).getCell(1).getStringCellValue()).isEqualTo("제헌절");
         }
     }
 }

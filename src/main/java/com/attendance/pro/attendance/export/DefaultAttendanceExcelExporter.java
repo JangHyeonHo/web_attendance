@@ -35,7 +35,7 @@ public class DefaultAttendanceExcelExporter implements AttendanceExcelExporter {
         "예정 근무 시간", "휴식 시간 (분)", "실제 근무 시간", "비고"
     };
     private static final int COLS = HEADERS.length;
-    private static final int HEADER_ROW = 4;         //상단 머리(0~2)·공백(3) 다음
+    private static final int HEADER_ROW = 5;         //상단 머리(0~3)·공백(4) 다음
     private static final byte[] HEADER_FILL = {(byte) 0xD9, (byte) 0xE1, (byte) 0xF2}; //연한 블루그레이
     private static final byte[] LABEL_FILL = {(byte) 0xF2, (byte) 0xF2, (byte) 0xF2};  //연회색
 
@@ -62,13 +62,15 @@ public class DefaultAttendanceExcelExporter implements AttendanceExcelExporter {
             XSSFCellStyle totalHour = base(wb, font, true);
             totalHour.setDataFormat(wb.createDataFormat().getFormat("0.00"));
 
-            //상단 머리 — A=라벨 / B=값 (날짜·회사명·이름)
+            //상단 머리 — A=라벨 / B=값 (날짜·회사명·부서명·이름)
             put(sheet, 0, 0, "날짜", label);
             put(sheet, 0, 1, meta.issueDate() == null ? "" : meta.issueDate().toString(), value);
             put(sheet, 1, 0, "회사명", label);
             put(sheet, 1, 1, nvl(meta.tenantName()), value);
-            put(sheet, 2, 0, "이름", label);
-            put(sheet, 2, 1, nvl(meta.memberName()), value);
+            put(sheet, 2, 0, "부서명", label);
+            put(sheet, 2, 1, nvl(meta.department()), value);
+            put(sheet, 3, 0, "이름", label);
+            put(sheet, 3, 1, nvl(meta.memberName()), value);
 
             if (meta.stampArea()) {
                 stampBox(sheet, wb, font);
@@ -128,25 +130,23 @@ public class DefaultAttendanceExcelExporter implements AttendanceExcelExporter {
         fill(head, LABEL_FILL);
         XSSFCellStyle blank = base(wb, font, false);
 
+        //머리(라벨 4행)와 높이를 맞춰 결재란도 0~3행에 배치
         Row r0 = row(sheet, 0);
-        Row r1 = row(sheet, 1);
-        Row r2 = row(sheet, 2);
-
         cell(r0, c0, "결재", head);
         cell(r0, c0 + 1, "인사담당자", head);
         cell(r0, c0 + 2, "총괄담당자", head);
-        cell(r1, c0, "", head);
-        cell(r1, c0 + 1, "", blank);
-        cell(r1, c0 + 2, "", blank);
-        cell(r2, c0, "", head);
-        cell(r2, c0 + 1, "", blank);
-        cell(r2, c0 + 2, "", blank);
-        //결재 라벨(3행 병합) + 날인칸(2행 병합) + 테두리
-        merge(sheet, 0, 2, c0, c0);
-        merge(sheet, 1, 2, c0 + 1, c0 + 1);
-        merge(sheet, 1, 2, c0 + 2, c0 + 2);
-        r1.setHeightInPoints(26);
-        r2.setHeightInPoints(26);
+        for (int rr = 1; rr <= 3; rr++) {
+            Row row = row(sheet, rr);
+            cell(row, c0, "", head);
+            cell(row, c0 + 1, "", blank);
+            cell(row, c0 + 2, "", blank);
+        }
+        merge(sheet, 0, 3, c0, c0);         //결재 라벨(세로 병합)
+        merge(sheet, 1, 3, c0 + 1, c0 + 1); //인사담당자 날인칸
+        merge(sheet, 1, 3, c0 + 2, c0 + 2); //총괄담당자 날인칸
+        for (int rr = 1; rr <= 3; rr++) {
+            row(sheet, rr).setHeightInPoints(24);
+        }
     }
 
     private static void merge(XSSFSheet sheet, int r1, int r2, int c1, int c2) {

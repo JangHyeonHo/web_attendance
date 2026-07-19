@@ -30,6 +30,8 @@ import com.attendance.pro.attendance.export.AttendanceExporters;
 import com.attendance.pro.attendance.export.ExportMeta;
 import com.attendance.pro.auth.LoginUser;
 import com.attendance.pro.auth.SessionUser;
+import com.attendance.pro.user.User;
+import com.attendance.pro.user.UserMapper;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -48,10 +50,13 @@ public class AttendanceController {
 
     private final AttendanceService attendanceService;
     private final AttendanceExporters exporters;
+    private final UserMapper userMapper;
 
-    public AttendanceController(AttendanceService attendanceService, AttendanceExporters exporters) {
+    public AttendanceController(AttendanceService attendanceService, AttendanceExporters exporters,
+            UserMapper userMapper) {
         this.attendanceService = attendanceService;
         this.exporters = exporters;
+        this.userMapper = userMapper;
     }
 
     @Operation(summary = "api.attendance.status.summary", description = "api.attendance.status.description")
@@ -138,7 +143,9 @@ public class AttendanceController {
             @RequestParam(value = "lang", defaultValue = "KOR") String lang,
             @RequestParam(value = "stamp", defaultValue = "false") boolean stamp) {
         MonthlyResponse data = attendanceService.monthly(user.tenantId(), user.userId(), year, month);
-        ExportMeta meta = new ExportMeta(user.tenantName(), user.name(), year, month,
+        User me = userMapper.findById(user.tenantId(), user.userId());
+        String department = me == null ? null : me.departCd();
+        ExportMeta meta = new ExportMeta(user.tenantName(), user.name(), department, year, month,
                 lang, LocalDate.now(), stamp);
         byte[] xlsx = exporters.forTenant(user.tenantId()).toXlsx(data, meta);
         String filename = String.format("attendance-%d-%02d.xlsx", year, month); //ASCII 파일명(인코딩 이슈 회피)
