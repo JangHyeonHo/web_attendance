@@ -297,16 +297,23 @@ export function DetailsScreen() {
             ariaLabel={t('MONTH')}
             onChange={(v) => setMonth(Number(v))}
           />
-          {/* 근무표 다운로드 — Excel(서버 .xlsx 즉시 다운로드) / PDF(브라우저 인쇄 → PDF 저장) */}
-          <div className="dl-group">
-            <span className="dl-group-label">{t('DOWNLOAD_TIMESHEET')}</span>
-            <button type="button" onClick={() => void exportExcel()} disabled={!monthly}>
-              Excel
-            </button>
-            <button type="button" onClick={() => window.print()} disabled={!monthly}>
-              PDF
-            </button>
-          </div>
+          {/* 근무표 다운로드 — 형식(Excel/PDF)을 셀렉트로 고르면 바로 실행.
+              Excel=서버 .xlsx 즉시 다운로드, PDF=브라우저 인쇄→PDF 저장. 값은 항상 빈 값으로 되돌려 라벨 유지 */}
+          <SelectField
+            compact
+            value=""
+            ariaLabel={t('DOWNLOAD_TIMESHEET')}
+            options={[
+              { value: '', label: t('DOWNLOAD_TIMESHEET') },
+              { value: 'excel', label: 'Excel' },
+              { value: 'pdf', label: 'PDF' },
+            ]}
+            onChange={(v) => {
+              if (!monthly) return
+              if (v === 'excel') void exportExcel()
+              else if (v === 'pdf') window.print()
+            }}
+          />
         </div>
       </div>
       {/* 정정 진입은 날짜 버튼 → 일자 상세 → [정정 등록]/[수정] 단일 동선 */}
