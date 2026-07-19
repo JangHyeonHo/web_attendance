@@ -3,6 +3,8 @@ package com.attendance.pro.attendance.export;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.time.DayOfWeek;
+import java.time.LocalDate;
 
 import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.Cell;
@@ -32,12 +34,14 @@ public class DefaultAttendanceExcelExporter implements AttendanceExcelExporter {
 
     private static final String[] HEADERS = {
         "날짜", "구분", "예정 출근", "예정 퇴근", "실제 출근", "실제 퇴근",
-        "예정 근무 시간", "휴식 시간 (분)", "실제 근무 시간", "비고"
+        "예정 근무 시간", "휴식 시간", "실제 근무 시간", "비고"
     };
     private static final int COLS = HEADERS.length;
     private static final int HEADER_ROW = 5;         //상단 머리(0~3)·공백(4) 다음
     private static final byte[] HEADER_FILL = {(byte) 0xD9, (byte) 0xE1, (byte) 0xF2}; //연한 블루그레이
     private static final byte[] LABEL_FILL = {(byte) 0xF2, (byte) 0xF2, (byte) 0xF2};  //연회색
+    private static final byte[] SAT_FILL = {(byte) 0xE7, (byte) 0xEF, (byte) 0xFB};    //토요일 옅은 파랑
+    private static final byte[] SUN_FILL = {(byte) 0xFB, (byte) 0xE8, (byte) 0xE8};    //일요일·공휴일 옅은 빨강
 
     @Override
     public String key() {
@@ -55,9 +59,12 @@ public class DefaultAttendanceExcelExporter implements AttendanceExcelExporter {
             XSSFCellStyle value = base(wb, font, false);
             XSSFCellStyle header = center(base(wb, font, true));
             fill(header, HEADER_FILL);
-            XSSFCellStyle text = base(wb, font, false);
-            XSSFCellStyle hour = base(wb, font, false);
-            hour.setDataFormat(wb.createDataFormat().getFormat("0.00"));
+            XSSFCellStyle text = textStyle(wb, font, null);
+            XSSFCellStyle textSat = textStyle(wb, font, SAT_FILL);
+            XSSFCellStyle textSun = textStyle(wb, font, SUN_FILL);
+            XSSFCellStyle hour = hourStyle(wb, font, null);
+            XSSFCellStyle hourSat = hourStyle(wb, font, SAT_FILL);
+            XSSFCellStyle hourSun = hourStyle(wb, font, SUN_FILL);
             XSSFCellStyle totalText = base(wb, font, true);
             XSSFCellStyle totalHour = base(wb, font, true);
             totalHour.setDataFormat(wb.createDataFormat().getFormat("0.00"));
@@ -82,12 +89,16 @@ public class DefaultAttendanceExcelExporter implements AttendanceExcelExporter {
                 cell(head, c, HEADERS[c], header);
             }
 
-            //데이터(한 달 전 일자)
+            //데이터(한 달 전 일자) — 토(옅은 파랑)·일/공휴일(옅은 빨강) 행 배경
             int r = HEADER_ROW + 1;
             for (DailyAttendance d : monthly.days()) {
                 Row row = sheet.createRow(r++);
+                boolean red = d.holiday() || (d.date() != null && d.date().getDayOfWeek() == DayOfWeek.SUNDAY);
+                boolean blue = !red && d.date() != null && d.date().getDayOfWeek() == DayOfWeek.SATURDAY;
+                XSSFCellStyle rowText = red ? textSun : blue ? textSat : text;
+                XSSFCellStyle rowHour = red ? hourSun : blue ? hourSat : hour;
                 for (int c = 0; c < COLS; c++) {
-                    row.createCell(c).setCellStyle(text); //빈 칸도 테두리 유지
+                    row.createCell(c).setCellStyle(rowText); //빈 칸도 테두리·배경 유지
                 }
                 row.getCell(0).setCellValue(d.date() == null ? "" : d.date().toString());
                 row.getCell(1).setCellValue(category(d));
@@ -95,12 +106,10 @@ public class DefaultAttendanceExcelExporter implements AttendanceExcelExporter {
                 row.getCell(3).setCellValue(nvl(d.scheduleEnd()));
                 row.getCell(4).setCellValue(nvl(d.stampIn()));
                 row.getCell(5).setCellValue(nvl(d.stampOut()));
-                setHours(row.getCell(6), d.scheduledMinutes(), hour);
-                if (d.recognizedBreakMinutes() != null) {
-                    row.getCell(7).setCellValue(d.recognizedBreakMinutes());
-                }
-                setHours(row.getCell(8), d.workMinutes(), hour);
-                row.getCell(9).setCellValue(d.manual() ? "O" : "");
+                setHours(row.getCell(6), d.scheduledMinutes(), rowHour);
+                setHours(row.getCell(7), d.recognizedBreakMinutes(), rowHour); //휴식도 소수 시간
+                setHours(row.getCell(8), d.workMinutes(), rowHour);
+                row.getCell(9).setCellValue(nvl(d.note())); //비고 — 실제 정정 사유
             }
 
             //합계
@@ -110,7 +119,7 @@ public class DefaultAttendanceExcelExporter implements AttendanceExcelExporter {
             }
             total.getCell(0).setCellValue("합계");
             setHours(total.getCell(6), monthly.totalScheduledMinutes(), totalHour);
-            total.getCell(7).setCellValue(monthly.totalBreakMinutes());
+            setHours(total.getCell(7), monthly.totalBreakMinutes(), totalHour);
             setHours(total.getCell(8), monthly.totalWorkMinutes(), totalHour);
 
             for (int c = 0; c < COLS; c++) {
@@ -217,6 +226,25 @@ public class DefaultAttendanceExcelExporter implements AttendanceExcelExporter {
 
     private static XSSFCellStyle center(XSSFCellStyle s) {
         s.setAlignment(HorizontalAlignment.CENTER);
+        return s;
+    }
+
+    /** 테두리 텍스트 셀(옵션 배경). */
+    private static XSSFCellStyle textStyle(XSSFWorkbook wb, String font, byte[] fillRgb) {
+        XSSFCellStyle s = base(wb, font, false);
+        if (fillRgb != null) {
+            fill(s, fillRgb);
+        }
+        return s;
+    }
+
+    /** 소수 시간(0.00) 셀(옵션 배경). */
+    private static XSSFCellStyle hourStyle(XSSFWorkbook wb, String font, byte[] fillRgb) {
+        XSSFCellStyle s = base(wb, font, false);
+        s.setDataFormat(wb.createDataFormat().getFormat("0.00"));
+        if (fillRgb != null) {
+            fill(s, fillRgb);
+        }
         return s;
     }
 

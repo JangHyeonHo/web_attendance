@@ -209,7 +209,9 @@ public final class AttendanceDtos {
             @Schema(description = "schema.daily-attendance.work-minutes", example = "470")
             Integer workMinutes,           //총 근무시간(분). 출근·퇴근 미확정이면 null
             //그 날에 수동 정정 스탬프가 존재하는가(상세는 daily API — 테이블에는 마커만)
-            @Schema(description = "schema.daily-attendance.manual") boolean manual) {
+            @Schema(description = "schema.daily-attendance.manual") boolean manual,
+            //그 날 정정 사유(비고) — 수동 정정 스탬프의 사유(텍스트/코드) 결합. 없으면 null
+            @Schema(description = "schema.daily-attendance.note", example = "미기록") String note) {
     }
 
     @Schema(description = "schema.monthly-response")

@@ -21,17 +21,17 @@ class DefaultAttendanceExcelExporterTest {
 
     private static DailyAttendance work(int day, String in, String out, int sched, int brk, int workM, boolean manual) {
         return new DailyAttendance(LocalDate.of(2026, 7, day), false, false, "09:00", "18:00",
-                in, out, null, sched, brk, 60, brk, workM, manual);
+                in, out, null, sched, brk, 60, brk, workM, manual, manual ? "미기록" : null);
     }
 
     private static DailyAttendance holiday(int day, String name) {
         return new DailyAttendance(LocalDate.of(2026, 7, day), true, false, null, null,
-                null, null, name, null, null, null, null, null, false);
+                null, null, name, null, null, null, null, null, false, null);
     }
 
     private static DailyAttendance dayOff(int day) {
         return new DailyAttendance(LocalDate.of(2026, 7, day), false, true, null, null,
-                null, null, null, null, null, null, null, null, false);
+                null, null, null, null, null, null, null, null, false, null);
     }
 
     private static MonthlyResponse sample() {
@@ -85,8 +85,8 @@ class DefaultAttendanceExcelExporterTest {
             assertThat(first.getCell(2).getStringCellValue()).isEqualTo("09:00");
             assertThat(first.getCell(8).getNumericCellValue()).isEqualTo(468 / 60.0);
 
-            //비고(row 7, manual → 'O') · 공휴일 명칭(row 8)
-            assertThat(sheet.getRow(7).getCell(9).getStringCellValue()).isEqualTo("O");
+            //비고(row 7, manual → 실제 사유) · 공휴일 명칭(row 8)
+            assertThat(sheet.getRow(7).getCell(9).getStringCellValue()).isEqualTo("미기록");
             assertThat(sheet.getRow(8).getCell(1).getStringCellValue()).isEqualTo("제헌절");
         }
     }

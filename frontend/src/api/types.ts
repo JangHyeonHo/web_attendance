@@ -449,6 +449,8 @@ export interface DailyAttendance {
   workMinutes: number | null
   /** 그 날에 수동 정정 스탬프 존재(상세는 daily API) */
   manual: boolean
+  /** 정정 사유(비고) — 없으면 null */
+  note: string | null
 }
 
 // ---- 수동 정정 + 일자 이력 (Phase 5) ----
