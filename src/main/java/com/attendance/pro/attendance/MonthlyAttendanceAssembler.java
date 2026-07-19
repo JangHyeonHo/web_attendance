@@ -73,6 +73,15 @@ public class MonthlyAttendanceAssembler {
                 .map(stamp -> stamp.stampedAt().toLocalDate())
                 .collect(Collectors.toSet());
 
+        //정정 사유(비고) — 날짜별로 수동 정정 스탬프의 사유를 결합(중복 제거·순서 유지)
+        Map<LocalDate, java.util.LinkedHashSet<String>> noteByDay = new java.util.LinkedHashMap<>();
+        for (AttendanceStamp stamp : stamps) {
+            if (stamp.manual()) {
+                noteByDay.computeIfAbsent(stamp.stampedAt().toLocalDate(),
+                        k -> new java.util.LinkedHashSet<>()).add(reasonLabel(stamp));
+            }
+        }
+
         List<DailyAttendance> result = new ArrayList<>(monthDays.size());
         boolean attending = false;
         int cursor = 0;
@@ -178,9 +187,28 @@ public class MonthlyAttendanceAssembler {
                     format(resolvedStart), format(resolvedEnd),
                     stampIn, stampOut, holiday ? holidays.get(day) : null,
                     scheduledMinutes, breakMinutes, statutory, recognizedBreak, workMinutes,
-                    manualDays.contains(day)));
+                    manualDays.contains(day),
+                    noteByDay.containsKey(day) ? String.join(", ", noteByDay.get(day)) : null));
         }
         return result;
+    }
+
+    /** 정정 사유 표시 문자열 — 자유 텍스트가 있으면 그것을, 없으면 코드 라벨을. */
+    private static String reasonLabel(AttendanceStamp stamp) {
+        if (stamp.reasonText() != null && !stamp.reasonText().isBlank()) {
+            return stamp.reasonText().trim();
+        }
+        String code = stamp.reasonCode();
+        if (code == null) {
+            return "정정";
+        }
+        return switch (code) {
+            case "FORGOT" -> "미기록";
+            case "DEVICE" -> "기기 오류";
+            case "OFFSITE" -> "외근";
+            case "OTHER" -> "기타";
+            default -> code;
+        };
     }
 
     /**

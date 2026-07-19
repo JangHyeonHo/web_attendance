@@ -62,7 +62,8 @@ public class TenantProfileService {
         }
         tenantProfileMapper.upsert(tenantId,
                 fieldCipher.encrypt(request.businessRegNo()),
-                request.ceoName(), request.address(), request.contactName(), request.contactEmail(),
+                request.ceoName(), request.postalCode(), request.address(), request.addressDetail(),
+                request.contactName(), request.contactEmail(),
                 fieldCipher.encrypt(request.contactPhone()));
         return toResponse(tenantProfileMapper.findById(tenantId));
     }
@@ -115,7 +116,8 @@ public class TenantProfileService {
         return new TenantProfileResponse(profile.tenantId(),
                 profile.country(),
                 country == null ? "***" : country.maskBizRegNo(businessRegNo),
-                profile.ceoName(), profile.address(), profile.contactName(), profile.contactEmail(),
+                profile.ceoName(), profile.postalCode(), profile.address(), profile.addressDetail(),
+                profile.contactName(), profile.contactEmail(),
                 Masking.phone(contactPhone),
                 profile.updatedAt());
     }

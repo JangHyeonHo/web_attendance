@@ -9,10 +9,10 @@ import { useIsMobile } from '../hooks/useIsMobile'
 import { localeOf } from '../i18n/lang'
 import type { AttendanceType, DailyAttendance, DailyStampEntry, ManualReason, MonthlyResponse } from '../api/types'
 
-/** 분 → "h:mm" 조립(서버는 로케일 무관 수치만 — 표기는 화면 책임). null은 '-' */
-function formatMinutes(minutes: number | null): string {
+/** 분 → 소수 시간(엑셀 보고서와 동일한 0.00 표기 — 서버는 수치만, 표기는 화면 책임). null은 '-' */
+function formatHours(minutes: number | null): string {
   if (minutes === null) return '-'
-  return `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, '0')}`
+  return (minutes / 60).toFixed(2)
 }
 
 /** 사유 선택지 — 자주 있는 "찍는 것을 잊음"이 선두, OTHER(직접 입력)만 텍스트 필수 */
@@ -54,7 +54,7 @@ interface EditingStamp {
  * - 잘못 입력 복구는 [수정](시각·구분·사유 변경) — 이력 삭제는 제공하지 않는다
  */
 export function DetailsScreen() {
-  const { t: commonT, lang } = useApp()
+  const { t: commonT, lang, userName, tenantName } = useApp()
   const isMobile = useIsMobile()
   const today = new Date()
   const [year, setYear] = useState(today.getFullYear())
@@ -63,6 +63,8 @@ export function DetailsScreen() {
   const [texts, setTexts] = useState<Record<string, string>>({})
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  //회사 설정: 근태 보고서 결재(도장)란 표시 여부 — 인쇄 시에만 반영
+  const [stampEnabled, setStampEnabled] = useState(false)
 
   //일자 상세 모달(스탬프 이력)
   const [detailDate, setDetailDate] = useState<string | null>(null)
@@ -107,6 +109,38 @@ export function DetailsScreen() {
   }, [lang])
 
   const t = useCallback((key: string) => texts[key] ?? commonT(key), [texts, commonT])
+
+  //근태 보고서 결재란 표시 설정(회사 설정) — 인쇄 결재란 노출 판단
+  useEffect(() => {
+    attendanceApi
+      .reportSetting()
+      .then((r) => setStampEnabled(r.stampEnabled))
+      .catch(() => {
+        //설정 취득 실패는 무시(결재란 미표시로 안전)
+      })
+  }, [])
+
+  //근태 Excel(.xlsx) 내보내기 — 세션 쿠키로 인증된 GET을 blob으로 받아 다운로드 트리거
+  const exportExcel = useCallback(async () => {
+    try {
+      const res = await fetch(
+        `/api/v1/attendance/monthly/export?year=${year}&month=${month}&lang=${lang}`,
+        { credentials: 'same-origin' },
+      )
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `attendance-${year}-${String(month).padStart(2, '0')}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }, [year, month])
 
   //요일 명칭은 사전 없이 Intl 표준 API로 생성
   const weekdayOf = useMemo(() => {
@@ -263,6 +297,16 @@ export function DetailsScreen() {
             ariaLabel={t('MONTH')}
             onChange={(v) => setMonth(Number(v))}
           />
+          {/* 근무표 다운로드 — Excel(서버 .xlsx 즉시 다운로드) / PDF(브라우저 인쇄 → PDF 저장) */}
+          <div className="dl-group">
+            <span className="dl-group-label">{t('DOWNLOAD_TIMESHEET')}</span>
+            <button type="button" onClick={() => void exportExcel()} disabled={!monthly}>
+              Excel
+            </button>
+            <button type="button" onClick={() => window.print()} disabled={!monthly}>
+              PDF
+            </button>
+          </div>
         </div>
       </div>
       {/* 정정 진입은 날짜 버튼 → 일자 상세 → [정정 등록]/[수정] 단일 동선 */}
@@ -274,10 +318,34 @@ export function DetailsScreen() {
       )}
       {error && <p className="error center">{error}</p>}
       {loading && <p className="muted center">{commonT('LOADING')}</p>}
-      {monthly && !loading && isMobile && (
+      {monthly && !loading && (
+      <div className="printable">
+        {/* 인쇄 시에만 나오는 근태 머리말(성명·회사·기간) + 결재란(설정 시) */}
+        <div className="print-only att-print-head">
+          <div className="att-print-id">
+            <strong>{userName}{tenantName ? ` — ${tenantName}` : ''}</strong>
+            <span>{t('ATTDETAILS')} — {year}. {String(month).padStart(2, '0')}</span>
+          </div>
+          {stampEnabled && (
+            <table className="att-stamp">
+              <tbody>
+                <tr>
+                  <td className="att-stamp-label" rowSpan={2}>{t('APPROVAL')}</td>
+                  <th>{t('HR_MANAGER')}</th>
+                  <th>{t('GENERAL_MANAGER')}</th>
+                </tr>
+                <tr>
+                  <td className="att-stamp-cell"></td>
+                  <td className="att-stamp-cell"></td>
+                </tr>
+              </tbody>
+            </table>
+          )}
+        </div>
+      {isMobile && (
         <MonthlyCards monthly={monthly} weekdayOf={weekdayOf} t={t} onOpen={openDetail} />
       )}
-      {monthly && !loading && !isMobile && (
+      {!isMobile && (
         <div className="table-wrap">
         <table className="detail-table">
           <thead>
@@ -287,6 +355,7 @@ export function DetailsScreen() {
               <th colSpan={2}>{t('INPUTTIME')}</th>
               <th rowSpan={2}>{t('BREAK_RECOGNIZED')}</th>
               <th rowSpan={2}>{t('TOTAL_WORK')}</th>
+              <th rowSpan={2}>{t('REMARKS')}</th>
             </tr>
             <tr>
               <th>{t('SCHE_IN')}</th>
@@ -308,8 +377,10 @@ export function DetailsScreen() {
                 day.statutoryBreakMinutes !== null &&
                 day.recognizedBreakMinutes > day.statutoryBreakMinutes
               const offDutyLabel = day.holidayName ?? (day.holiday ? t('HOLIDAY') : t('DAY_OFF'))
+              //엑셀 보고서와 동일한 행 배경: 토=옅은 파랑, 일·공휴일=옅은 빨강(그 외 없음)
+              const rowBg = day.holiday || weekday === 0 ? 'row-sun' : weekday === 6 ? 'row-sat' : ''
               return (
-                <tr key={day.date} className={offDuty ? 'holiday' : ''}>
+                <tr key={day.date} className={rowBg}>
                   <td className={weekday === 0 ? 'sun' : weekday === 6 ? 'sat' : ''}>
                     {/* 행 전체 클릭은 스크롤 중 오조작이 있어 날짜 버튼만 진입점으로 */}
                     <button
@@ -322,9 +393,12 @@ export function DetailsScreen() {
                     {day.manual && <span className="mini-badge">{t('SOURCE_MANUAL')}</span>}
                   </td>
                   {offDuty && !hasStamps ? (
-                    <td colSpan={6} className="center muted">
-                      {offDutyLabel}
-                    </td>
+                    <>
+                      <td colSpan={6} className="center muted">
+                        {offDutyLabel}
+                      </td>
+                      <td>{day.note ?? ''}</td>
+                    </>
                   ) : (
                     <>
                       <td>{day.scheduleStart ?? (offDuty ? offDutyLabel : '')}</td>
@@ -332,9 +406,10 @@ export function DetailsScreen() {
                       <td>{day.stampIn ?? ''}</td>
                       <td>{day.stampOut ?? ''}</td>
                       <td className={breakOver ? 'break-over' : ''}>
-                        {formatMinutes(day.recognizedBreakMinutes)}
+                        {formatHours(day.recognizedBreakMinutes)}
                       </td>
-                      <td>{formatMinutes(day.workMinutes)}</td>
+                      <td>{formatHours(day.workMinutes)}</td>
+                      <td>{day.note ?? ''}</td>
                     </>
                   )}
                 </tr>
@@ -346,14 +421,17 @@ export function DetailsScreen() {
               <td>{t('MONTH_TOTAL')}</td>
               {/* 예정근무는 스케줄 열(4칸) 아래, 인정휴게·실근무는 각 열 아래에 정렬 */}
               <td colSpan={4} className="num">
-                {t('EXPECTED_WORK')} {formatMinutes(monthly.totalScheduledMinutes)}
+                {t('EXPECTED_WORK')} {formatHours(monthly.totalScheduledMinutes)}
               </td>
-              <td>{formatMinutes(monthly.totalBreakMinutes)}</td>
-              <td>{formatMinutes(monthly.totalWorkMinutes)}</td>
+              <td>{formatHours(monthly.totalBreakMinutes)}</td>
+              <td>{formatHours(monthly.totalWorkMinutes)}</td>
+              <td></td>
             </tr>
           </tfoot>
         </table>
         </div>
+      )}
+      </div>
       )}
 
       {detailDate && (
@@ -567,7 +645,7 @@ function MonthlyCards({
                 {date.getDate()}({weekdayOf(date)})
               </span>
               {day.manual && <span className="mini-badge">{t('SOURCE_MANUAL')}</span>}
-              <span className="att-card-work">{formatMinutes(day.workMinutes)}</span>
+              <span className="att-card-work">{formatHours(day.workMinutes)}</span>
             </div>
             {offDuty && !hasStamps ? (
               <div className="att-card-off muted">{offDutyLabel}</div>
@@ -583,8 +661,14 @@ function MonthlyCards({
                 </div>
                 <div>
                   <dt>{t('BREAK_RECOGNIZED')}</dt>
-                  <dd>{formatMinutes(day.recognizedBreakMinutes)}</dd>
+                  <dd>{formatHours(day.recognizedBreakMinutes)}</dd>
                 </div>
+                {day.note && (
+                  <div>
+                    <dt>{t('REMARKS')}</dt>
+                    <dd>{day.note}</dd>
+                  </div>
+                )}
               </dl>
             )}
           </button>
@@ -594,15 +678,15 @@ function MonthlyCards({
       <div className="att-total-card">
         <div>
           <span className="muted">{t('EXPECTED_WORK')}</span>
-          <strong>{formatMinutes(monthly.totalScheduledMinutes)}</strong>
+          <strong>{formatHours(monthly.totalScheduledMinutes)}</strong>
         </div>
         <div>
           <span className="muted">{t('BREAK_RECOGNIZED')}</span>
-          <strong>{formatMinutes(monthly.totalBreakMinutes)}</strong>
+          <strong>{formatHours(monthly.totalBreakMinutes)}</strong>
         </div>
         <div>
           <span className="muted">{t('TOTAL_WORK')}</span>
-          <strong>{formatMinutes(monthly.totalWorkMinutes)}</strong>
+          <strong>{formatHours(monthly.totalWorkMinutes)}</strong>
         </div>
       </div>
     </div>

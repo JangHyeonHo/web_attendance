@@ -295,8 +295,9 @@ class AttendanceServiceTest {
             when(scheduleMapper.findBetween(eq(TENANT_ID), eq(USER_ID), any(), any()))
                     .thenReturn(java.util.List.of());
             when(holidayMapper.findHolidaysBetween(eq(TENANT_ID), any(), any())).thenReturn(java.util.List.of());
+            //요일 무관하게 개인 기본값 반영을 검증(주말 실행 시 dayOff로 빠지는 것 방지) — 전 요일 근무
             when(scheduleMapper.findWorkDefaults(TENANT_ID, USER_ID))
-                    .thenReturn(new WorkDefaults(java.time.LocalTime.of(10, 0), java.time.LocalTime.of(19, 0), "1111100"));
+                    .thenReturn(new WorkDefaults(java.time.LocalTime.of(10, 0), java.time.LocalTime.of(19, 0), "1111111"));
             when(attendanceMapper.findLatest(TENANT_ID, USER_ID)).thenReturn(null);
 
             StatusResponse response = service.status(TENANT_ID, USER_ID);

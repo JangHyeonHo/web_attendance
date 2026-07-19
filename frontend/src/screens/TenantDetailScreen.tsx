@@ -76,7 +76,9 @@ export function TenantDetailScreen({ tenantId, country }: { tenantId: number; co
   const [profileFieldErrors, setProfileFieldErrors] = useState<Record<string, string>>({})
   const [businessRegNo, setBusinessRegNo] = useState('')
   const [ceoName, setCeoName] = useState('')
+  const [postalCode, setPostalCode] = useState('')
   const [address, setAddress] = useState('')
+  const [addressDetail, setAddressDetail] = useState('')
   const [contactName, setContactName] = useState('')
   const [contactEmail, setContactEmail] = useState('')
   const [contactPhone, setContactPhone] = useState('')
@@ -156,7 +158,9 @@ export function TenantDetailScreen({ tenantId, country }: { tenantId: number; co
     //소재국은 tenant.country 승격으로 요청에서 제거 — 서버가 tenant에서 취득(holiday-plan §4-2)
     setBusinessRegNo('')
     setCeoName('')
+    setPostalCode('')
     setAddress('')
+    setAddressDetail('')
     setContactName('')
     setContactEmail('')
     setContactPhone('')
@@ -173,7 +177,9 @@ export function TenantDetailScreen({ tenantId, country }: { tenantId: number; co
       const saved = await systemTenantApi.upsertProfile(tenantId, {
         businessRegNo: businessRegNo.trim(),
         ceoName: orNull(ceoName),
+        postalCode: orNull(postalCode),
         address: orNull(address),
+        addressDetail: orNull(addressDetail),
         contactName: orNull(contactName),
         contactEmail: orNull(contactEmail),
         contactPhone: orNull(contactPhone),
@@ -275,8 +281,12 @@ export function TenantDetailScreen({ tenantId, country }: { tenantId: number; co
             <dd>{profile.businessRegNoMasked}</dd>
             <dt>{t('CEO_NAME')}</dt>
             <dd>{profile.ceoName ?? '-'}</dd>
+            <dt>{t('POSTAL_CODE')}</dt>
+            <dd>{profile.postalCode ?? '-'}</dd>
             <dt>{t('ADDRESS')}</dt>
             <dd>{profile.address ?? '-'}</dd>
+            <dt>{t('ADDRESS_DETAIL')}</dt>
+            <dd>{profile.addressDetail ?? '-'}</dd>
             <dt>{t('CONTACT_NAME')}</dt>
             <dd>{profile.contactName ?? '-'}</dd>
             <dt>{t('CONTACT_EMAIL')}</dt>
@@ -314,11 +324,25 @@ export function TenantDetailScreen({ tenantId, country }: { tenantId: number; co
                 <span className="error">{profileFieldErrors.ceoName}</span>
               )}
             </label>
+            <label className="field-narrow">
+              {t('POSTAL_CODE')}
+              <input value={postalCode} onChange={(e) => setPostalCode(e.target.value)} maxLength={10} inputMode="numeric" />
+              {profileFieldErrors.postalCode && (
+                <span className="error">{profileFieldErrors.postalCode}</span>
+              )}
+            </label>
             <label>
               {t('ADDRESS')}
               <input value={address} onChange={(e) => setAddress(e.target.value)} />
               {profileFieldErrors.address && (
                 <span className="error">{profileFieldErrors.address}</span>
+              )}
+            </label>
+            <label>
+              {t('ADDRESS_DETAIL')}
+              <input value={addressDetail} onChange={(e) => setAddressDetail(e.target.value)} />
+              {profileFieldErrors.addressDetail && (
+                <span className="error">{profileFieldErrors.addressDetail}</span>
               )}
             </label>
             <label>

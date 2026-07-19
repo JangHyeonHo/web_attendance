@@ -18,7 +18,8 @@ public interface TenantProfileMapper {
     @Select("""
             SELECT p.tenant_id, t.country,
                    p.business_reg_no AS business_reg_no_enc,
-                   p.ceo_name, p.address, p.contact_name, p.contact_email,
+                   p.ceo_name, p.postal_code, p.address, p.address_detail,
+                   p.contact_name, p.contact_email,
                    p.contact_phone AS contact_phone_enc,
                    p.created_at, p.updated_at
             FROM tenant_profile p
@@ -29,14 +30,17 @@ public interface TenantProfileMapper {
 
     @Insert("""
             INSERT INTO tenant_profile
-                (tenant_id, business_reg_no, ceo_name, address, contact_name, contact_email, contact_phone)
+                (tenant_id, business_reg_no, ceo_name, postal_code, address, address_detail,
+                 contact_name, contact_email, contact_phone)
             VALUES
-                (#{tenantId}, #{businessRegNoEnc}, #{ceoName}, #{address},
+                (#{tenantId}, #{businessRegNoEnc}, #{ceoName}, #{postalCode}, #{address}, #{addressDetail},
                  #{contactName}, #{contactEmail}, #{contactPhoneEnc})
             ON DUPLICATE KEY UPDATE
                 business_reg_no = #{businessRegNoEnc},
                 ceo_name = #{ceoName},
+                postal_code = #{postalCode},
                 address = #{address},
+                address_detail = #{addressDetail},
                 contact_name = #{contactName},
                 contact_email = #{contactEmail},
                 contact_phone = #{contactPhoneEnc}
@@ -44,7 +48,9 @@ public interface TenantProfileMapper {
     int upsert(@Param("tenantId") long tenantId,
             @Param("businessRegNoEnc") String businessRegNoEnc,
             @Param("ceoName") String ceoName,
+            @Param("postalCode") String postalCode,
             @Param("address") String address,
+            @Param("addressDetail") String addressDetail,
             @Param("contactName") String contactName,
             @Param("contactEmail") String contactEmail,
             @Param("contactPhoneEnc") String contactPhoneEnc);

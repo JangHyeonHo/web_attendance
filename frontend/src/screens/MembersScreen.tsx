@@ -69,6 +69,7 @@ export function MembersScreen() {
     return Array.from({ length: 7 }, (_, i) => format.format(new Date(2024, 0, 1 + i)))
   })()
   const [members, setMembers] = useState<MemberSummary[]>([])
+  const [query, setQuery] = useState('') //이름·이메일·부서 검색(대규모 인원 대비, #9와 동일 패턴)
   const [listError, setListError] = useState<string | null>(null)
   /** 자기 자신 행의 강등/비활성/삭제 버튼은 렌더하지 않는다(세션 파괴 사고 방지) */
   const [myUserId, setMyUserId] = useState<number | null>(null)
@@ -258,6 +259,16 @@ export function MembersScreen() {
     return t('INVITE_EXPIRED')
   }
 
+  const q = query.trim().toLowerCase()
+  const filtered = q
+    ? members.filter(
+        (m) =>
+          m.name.toLowerCase().includes(q) ||
+          m.email.toLowerCase().includes(q) ||
+          (m.departCd?.toLowerCase().includes(q) ?? false),
+      )
+    : members
+
   return (
     <div className="panel">
       <div className="toolbar">
@@ -441,6 +452,15 @@ export function MembersScreen() {
         </Modal>
       )}
 
+      {/* 대규모 인원 대비 검색 — 이름·이메일·부서(클라이언트 필터, 즉시) */}
+      <input
+        className="member-search"
+        placeholder={t('MEMBER_SEARCH')}
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        aria-label={t('MEMBER_SEARCH')}
+      />
+
       <div className="table-wrap">
         <table className="detail-table">
           <thead>
@@ -456,7 +476,12 @@ export function MembersScreen() {
             </tr>
           </thead>
           <tbody>
-            {members.map((member) => {
+            {filtered.length === 0 && (
+              <tr>
+                <td colSpan={8} className="muted center">{t('EMPTY')}</td>
+              </tr>
+            )}
+            {filtered.map((member) => {
               const self = myUserId !== null && member.userId === myUserId
               const isPending = member.status === 'PENDING'
               return (

@@ -1,6 +1,10 @@
 package com.attendance.pro.attendance;
 
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -22,8 +26,14 @@ import com.attendance.pro.attendance.AttendanceDtos.ManualStampRequest;
 import com.attendance.pro.attendance.AttendanceDtos.MonthlyResponse;
 import com.attendance.pro.attendance.AttendanceDtos.StampResponse;
 import com.attendance.pro.attendance.AttendanceDtos.StatusResponse;
+import com.attendance.pro.attendance.export.AttendanceExporters;
+import com.attendance.pro.attendance.export.ExportMeta;
+import com.attendance.pro.attendance.export.ReportSettingDtos.ReportSettingResponse;
+import com.attendance.pro.attendance.export.ReportSettingService;
 import com.attendance.pro.auth.LoginUser;
 import com.attendance.pro.auth.SessionUser;
+import com.attendance.pro.user.User;
+import com.attendance.pro.user.UserMapper;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -41,9 +51,22 @@ import jakarta.validation.Valid;
 public class AttendanceController {
 
     private final AttendanceService attendanceService;
+    private final AttendanceExporters exporters;
+    private final UserMapper userMapper;
+    private final ReportSettingService reportSettingService;
 
-    public AttendanceController(AttendanceService attendanceService) {
+    public AttendanceController(AttendanceService attendanceService, AttendanceExporters exporters,
+            UserMapper userMapper, ReportSettingService reportSettingService) {
         this.attendanceService = attendanceService;
+        this.exporters = exporters;
+        this.userMapper = userMapper;
+        this.reportSettingService = reportSettingService;
+    }
+
+    @Operation(summary = "api.attendance.report-setting")
+    @GetMapping("/report-setting")
+    public ReportSettingResponse reportSetting(@LoginUser SessionUser user) {
+        return new ReportSettingResponse(reportSettingService.stampEnabled(user.tenantId()));
     }
 
     @Operation(summary = "api.attendance.status.summary", description = "api.attendance.status.description")
@@ -120,6 +143,28 @@ public class AttendanceController {
             @Parameter(description = "schema.field.year", example = "2026") @RequestParam("year") int year,
             @Parameter(description = "schema.field.month", example = "7") @RequestParam("month") int month) {
         return attendanceService.monthly(user.tenantId(), user.userId(), year, month);
+    }
+
+    @Operation(summary = "api.attendance.monthly.export.summary", description = "api.attendance.monthly.export.description")
+    @GetMapping("/monthly/export")
+    public ResponseEntity<byte[]> exportMonthly(@LoginUser SessionUser user,
+            @Parameter(description = "schema.field.year", example = "2026") @RequestParam("year") int year,
+            @Parameter(description = "schema.field.month", example = "7") @RequestParam("month") int month,
+            @RequestParam(value = "lang", defaultValue = "KOR") String lang) {
+        MonthlyResponse data = attendanceService.monthly(user.tenantId(), user.userId(), year, month);
+        User me = userMapper.findById(user.tenantId(), user.userId());
+        String department = me == null ? null : me.departCd();
+        boolean stamp = reportSettingService.stampEnabled(user.tenantId());
+        ExportMeta meta = new ExportMeta(user.tenantName(), user.name(), department, year, month,
+                lang, LocalDate.now(), stamp);
+        byte[] xlsx = exporters.forTenant(user.tenantId()).toXlsx(data, meta);
+        String filename = String.format("attendance-%d-%02d.xlsx", year, month); //ASCII 파일명(인코딩 이슈 회피)
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment().filename(filename).build().toString())
+                .contentType(MediaType.parseMediaType(
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(xlsx);
     }
 
 }

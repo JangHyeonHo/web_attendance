@@ -222,7 +222,9 @@ export type ProfileCountry = 'KR' | 'JP'
 export interface TenantProfileUpsertRequest {
   businessRegNo: string
   ceoName: string | null
+  postalCode: string | null
   address: string | null
+  addressDetail: string | null
   contactName: string | null
   contactEmail: string | null
   contactPhone: string | null
@@ -234,7 +236,9 @@ export interface TenantProfileResponse {
   country: ProfileCountry
   businessRegNoMasked: string // 예: KR 123-**-***** / JP *********0123
   ceoName: string | null
+  postalCode: string | null
   address: string | null
+  addressDetail: string | null
   contactName: string | null
   contactEmail: string | null
   contactPhoneMasked: string | null // 예: 010-****-5678
@@ -449,6 +453,8 @@ export interface DailyAttendance {
   workMinutes: number | null
   /** 그 날에 수동 정정 스탬프 존재(상세는 daily API) */
   manual: boolean
+  /** 정정 사유(비고) — 없으면 null */
+  note: string | null
 }
 
 // ---- 수동 정정 + 일자 이력 (Phase 5) ----
@@ -757,4 +763,11 @@ export interface ErrorResponse {
   code: string
   message: string
   fieldErrors: FieldErrorDetail[] | null
+}
+
+// ---- 근태 보고서 설정 (W019 — 결재/도장란 on/off) ----
+
+export interface ReportSetting {
+  /** 근태 보고서(Excel·인쇄)에 결재(도장)란 표시 여부 */
+  stampEnabled: boolean
 }
