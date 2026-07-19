@@ -48,7 +48,7 @@ export function BillingScreen() {
         <h2>{t('TITLE')}</h2>
         <div className="toolbar-actions">
           <button onClick={() => void reload()}>{t('REFRESH')}</button>
-          {selected && <button onClick={() => window.print()}>{t('PRINT')}</button>}
+          {selected && <button onClick={() => window.print()}>{t('PRINT_INVOICE')}</button>}
         </div>
       </div>
 
