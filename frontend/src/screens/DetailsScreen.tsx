@@ -108,6 +108,27 @@ export function DetailsScreen() {
 
   const t = useCallback((key: string) => texts[key] ?? commonT(key), [texts, commonT])
 
+  //근태 Excel(.xlsx) 내보내기 — 세션 쿠키로 인증된 GET을 blob으로 받아 다운로드 트리거
+  const exportExcel = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/v1/attendance/monthly/export?year=${year}&month=${month}`, {
+        credentials: 'same-origin',
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `attendance-${year}-${String(month).padStart(2, '0')}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }, [year, month])
+
   //요일 명칭은 사전 없이 Intl 표준 API로 생성
   const weekdayOf = useMemo(() => {
     const format = new Intl.DateTimeFormat(localeOf(lang), { weekday: 'short' })
@@ -263,6 +284,9 @@ export function DetailsScreen() {
             ariaLabel={t('MONTH')}
             onChange={(v) => setMonth(Number(v))}
           />
+          <button type="button" onClick={() => void exportExcel()} disabled={!monthly}>
+            {t('EXPORT_EXCEL')}
+          </button>
         </div>
       </div>
       {/* 정정 진입은 날짜 버튼 → 일자 상세 → [정정 등록]/[수정] 단일 동선 */}
