@@ -222,7 +222,9 @@ export type ProfileCountry = 'KR' | 'JP'
 export interface TenantProfileUpsertRequest {
   businessRegNo: string
   ceoName: string | null
+  postalCode: string | null
   address: string | null
+  addressDetail: string | null
   contactName: string | null
   contactEmail: string | null
   contactPhone: string | null
@@ -234,7 +236,9 @@ export interface TenantProfileResponse {
   country: ProfileCountry
   businessRegNoMasked: string // 예: KR 123-**-***** / JP *********0123
   ceoName: string | null
+  postalCode: string | null
   address: string | null
+  addressDetail: string | null
   contactName: string | null
   contactEmail: string | null
   contactPhoneMasked: string | null // 예: 010-****-5678

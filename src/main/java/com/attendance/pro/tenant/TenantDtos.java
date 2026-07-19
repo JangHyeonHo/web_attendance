@@ -87,7 +87,9 @@ public final class TenantDtos {
             @Size(max = 20, message = "{validation.biz-reg-no.size}")
             String businessRegNo,                                     //[암호화 저장]
             @Size(max = 50, message = "{validation.ceo-name.size}") String ceoName,
+            @Size(max = 10, message = "{validation.postal-code.size}") String postalCode,
             @Size(max = 200, message = "{validation.address.size}") String address,
+            @Size(max = 200, message = "{validation.address-detail.size}") String addressDetail,
             @Size(max = 50, message = "{validation.contact-name.size}") String contactName,
             @Email(message = "{validation.email.format}")
             @Size(max = 100, message = "{validation.email.size}") String contactEmail,
@@ -107,7 +109,8 @@ public final class TenantDtos {
             String country,                                           //KR=사업자등록번호, JP=法人番号 — 프론트 라벨 분기
             @Schema(description = "schema.field.biz-reg-no-masked", example = "123-**-*****")
             String businessRegNoMasked,                               //마스킹값 — 필드명으로 마스킹 여부를 드러냄(오독 방지)
-            String ceoName, String address, String contactName, String contactEmail,
+            String ceoName, String postalCode, String address, String addressDetail,
+            String contactName, String contactEmail,
             @Schema(description = "schema.field.contact-phone-masked", example = "010-****-5678")
             String contactPhoneMasked,                                //마스킹값
             LocalDateTime updatedAt) {

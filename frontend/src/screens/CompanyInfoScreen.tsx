@@ -88,7 +88,9 @@ function BusinessProfileSection() {
   const [profile, setProfile] = useState<TenantProfileResponse | null>(null)
   const [businessRegNo, setBusinessRegNo] = useState('')
   const [ceoName, setCeoName] = useState('')
+  const [postalCode, setPostalCode] = useState('')
   const [address, setAddress] = useState('')
+  const [addressDetail, setAddressDetail] = useState('')
   const [contactName, setContactName] = useState('')
   const [contactEmail, setContactEmail] = useState('')
   const [contactPhone, setContactPhone] = useState('')
@@ -103,7 +105,9 @@ function BusinessProfileSection() {
       setProfile(p)
       //마스킹 안 되는 필드는 채워두고, 사업자번호·연락처는 재입력 요구(마스킹값 재제출 차단)
       setCeoName(p.ceoName ?? '')
+      setPostalCode(p.postalCode ?? '')
       setAddress(p.address ?? '')
+      setAddressDetail(p.addressDetail ?? '')
       setContactName(p.contactName ?? '')
       setContactEmail(p.contactEmail ?? '')
     } catch (e) {
@@ -131,7 +135,9 @@ function BusinessProfileSection() {
       const updated = await tenantProfileApi.update({
         businessRegNo: businessRegNo.trim(),
         ceoName: ceoName.trim() || null,
+        postalCode: postalCode.trim() || null,
         address: address.trim() || null,
+        addressDetail: addressDetail.trim() || null,
         contactName: contactName.trim() || null,
         contactEmail: contactEmail.trim() || null,
         contactPhone: contactPhone.trim() || null,
@@ -211,9 +217,18 @@ function BusinessProfileSection() {
           <input type="email" value={contactEmail} onChange={(e) => { setContactEmail(e.target.value); setSaved(false) }} maxLength={100} placeholder="biz@company.com" />
           {fieldErrors.contactEmail && <span className="error">{fieldErrors.contactEmail}</span>}
         </label>
+        {/* 주소는 우편번호·기본주소·상세주소로 분리 — 청구서 공급받는자에 그대로 반영 */}
+        <label className="field-narrow">
+          {t('POSTAL_CODE')}
+          <input value={postalCode} onChange={(e) => { setPostalCode(e.target.value); setSaved(false) }} maxLength={10} placeholder="06236" inputMode="numeric" />
+        </label>
         <label>
           {t('ADDRESS')}
-          <input value={address} onChange={(e) => { setAddress(e.target.value); setSaved(false) }} maxLength={200} />
+          <input value={address} onChange={(e) => { setAddress(e.target.value); setSaved(false) }} maxLength={200} placeholder="서울시 강남구 테헤란로 123" />
+        </label>
+        <label>
+          {t('ADDRESS_DETAIL')}
+          <input value={addressDetail} onChange={(e) => { setAddressDetail(e.target.value); setSaved(false) }} maxLength={200} placeholder="4층 402호" />
         </label>
         <p className="hint">{t('BIZ_REENTER_HINT')}</p>
         {error && <p className="error" role="alert">{error}</p>}

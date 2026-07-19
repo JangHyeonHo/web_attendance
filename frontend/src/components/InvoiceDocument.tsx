@@ -1,4 +1,4 @@
-import type { InvoiceEntry } from '../api/types'
+import type { InvoiceEntry, TenantProfileResponse } from '../api/types'
 
 /** 금액(원) — 천단위 구분 + '원'. */
 function won(n: number): string {
@@ -12,15 +12,21 @@ function won(n: number): string {
 export function InvoiceDocument({
   invoice,
   tenantName,
+  profile,
   t,
 }: {
   invoice: InvoiceEntry
   tenantName: string | null
+  profile?: TenantProfileResponse | null
   t: (key: string) => string
 }) {
   const issued = invoice.status === 'ISSUED'
   const invNo = `INV-${invoice.ym}`
   const issuedAt = invoice.issuedAt ? invoice.issuedAt.slice(0, 10) : null
+
+  //공급받는자 주소 = (우편번호) 기본주소 상세주소 — 있는 값만 조합
+  const addressText = [profile?.address, profile?.addressDetail].filter(Boolean).join(' ')
+  const fullAddress = profile?.postalCode ? `(${profile.postalCode}) ${addressText}`.trim() : addressText
 
   //품목 금액(합계와 정확히 일치): 추가분 = round(좌석일×단가/일수), 반값 블록 = subtotal − 추가분
   const extraAmount = Math.round((invoice.seatDays * invoice.unitPrice) / invoice.daysInMonth)
@@ -68,6 +74,10 @@ export function InvoiceDocument({
         <div className="inv-party">
           <span className="inv-party-label">{t('INV_BILL_TO')}</span>
           <strong>{tenantName ?? '-'}</strong>
+          {profile?.ceoName && (
+            <span className="inv-party-line">{t('INV_CEO')}: {profile.ceoName}</span>
+          )}
+          {fullAddress && <span className="inv-party-line">{fullAddress}</span>}
         </div>
       </section>
 

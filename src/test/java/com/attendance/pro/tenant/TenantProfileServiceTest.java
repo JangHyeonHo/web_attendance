@@ -49,13 +49,13 @@ class TenantProfileServiceTest {
     }
 
     private static TenantProfileRequest request(String bizRegNo) {
-        return new TenantProfileRequest(bizRegNo, "홍대표", "서울시", "김담당", "c@acme.co.kr", "010-1234-5678");
+        return new TenantProfileRequest(bizRegNo, "홍대표", "06236", "서울시", "3층", "김담당", "c@acme.co.kr", "010-1234-5678");
     }
 
     private void stubProfileReload(String country, String bizRegNoPlain) {
         when(tenantProfileMapper.findById(TENANT_ID)).thenAnswer(inv -> new TenantProfile(
                 TENANT_ID, country, fieldCipher.encrypt(bizRegNoPlain),
-                "홍대표", "서울시", "김담당", "c@acme.co.kr",
+                "홍대표", "06236", "서울시", "3층", "김담당", "c@acme.co.kr",
                 fieldCipher.encrypt("010-1234-5678"),
                 LocalDateTime.now(), LocalDateTime.now()));
     }
@@ -74,7 +74,7 @@ class TenantProfileServiceTest {
                     assertThat(apiException.getMessageKey()).isEqualTo("validation.biz-reg-no.format-kr");
                 });
         verify(tenantProfileMapper, never()).upsert(anyLong(), anyString(), anyString(),
-                anyString(), anyString(), anyString(), anyString());
+                anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
     }
 
     @Test

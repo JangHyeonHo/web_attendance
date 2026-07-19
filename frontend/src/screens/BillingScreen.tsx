@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
-import { tenantBillingApi } from '../api/endpoints'
+import { tenantBillingApi, tenantProfileApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { SelectField } from '../components/fields'
 import { InvoiceDocument } from '../components/InvoiceDocument'
-import type { InvoiceEntry } from '../api/types'
+import type { InvoiceEntry, TenantProfileResponse } from '../api/types'
 
 /**
  * W018 청구서 — 회사 총관리자(TENANT_ADMIN) 전용.
@@ -14,6 +14,7 @@ export function BillingScreen() {
   const { t, tenantName } = useApp()
   const [rows, setRows] = useState<InvoiceEntry[]>([])
   const [selectedYm, setSelectedYm] = useState<string | null>(null)
+  const [profile, setProfile] = useState<TenantProfileResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const reload = useCallback(async () => {
@@ -30,6 +31,14 @@ export function BillingScreen() {
   useEffect(() => {
     void reload()
   }, [reload])
+
+  //공급받는자(청구서)에 표기할 회사 정보 — 미등록(404)이면 회사명만 표기
+  useEffect(() => {
+    tenantProfileApi
+      .get()
+      .then(setProfile)
+      .catch(() => setProfile(null))
+  }, [])
 
   const selected = rows.find((r) => r.ym === selectedYm) ?? null
 
@@ -67,7 +76,7 @@ export function BillingScreen() {
 
           {selected && (
             <div className="printable">
-              <InvoiceDocument invoice={selected} tenantName={tenantName} t={t} />
+              <InvoiceDocument invoice={selected} tenantName={tenantName} profile={profile} t={t} />
             </div>
           )}
         </>
