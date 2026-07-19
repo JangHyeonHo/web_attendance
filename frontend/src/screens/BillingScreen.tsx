@@ -11,10 +11,11 @@ import type { InvoiceEntry, TenantProfileResponse } from '../api/types'
  * 결제 정보 등록(#14) + 달 선택(드롭다운) + 선택한 달의 상세(인원·단가·공급가·부가세·합계).
  */
 export function BillingScreen() {
-  const { t, tenantName } = useApp()
+  const { t, tenantName, navigate } = useApp()
   const [rows, setRows] = useState<InvoiceEntry[]>([])
   const [selectedYm, setSelectedYm] = useState<string | null>(null)
   const [profile, setProfile] = useState<TenantProfileResponse | null>(null)
+  const [profileLoaded, setProfileLoaded] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const reload = useCallback(async () => {
@@ -32,12 +33,13 @@ export function BillingScreen() {
     void reload()
   }, [reload])
 
-  //공급받는자(청구서)에 표기할 회사 정보 — 미등록(404)이면 회사명만 표기
+  //받는 곳(청구서)에 표기할 회사 정보 — 미등록이면 서버가 200 빈 응답(null) → 회사명만 표기 + 입력 안내
   useEffect(() => {
     tenantProfileApi
       .get()
       .then(setProfile)
       .catch(() => setProfile(null))
+      .finally(() => setProfileLoaded(true))
   }, [])
 
   const selected = rows.find((r) => r.ym === selectedYm) ?? null
@@ -73,6 +75,16 @@ export function BillingScreen() {
               onChange={(v) => setSelectedYm(v)}
             />
           </div>
+
+          {/* 회사 정보 미등록 안내 — 청구월과 청구서 사이. 등록 화면(W019)으로 바로 이동 */}
+          {selected && profileLoaded && !profile && (
+            <div className="inv-profile-warn" role="alert">
+              <span>{t('INVOICE_PROFILE_MISSING')}</span>
+              <button type="button" onClick={() => void navigate('W019')}>
+                {t('COMPANY_INFO')}
+              </button>
+            </div>
+          )}
 
           {selected && (
             <div className="printable">

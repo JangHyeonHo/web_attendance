@@ -2917,6 +2917,31 @@ button.day-link:hover {
   margin-top: 4px;
   line-height: 1.4;
 }
+
+/* 청구서 회사 정보 미등록 안내 — 청구월과 청구서 사이의 경고 박스(계절 테마 변수 기반) */
+.inv-profile-warn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 14px 0 2px;
+  padding: 12px 16px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: var(--radius-sm);
+  color: var(--accent-dark);
+  font-size: 14px;
+}
+.inv-profile-warn button {
+  flex-shrink: 0;
+  min-height: 34px;
+  padding: 6px 14px;
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--border-strong));
+  color: var(--accent-dark);
+  font-weight: 600;
+}
 .inv-items {
   width: 100%;
   border-collapse: collapse;

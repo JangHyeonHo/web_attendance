@@ -53,6 +53,7 @@ function BusinessProfileSection() {
   const load = useCallback(async () => {
     try {
       const p = await tenantProfileApi.get()
+      if (!p) return //미등록(200 빈 응답)이면 빈 폼 — 최초 등록 경로
       setProfile(p)
       //마스킹 안 되는 필드는 채워두고, 사업자번호·연락처는 재입력 요구(마스킹값 재제출 차단)
       setCeoName(p.ceoName ?? '')
@@ -62,10 +63,7 @@ function BusinessProfileSection() {
       setContactName(p.contactName ?? '')
       setContactEmail(p.contactEmail ?? '')
     } catch (e) {
-      //미등록(404)이면 빈 폼 — 최초 등록 경로
-      if (!(e instanceof ApiError && e.status === 404)) {
-        setError(e instanceof ApiError ? e.message : String(e))
-      }
+      setError(e instanceof ApiError ? e.message : String(e))
     }
   }, [])
 
