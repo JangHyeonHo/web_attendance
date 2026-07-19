@@ -134,10 +134,13 @@ public class AttendanceController {
     @GetMapping("/monthly/export")
     public ResponseEntity<byte[]> exportMonthly(@LoginUser SessionUser user,
             @Parameter(description = "schema.field.year", example = "2026") @RequestParam("year") int year,
-            @Parameter(description = "schema.field.month", example = "7") @RequestParam("month") int month) {
+            @Parameter(description = "schema.field.month", example = "7") @RequestParam("month") int month,
+            @RequestParam(value = "lang", defaultValue = "KOR") String lang,
+            @RequestParam(value = "stamp", defaultValue = "false") boolean stamp) {
         MonthlyResponse data = attendanceService.monthly(user.tenantId(), user.userId(), year, month);
-        byte[] xlsx = exporters.forTenant(user.tenantId())
-                .toXlsx(data, new ExportMeta(user.tenantName(), user.name(), year, month));
+        ExportMeta meta = new ExportMeta(user.tenantName(), user.name(), year, month,
+                lang, LocalDate.now(), stamp);
+        byte[] xlsx = exporters.forTenant(user.tenantId()).toXlsx(data, meta);
         String filename = String.format("attendance-%d-%02d.xlsx", year, month); //ASCII 파일명(인코딩 이슈 회피)
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,

@@ -111,9 +111,10 @@ export function DetailsScreen() {
   //근태 Excel(.xlsx) 내보내기 — 세션 쿠키로 인증된 GET을 blob으로 받아 다운로드 트리거
   const exportExcel = useCallback(async () => {
     try {
-      const res = await fetch(`/api/v1/attendance/monthly/export?year=${year}&month=${month}`, {
-        credentials: 'same-origin',
-      })
+      const res = await fetch(
+        `/api/v1/attendance/monthly/export?year=${year}&month=${month}&lang=${lang}`,
+        { credentials: 'same-origin' },
+      )
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)

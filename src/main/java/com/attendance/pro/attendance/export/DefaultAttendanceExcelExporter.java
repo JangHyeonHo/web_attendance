@@ -6,14 +6,16 @@ import java.io.UncheckedIOException;
 
 import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.FillPatternType;
-import org.apache.poi.ss.usermodel.Font;
 import org.apache.poi.ss.usermodel.HorizontalAlignment;
-import org.apache.poi.ss.usermodel.IndexedColors;
 import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.VerticalAlignment;
+import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.ss.util.RegionUtil;
+import org.apache.poi.xssf.usermodel.XSSFCellStyle;
+import org.apache.poi.xssf.usermodel.XSSFColor;
+import org.apache.poi.xssf.usermodel.XSSFFont;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Component;
 
@@ -21,9 +23,9 @@ import com.attendance.pro.attendance.AttendanceDtos.DailyAttendance;
 import com.attendance.pro.attendance.AttendanceDtos.MonthlyResponse;
 
 /**
- * 표준 근태 Excel 서식(default). 한 달 전 일자 표 + 월 합계 행.
- * 근무 시간은 소수 시간 단위(예: 468분 → 7.80), 휴식은 분 단위. 헤더 음영 + 전 셀 테두리.
- * 회사별 다른 서식이 필요하면 이 클래스를 복제하지 말고 {@link AttendanceExcelExporter}를 다른 key로 새로 구현한다.
+ * 표준 근태 Excel 서식(default). 상단 머리(날짜·회사명·이름 라벨/값) + 우상단 결재(도장)란(옵션),
+ * 한 달 전 일자 표(헤더 음영 + 전 셀 테두리), 근무는 소수 시간·휴식은 분, 월 합계 행.
+ * 기본 폰트는 언어별(한:맑은 고딕, 일:Meiryo UI). 회사별 다른 서식은 다른 key로 새로 구현한다.
  */
 @Component
 public class DefaultAttendanceExcelExporter implements AttendanceExcelExporter {
@@ -33,6 +35,9 @@ public class DefaultAttendanceExcelExporter implements AttendanceExcelExporter {
         "예정 근무 시간", "휴식 시간 (분)", "실제 근무 시간", "비고"
     };
     private static final int COLS = HEADERS.length;
+    private static final int HEADER_ROW = 4;         //상단 머리(0~2)·공백(3) 다음
+    private static final byte[] HEADER_FILL = {(byte) 0xD9, (byte) 0xE1, (byte) 0xF2}; //연한 블루그레이
+    private static final byte[] LABEL_FILL = {(byte) 0xF2, (byte) 0xF2, (byte) 0xF2};  //연회색
 
     @Override
     public String key() {
@@ -41,44 +46,59 @@ public class DefaultAttendanceExcelExporter implements AttendanceExcelExporter {
 
     @Override
     public byte[] toXlsx(MonthlyResponse monthly, ExportMeta meta) {
-        try (Workbook wb = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            Sheet sheet = wb.createSheet("근태");
+        try (XSSFWorkbook wb = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            XSSFSheet sheet = wb.createSheet("근태");
+            String font = fontFor(meta.lang());
 
-            CellStyle titleStyle = titleStyle(wb);
-            CellStyle headStyle = headerStyle(wb);
-            CellStyle textStyle = borderedText(wb, false);
-            CellStyle hourStyle = borderedHours(wb, false);
-            CellStyle totalText = borderedText(wb, true);
-            CellStyle totalHour = borderedHours(wb, true);
+            XSSFCellStyle label = base(wb, font, true);
+            fill(label, LABEL_FILL);
+            XSSFCellStyle value = base(wb, font, false);
+            XSSFCellStyle header = center(base(wb, font, true));
+            fill(header, HEADER_FILL);
+            XSSFCellStyle text = base(wb, font, false);
+            XSSFCellStyle hour = base(wb, font, false);
+            hour.setDataFormat(wb.createDataFormat().getFormat("0.00"));
+            XSSFCellStyle totalText = base(wb, font, true);
+            XSSFCellStyle totalHour = base(wb, font, true);
+            totalHour.setDataFormat(wb.createDataFormat().getFormat("0.00"));
 
-            //제목
-            Row title = sheet.createRow(0);
-            cell(title, 0, String.format("%d년 %d월 근태기록 — %s (%s)",
-                    meta.year(), meta.month(), nvl(meta.memberName()), nvl(meta.tenantName())), titleStyle);
+            //상단 머리 — A=라벨 / B=값 (날짜·회사명·이름)
+            put(sheet, 0, 0, "날짜", label);
+            put(sheet, 0, 1, meta.issueDate() == null ? "" : meta.issueDate().toString(), value);
+            put(sheet, 1, 0, "회사명", label);
+            put(sheet, 1, 1, nvl(meta.tenantName()), value);
+            put(sheet, 2, 0, "이름", label);
+            put(sheet, 2, 1, nvl(meta.memberName()), value);
 
-            //헤더(row 2)
-            Row head = sheet.createRow(2);
+            if (meta.stampArea()) {
+                stampBox(sheet, wb, font);
+            }
+
+            //표 헤더
+            Row head = sheet.createRow(HEADER_ROW);
             for (int c = 0; c < COLS; c++) {
-                cell(head, c, HEADERS[c], headStyle);
+                cell(head, c, HEADERS[c], header);
             }
 
             //데이터(한 달 전 일자)
-            int r = 3;
+            int r = HEADER_ROW + 1;
             for (DailyAttendance d : monthly.days()) {
                 Row row = sheet.createRow(r++);
                 for (int c = 0; c < COLS; c++) {
-                    row.createCell(c).setCellStyle(textStyle); //빈 칸도 테두리 유지
+                    row.createCell(c).setCellStyle(text); //빈 칸도 테두리 유지
                 }
-                text(row, 0, d.date() == null ? "" : d.date().toString());
-                text(row, 1, category(d));
-                text(row, 2, nvl(d.scheduleStart()));
-                text(row, 3, nvl(d.scheduleEnd()));
-                text(row, 4, nvl(d.stampIn()));
-                text(row, 5, nvl(d.stampOut()));
-                hours(row, 6, d.scheduledMinutes(), hourStyle);
-                minutes(row, 7, d.recognizedBreakMinutes());
-                hours(row, 8, d.workMinutes(), hourStyle);
-                text(row, 9, d.manual() ? "O" : "");
+                row.getCell(0).setCellValue(d.date() == null ? "" : d.date().toString());
+                row.getCell(1).setCellValue(category(d));
+                row.getCell(2).setCellValue(nvl(d.scheduleStart()));
+                row.getCell(3).setCellValue(nvl(d.scheduleEnd()));
+                row.getCell(4).setCellValue(nvl(d.stampIn()));
+                row.getCell(5).setCellValue(nvl(d.stampOut()));
+                setHours(row.getCell(6), d.scheduledMinutes(), hour);
+                if (d.recognizedBreakMinutes() != null) {
+                    row.getCell(7).setCellValue(d.recognizedBreakMinutes());
+                }
+                setHours(row.getCell(8), d.workMinutes(), hour);
+                row.getCell(9).setCellValue(d.manual() ? "O" : "");
             }
 
             //합계
@@ -87,22 +107,77 @@ public class DefaultAttendanceExcelExporter implements AttendanceExcelExporter {
                 total.createCell(c).setCellStyle(totalText);
             }
             total.getCell(0).setCellValue("합계");
-            hours(total, 6, monthly.totalScheduledMinutes(), totalHour);
+            setHours(total.getCell(6), monthly.totalScheduledMinutes(), totalHour);
             total.getCell(7).setCellValue(monthly.totalBreakMinutes());
-            hours(total, 8, monthly.totalWorkMinutes(), totalHour);
+            setHours(total.getCell(8), monthly.totalWorkMinutes(), totalHour);
 
             for (int c = 0; c < COLS; c++) {
                 sheet.autoSizeColumn(c);
             }
-            return write(wb, out);
+            wb.write(out);
+            return out.toByteArray();
         } catch (IOException e) {
             throw new UncheckedIOException("attendance xlsx export failed", e);
         }
     }
 
-    private static byte[] write(Workbook wb, ByteArrayOutputStream out) throws IOException {
-        wb.write(out);
-        return out.toByteArray();
+    /** 우상단 결재(도장)란: [결재 | 인사담당자 | 총괄담당자], 아래 칸은 인쇄 후 날인용 빈 칸. */
+    private static void stampBox(XSSFSheet sheet, XSSFWorkbook wb, String font) {
+        int c0 = COLS - 3; //7,8,9
+        XSSFCellStyle head = center(base(wb, font, true));
+        fill(head, LABEL_FILL);
+        XSSFCellStyle blank = base(wb, font, false);
+
+        Row r0 = row(sheet, 0);
+        Row r1 = row(sheet, 1);
+        Row r2 = row(sheet, 2);
+
+        cell(r0, c0, "결재", head);
+        cell(r0, c0 + 1, "인사담당자", head);
+        cell(r0, c0 + 2, "총괄담당자", head);
+        cell(r1, c0, "", head);
+        cell(r1, c0 + 1, "", blank);
+        cell(r1, c0 + 2, "", blank);
+        cell(r2, c0, "", head);
+        cell(r2, c0 + 1, "", blank);
+        cell(r2, c0 + 2, "", blank);
+        //결재 라벨(3행 병합) + 날인칸(2행 병합) + 테두리
+        merge(sheet, 0, 2, c0, c0);
+        merge(sheet, 1, 2, c0 + 1, c0 + 1);
+        merge(sheet, 1, 2, c0 + 2, c0 + 2);
+        r1.setHeightInPoints(26);
+        r2.setHeightInPoints(26);
+    }
+
+    private static void merge(XSSFSheet sheet, int r1, int r2, int c1, int c2) {
+        CellRangeAddress region = new CellRangeAddress(r1, r2, c1, c2);
+        sheet.addMergedRegion(region);
+        RegionUtil.setBorderTop(BorderStyle.THIN, region, sheet);
+        RegionUtil.setBorderBottom(BorderStyle.THIN, region, sheet);
+        RegionUtil.setBorderLeft(BorderStyle.THIN, region, sheet);
+        RegionUtil.setBorderRight(BorderStyle.THIN, region, sheet);
+    }
+
+    private static Row row(XSSFSheet sheet, int i) {
+        Row r = sheet.getRow(i);
+        return r != null ? r : sheet.createRow(i);
+    }
+
+    private static void put(XSSFSheet sheet, int r, int c, String v, XSSFCellStyle style) {
+        cell(row(sheet, r), c, v, style);
+    }
+
+    private static void cell(Row row, int col, String value, XSSFCellStyle style) {
+        Cell c = row.createCell(col);
+        c.setCellValue(value);
+        c.setCellStyle(style);
+    }
+
+    private static void setHours(Cell c, Integer minutes, XSSFCellStyle style) {
+        if (minutes != null) {
+            c.setCellValue(minutes / 60.0); //분 → 소수 시간
+        }
+        c.setCellStyle(style);
     }
 
     private static String category(DailyAttendance d) {
@@ -116,76 +191,37 @@ public class DefaultAttendanceExcelExporter implements AttendanceExcelExporter {
         return s == null ? "" : s;
     }
 
-    private static void cell(Row row, int col, String value, CellStyle style) {
-        Cell c = row.createCell(col);
-        c.setCellValue(value);
-        c.setCellStyle(style);
-    }
-
-    /** 이미 생성·스타일된 셀에 문자열만 채운다. */
-    private static void text(Row row, int col, String value) {
-        row.getCell(col).setCellValue(value);
-    }
-
-    /** 분 → 소수 시간(예: 468 → 7.8). null이면 빈 칸. */
-    private static void hours(Row row, int col, Integer minutes, CellStyle style) {
-        Cell c = row.getCell(col);
-        if (minutes != null) {
-            c.setCellValue(minutes / 60.0);
+    /** 언어별 기본 폰트 — 한:맑은 고딕, 일:Meiryo UI, 그 외:맑은 고딕(라틴 포함 무난). */
+    private static String fontFor(String lang) {
+        if ("JPN".equalsIgnoreCase(lang)) {
+            return "Meiryo UI";
         }
-        c.setCellStyle(style);
+        return "맑은 고딕";
     }
 
-    private static void minutes(Row row, int col, Integer value) {
-        if (value != null) {
-            row.getCell(col).setCellValue(value);
-        }
-    }
+    // ---- 스타일 helper ----
 
-    // ---- 스타일 ----
-
-    private static void border(CellStyle s) {
+    private static XSSFCellStyle base(XSSFWorkbook wb, String fontName, boolean bold) {
+        XSSFCellStyle s = wb.createCellStyle();
+        XSSFFont f = wb.createFont();
+        f.setFontName(fontName);
+        f.setBold(bold);
+        s.setFont(f);
         s.setBorderTop(BorderStyle.THIN);
         s.setBorderBottom(BorderStyle.THIN);
         s.setBorderLeft(BorderStyle.THIN);
         s.setBorderRight(BorderStyle.THIN);
-    }
-
-    private static CellStyle titleStyle(Workbook wb) {
-        CellStyle s = wb.createCellStyle();
-        Font f = wb.createFont();
-        f.setBold(true);
-        f.setFontHeightInPoints((short) 12);
-        s.setFont(f);
+        s.setVerticalAlignment(VerticalAlignment.CENTER);
         return s;
     }
 
-    private static CellStyle headerStyle(Workbook wb) {
-        CellStyle s = wb.createCellStyle();
-        Font f = wb.createFont();
-        f.setBold(true);
-        s.setFont(f);
+    private static XSSFCellStyle center(XSSFCellStyle s) {
         s.setAlignment(HorizontalAlignment.CENTER);
-        s.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+        return s;
+    }
+
+    private static void fill(XSSFCellStyle s, byte[] rgb) {
+        s.setFillForegroundColor(new XSSFColor(rgb, null));
         s.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-        border(s);
-        return s;
-    }
-
-    private static CellStyle borderedText(Workbook wb, boolean bold) {
-        CellStyle s = wb.createCellStyle();
-        if (bold) {
-            Font f = wb.createFont();
-            f.setBold(true);
-            s.setFont(f);
-        }
-        border(s);
-        return s;
-    }
-
-    private static CellStyle borderedHours(Workbook wb, boolean bold) {
-        CellStyle s = borderedText(wb, bold);
-        s.setDataFormat(wb.createDataFormat().getFormat("0.00")); //소수 시간
-        return s;
     }
 }
