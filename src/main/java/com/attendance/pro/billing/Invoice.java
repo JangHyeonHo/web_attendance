@@ -11,6 +11,7 @@ public record Invoice(
         int billedSeats,
         long seatDays,
         int daysInMonth,
+        long freeBlockDays,
         int unitPrice,
         long subtotal,
         long vat,

@@ -83,12 +83,13 @@ class BillingServiceTest {
 
         assertThat(r.status()).isEqualTo(InvoiceStatus.PROVISIONAL);
         assertThat(r.maxSeats()).isEqualTo(8);
-        assertThat(r.billedSeats()).isEqualTo(3);       //8 - 5
+        assertThat(r.billedSeats()).isEqualTo(3);        //초과분 8 - 5
         assertThat(r.daysInMonth()).isEqualTo(D);
-        assertThat(r.seatDays()).isEqualTo(3L * D);      //93
-        assertThat(r.subtotal()).isEqualTo(6000);        //round(93 × 2000 / 31)
-        assertThat(r.vat()).isEqualTo(600);
-        assertThat(r.total()).isEqualTo(6600);
+        assertThat(r.seatDays()).isEqualTo(3L * D);      //93 (초과분 좌석-일)
+        assertThat(r.freeBlockDays()).isEqualTo(5L * D); //155 (무료 5 × 전일수)
+        assertThat(r.subtotal()).isEqualTo(11000);       //초과 3×2000 + 무료 5×1000(반값)
+        assertThat(r.vat()).isEqualTo(1100);
+        assertThat(r.total()).isEqualTo(12100);
         assertThat(r.issuedAt()).isNull();
     }
 
@@ -117,8 +118,8 @@ class BillingServiceTest {
 
         assertThat(r.freeSeats()).isEqualTo(5);
         assertThat(r.unitPrice()).isEqualTo(2000);
-        assertThat(r.billedSeats()).isEqualTo(1);        //6 - 5
-        assertThat(r.total()).isEqualTo(2200);           //2000 + 200
+        assertThat(r.billedSeats()).isEqualTo(1);        //초과분 6 - 5
+        assertThat(r.total()).isEqualTo(7700);           //(1×2000 + 5×1000) + VAT 700
     }
 
     @Test
@@ -151,7 +152,7 @@ class BillingServiceTest {
     @Test
     @DisplayName("BILL-06: 마감된 달은 스냅샷(확정)을 그대로 반환 — 현재 단가 변경과 무관")
     void issuedReturnsSnapshot() {
-        Invoice snap = new Invoice(TENANT, YM, 10, 5, 5, 155, 31, 3000, 15000, 1500, 16500,
+        Invoice snap = new Invoice(TENANT, YM, 10, 5, 5, 155, 31, 155, 3000, 15000, 1500, 16500,
                 LocalDateTime.of(2026, 8, 1, 0, 0));
         when(invoiceMapper.find(TENANT, YM)).thenReturn(snap);
 
@@ -168,15 +169,15 @@ class BillingServiceTest {
     @DisplayName("BILL-07: 마감은 좌석일 계산값을 invoice에 스냅샷하고 확정으로 반환")
     void closeSnapshots() {
         when(invoiceMapper.find(TENANT, YM)).thenReturn(null,
-                new Invoice(TENANT, YM, 8, 5, 3, 93, 31, 2000, 6000, 600, 6600,
+                new Invoice(TENANT, YM, 8, 5, 3, 93, 31, 155, 2000, 11000, 1100, 12100,
                         LocalDateTime.of(2026, 8, 1, 0, 0)));
         when(tenantBillingMapper.findById(TENANT)).thenReturn(config(2000, 5));
         carried(8);
 
         InvoiceResponse r = service().close(TENANT, YM);
 
-        //maxSeats=8, free=5, billed=3, seatDays=93, days=31, unit=2000, subtotal=6000, vat=600, total=6600
-        verify(invoiceMapper).insert(TENANT, YM, 8, 5, 3, 93L, 31, 2000, 6000L, 600L, 6600L);
+        //maxSeats=8 free=5 billed=3 seatDays=93 days=31 freeBlockDays=155 unit=2000 → 초과6000+무료반값5000
+        verify(invoiceMapper).insert(TENANT, YM, 8, 5, 3, 93L, 31, 155L, 2000, 11000L, 1100L, 12100L);
         assertThat(r.status()).isEqualTo(InvoiceStatus.ISSUED);
     }
 
@@ -184,14 +185,14 @@ class BillingServiceTest {
     @DisplayName("BILL-08: 이미 마감된 달 재마감은 409")
     void closeAlreadyIssuedConflicts() {
         when(invoiceMapper.find(TENANT, YM)).thenReturn(
-                new Invoice(TENANT, YM, 8, 5, 3, 93, 31, 2000, 6000, 600, 6600,
+                new Invoice(TENANT, YM, 8, 5, 3, 93, 31, 155, 2000, 11000, 1100, 12100,
                         LocalDateTime.of(2026, 8, 1, 0, 0)));
 
         assertThatThrownBy(() -> service().close(TENANT, YM))
                 .isInstanceOf(ApiException.class)
                 .satisfies(e -> assertThat(((ApiException) e).getStatus().value()).isEqualTo(409));
         verify(invoiceMapper, never()).insert(anyLong(), anyString(),
-                anyInt(), anyInt(), anyInt(), anyLong(), anyInt(), anyInt(), anyLong(), anyLong(), anyLong());
+                anyInt(), anyInt(), anyInt(), anyLong(), anyInt(), anyLong(), anyInt(), anyLong(), anyLong(), anyLong());
     }
 
     @Test
@@ -266,7 +267,7 @@ class BillingServiceTest {
         assertThat(r.maxSeats()).isEqualTo(20);          //피크(감원 전)
         assertThat(r.billedSeats()).isEqualTo(15);       //기준선 안 내려감
         assertThat(r.seatDays()).isEqualTo(15L * D);     //465 — 전액
-        assertThat(r.total()).isEqualTo(33000);          //round(465 × 2000/31)=30000 +VAT
+        assertThat(r.total()).isEqualTo(38500);          //초과 15×2000 + 무료 5×1000 = 35000 + VAT 3500
     }
 
     @Test
@@ -285,6 +286,35 @@ class BillingServiceTest {
         assertThat(r.billedSeats()).isEqualTo(8);
         //base 5×31=155 + (8-5) × (31-25)=18 → 173
         assertThat(r.seatDays()).isEqualTo(173);
+    }
+
+    @Test
+    @DisplayName("HALF-01: 6명(무료 5 초과) — 무료 5는 반값, 초과 1은 정단가 (5×1000 + 1×2000)")
+    void freeSeatsBilledHalfOnceExceeded() {
+        when(tenantBillingMapper.findById(TENANT)).thenReturn(config(2000, 5));
+        when(invoiceMapper.find(TENANT, YM)).thenReturn(null);
+        carried(6);                                    //활성 6 > 무료 5 → 유료 진입
+
+        InvoiceResponse r = service().getInvoice(TENANT, YM);
+
+        assertThat(r.billedSeats()).isEqualTo(1);        //초과분 1
+        assertThat(r.seatDays()).isEqualTo(1L * D);      //31 (초과분)
+        assertThat(r.freeBlockDays()).isEqualTo(5L * D); //155 (무료 5 × 전일수)
+        assertThat(r.subtotal()).isEqualTo(7000);        //1×2000 + 5×1000
+        assertThat(r.total()).isEqualTo(7700);           //+ VAT 700
+    }
+
+    @Test
+    @DisplayName("HALF-02: 무료 인원 이하(딱 5명)면 반값 블록도 없이 0원")
+    void atFreeExactlyNoHalfBlock() {
+        when(tenantBillingMapper.findById(TENANT)).thenReturn(config(2000, 5));
+        when(invoiceMapper.find(TENANT, YM)).thenReturn(null);
+        carried(5);
+
+        InvoiceResponse r = service().getInvoice(TENANT, YM);
+
+        assertThat(r.freeBlockDays()).isZero();          //유료 진입 안 함 → 반값 블록 없음
+        assertThat(r.total()).isZero();
     }
 
     @Test

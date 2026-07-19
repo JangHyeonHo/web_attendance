@@ -61,6 +61,7 @@ public final class BillingDtos {
             int billedSeats,
             long seatDays,
             int daysInMonth,
+            long freeBlockDays,
             int unitPrice,
             long subtotal,
             long vat,
@@ -70,8 +71,8 @@ public final class BillingDtos {
 
         static InvoiceResponse issued(Invoice i) {
             return new InvoiceResponse(i.ym(), i.maxSeats(), i.freeSeats(), i.billedSeats(),
-                    i.seatDays(), i.daysInMonth(), i.unitPrice(), i.subtotal(), i.vat(), i.total(),
-                    InvoiceStatus.ISSUED, i.issuedAt());
+                    i.seatDays(), i.daysInMonth(), i.freeBlockDays(), i.unitPrice(),
+                    i.subtotal(), i.vat(), i.total(), InvoiceStatus.ISSUED, i.issuedAt());
         }
     }
 }

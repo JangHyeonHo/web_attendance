@@ -297,8 +297,9 @@ export interface InvoiceEntry {
   maxSeats: number
   freeSeats: number
   billedSeats: number
-  seatDays: number // 좌석-일 누적(기초좌석×일수 + Σ증원×잔여일)
+  seatDays: number // 초과분(추가인원) 좌석-일 누적
   daysInMonth: number // 청구월 일수
+  freeBlockDays: number // 무료좌석 반값 블록 좌석-일(무료좌석수 × 유료 상태 일수)
   unitPrice: number
   subtotal: number
   vat: number
