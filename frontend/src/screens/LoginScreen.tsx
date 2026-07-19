@@ -93,11 +93,12 @@ export function LoginScreen() {
           />
         </label>
         {error && <p className="error" role="alert">{error}</p>}
-        <button
-          type="submit"
-          className="primary"
-          disabled={submitting || (!onTenantHost && !tenantCode.trim()) || !email || !password}
-        >
+        {/*
+          값 기준으로 disable하지 않는다 — disabled 버튼은 Enter 암묵적 제출을 막고,
+          자동완성 시 React 상태가 늦게 채워지면 버튼이 계속 잠겨 "Enter 먹통"이 된다.
+          빈 칸은 각 input의 required(브라우저 기본 검증)가 잡는다. 중복 제출만 submitting으로 차단.
+        */}
+        <button type="submit" className="primary" disabled={submitting}>
           {t('LOGIN')}
         </button>
       </form>
