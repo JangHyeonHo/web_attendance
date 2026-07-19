@@ -15,7 +15,7 @@ function won(n: number): string {
  * 결제 정보 등록(#14) + 달 선택(드롭다운) + 선택한 달의 상세(인원·단가·공급가·부가세·합계).
  */
 export function BillingScreen() {
-  const { t } = useApp()
+  const { t, tenantName } = useApp()
   const [rows, setRows] = useState<InvoiceEntry[]>([])
   const [selectedYm, setSelectedYm] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -43,6 +43,7 @@ export function BillingScreen() {
         <h2>{t('TITLE')}</h2>
         <div className="toolbar-actions">
           <button onClick={() => void reload()}>{t('REFRESH')}</button>
+          {selected && <button onClick={() => window.print()}>{t('PRINT')}</button>}
         </div>
       </div>
 
@@ -69,7 +70,12 @@ export function BillingScreen() {
           </div>
 
           {selected && (
-            <div className="bill-detail">
+            <div className="bill-detail printable">
+              {/* 인쇄 시에만 나오는 청구서 머리말(회사·문서명·청구월) */}
+              <div className="print-only bill-print-head">
+                <strong>{tenantName}</strong>
+                <span>{t('TITLE')} — {selected.ym}</span>
+              </div>
               <div className="bill-detail-head">
                 <span className="bill-detail-ym">{selected.ym}</span>
                 <span className={`badge ${selected.status === 'ISSUED' ? 'ok' : ''}`}>

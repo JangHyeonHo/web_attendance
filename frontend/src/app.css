@@ -2677,6 +2677,58 @@ button.day-link:hover {
   text-align: left;
 }
 
+/* ===== 인쇄(브라우저 → PDF) — .printable 영역만 인쇄, .no-print/앱 크롬은 숨김 =====
+   visibility 기법: 전체를 숨기고 인쇄 영역 서브트리만 보이게(레이아웃 보존). .print-only는 인쇄 시에만. */
+.print-only {
+  display: none;
+}
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .printable,
+  .printable * {
+    visibility: visible;
+  }
+  .printable {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    border: none;
+    box-shadow: none;
+    background: #fff;
+  }
+  .no-print,
+  .toolbar-actions,
+  .header,
+  .sidebar,
+  .bottom-nav {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  .att-card {
+    break-inside: avoid;
+  }
+  @page {
+    margin: 14mm;
+  }
+}
+.bill-print-head {
+  margin-bottom: 12px;
+}
+.bill-print-head strong {
+  display: block;
+  font-size: 18px;
+}
+.bill-print-head span {
+  color: var(--muted);
+}
+
 /* 멤버·인원 검색 입력(W009 멤버 관리 · W016 휴가 관리 공용) */
 .member-search {
   width: 100%;

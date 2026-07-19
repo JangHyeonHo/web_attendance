@@ -54,7 +54,7 @@ interface EditingStamp {
  * - 잘못 입력 복구는 [수정](시각·구분·사유 변경) — 이력 삭제는 제공하지 않는다
  */
 export function DetailsScreen() {
-  const { t: commonT, lang } = useApp()
+  const { t: commonT, lang, userName, tenantName } = useApp()
   const isMobile = useIsMobile()
   const today = new Date()
   const [year, setYear] = useState(today.getFullYear())
@@ -287,6 +287,9 @@ export function DetailsScreen() {
           <button type="button" onClick={() => void exportExcel()} disabled={!monthly}>
             {t('EXPORT_EXCEL')}
           </button>
+          <button type="button" onClick={() => window.print()} disabled={!monthly}>
+            {t('PRINT')}
+          </button>
         </div>
       </div>
       {/* 정정 진입은 날짜 버튼 → 일자 상세 → [정정 등록]/[수정] 단일 동선 */}
@@ -298,10 +301,17 @@ export function DetailsScreen() {
       )}
       {error && <p className="error center">{error}</p>}
       {loading && <p className="muted center">{commonT('LOADING')}</p>}
-      {monthly && !loading && isMobile && (
+      {monthly && !loading && (
+      <div className="printable">
+        {/* 인쇄 시에만 나오는 근태 머리말(성명·회사·기간) */}
+        <div className="print-only bill-print-head">
+          <strong>{userName}{tenantName ? ` — ${tenantName}` : ''}</strong>
+          <span>{t('ATTDETAILS')} — {year}. {String(month).padStart(2, '0')}</span>
+        </div>
+      {isMobile && (
         <MonthlyCards monthly={monthly} weekdayOf={weekdayOf} t={t} onOpen={openDetail} />
       )}
-      {monthly && !loading && !isMobile && (
+      {!isMobile && (
         <div className="table-wrap">
         <table className="detail-table">
           <thead>
@@ -378,6 +388,8 @@ export function DetailsScreen() {
           </tfoot>
         </table>
         </div>
+      )}
+      </div>
       )}
 
       {detailDate && (
