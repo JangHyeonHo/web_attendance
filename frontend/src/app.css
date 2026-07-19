@@ -2718,6 +2718,44 @@ button.day-link:hover {
     margin: 14mm;
   }
 }
+/* 근태 인쇄 머리말 — 좌:성명·회사·기간 / 우:결재(도장)란(설정 시) */
+.att-print-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  margin-bottom: 12px;
+}
+.att-print-id strong {
+  display: block;
+  font-size: 16px;
+}
+.att-print-id span {
+  color: var(--muted);
+}
+.att-stamp {
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.att-stamp th,
+.att-stamp td {
+  border: 1px solid var(--text);
+  padding: 3px 8px;
+  text-align: center;
+}
+.att-stamp th {
+  background: var(--surface-alt);
+  font-weight: 700;
+}
+.att-stamp-label {
+  font-weight: 700;
+  background: var(--surface-alt);
+}
+.att-stamp-cell {
+  width: 66px;
+  height: 46px;
+}
+
 .bill-print-head {
   margin-bottom: 12px;
 }

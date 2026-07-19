@@ -58,6 +58,7 @@ import type {
   TenantProfileUpsertRequest,
   TenantStatusUpdateRequest,
   TenantSummary,
+  ReportSetting,
   TokenPurpose,
   TokenVerifyRequest,
   TokenVerifyResponse,
@@ -127,6 +128,12 @@ export const tenantProfileApi = {
   get: () => get<TenantProfileResponse>('/api/v1/tenant/profile'),
   update: (request: TenantProfileUpsertRequest) =>
     put<TenantProfileResponse>('/api/v1/tenant/profile', request),
+}
+
+/** 회사(TENANT_ADMIN) 근태 보고서 설정 — 결재(도장)란 표시 on/off */
+export const tenantReportApi = {
+  updateStamp: (stampEnabled: boolean) =>
+    put<ReportSetting>('/api/v1/tenant/report-setting', { stampEnabled }),
 }
 
 /** SYSTEM_ADMIN 전용 — 감사 로그 조회(W017). 전역 최신순 + category 필터 */
@@ -201,6 +208,8 @@ export const attendanceApi = {
   confirm: (request: ConfirmRequest) => post<StampResponse>('/api/v1/attendance', request),
   monthly: (year: number, month: number) =>
     get<MonthlyResponse>(`/api/v1/attendance/monthly?year=${year}&month=${month}`),
+  /** 근태 보고서 설정(결재란 표시) 조회 — 전 멤버(인쇄 시 결재란 판단) */
+  reportSetting: () => get<ReportSetting>('/api/v1/attendance/report-setting'),
   /** 수동 정정 등록(사유 필수) — MANUAL로 기록되어 버튼 스탬프와 구분 */
   manual: (request: ManualStampRequest) =>
     post<StampResponse>('/api/v1/attendance/manual', request),

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import { tenantBillingApi, tenantProfileApi } from '../api/endpoints'
+import { attendanceApi, tenantBillingApi, tenantProfileApi, tenantReportApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { SelectField } from '../components/fields'
@@ -27,8 +27,58 @@ export function CompanyInfoScreen() {
       <p className="muted">{t('COMPANY_INFO_NOTE')}</p>
       <BusinessProfileSection />
       <PaymentSection />
+      <ReportSettingSection />
       <ContractSection />
     </div>
+  )
+}
+
+/** 근태 보고서 설정 — 결재(도장)란 표시 on/off. Excel·인쇄 근태 보고서에 반영된다. */
+function ReportSettingSection() {
+  const { t } = useApp()
+  const [stampEnabled, setStampEnabled] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    attendanceApi
+      .reportSetting()
+      .then((r) => setStampEnabled(r.stampEnabled))
+      .catch((e) => setError(e instanceof ApiError ? e.message : String(e)))
+  }, [])
+
+  async function toggle(next: boolean) {
+    setBusy(true)
+    setSaved(false)
+    setError(null)
+    try {
+      const r = await tenantReportApi.updateStamp(next)
+      setStampEnabled(r.stampEnabled)
+      setSaved(true)
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="ci-section">
+      <h3 className="section-head">{t('REPORT_SETTINGS')}</h3>
+      <p className="hint">{t('REPORT_STAMP_HINT')}</p>
+      <label className="check-inline">
+        <input
+          type="checkbox"
+          checked={stampEnabled}
+          disabled={busy}
+          onChange={(e) => void toggle(e.target.checked)}
+        />
+        {t('REPORT_STAMP_TOGGLE')}
+      </label>
+      {saved && <p className="success" role="status">{t('SAVED')}</p>}
+      {error && <p className="error" role="alert">{error}</p>}
+    </section>
   )
 }
 

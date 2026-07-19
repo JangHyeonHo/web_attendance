@@ -758,3 +758,10 @@ export interface ErrorResponse {
   message: string
   fieldErrors: FieldErrorDetail[] | null
 }
+
+// ---- 근태 보고서 설정 (W019 — 결재/도장란 on/off) ----
+
+export interface ReportSetting {
+  /** 근태 보고서(Excel·인쇄)에 결재(도장)란 표시 여부 */
+  stampEnabled: boolean
+}

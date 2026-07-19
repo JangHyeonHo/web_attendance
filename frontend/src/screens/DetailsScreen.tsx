@@ -63,6 +63,8 @@ export function DetailsScreen() {
   const [texts, setTexts] = useState<Record<string, string>>({})
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  //회사 설정: 근태 보고서 결재(도장)란 표시 여부 — 인쇄 시에만 반영
+  const [stampEnabled, setStampEnabled] = useState(false)
 
   //일자 상세 모달(스탬프 이력)
   const [detailDate, setDetailDate] = useState<string | null>(null)
@@ -107,6 +109,16 @@ export function DetailsScreen() {
   }, [lang])
 
   const t = useCallback((key: string) => texts[key] ?? commonT(key), [texts, commonT])
+
+  //근태 보고서 결재란 표시 설정(회사 설정) — 인쇄 결재란 노출 판단
+  useEffect(() => {
+    attendanceApi
+      .reportSetting()
+      .then((r) => setStampEnabled(r.stampEnabled))
+      .catch(() => {
+        //설정 취득 실패는 무시(결재란 미표시로 안전)
+      })
+  }, [])
 
   //근태 Excel(.xlsx) 내보내기 — 세션 쿠키로 인증된 GET을 blob으로 받아 다운로드 트리거
   const exportExcel = useCallback(async () => {
@@ -304,10 +316,27 @@ export function DetailsScreen() {
       {loading && <p className="muted center">{commonT('LOADING')}</p>}
       {monthly && !loading && (
       <div className="printable">
-        {/* 인쇄 시에만 나오는 근태 머리말(성명·회사·기간) */}
-        <div className="print-only bill-print-head">
-          <strong>{userName}{tenantName ? ` — ${tenantName}` : ''}</strong>
-          <span>{t('ATTDETAILS')} — {year}. {String(month).padStart(2, '0')}</span>
+        {/* 인쇄 시에만 나오는 근태 머리말(성명·회사·기간) + 결재란(설정 시) */}
+        <div className="print-only att-print-head">
+          <div className="att-print-id">
+            <strong>{userName}{tenantName ? ` — ${tenantName}` : ''}</strong>
+            <span>{t('ATTDETAILS')} — {year}. {String(month).padStart(2, '0')}</span>
+          </div>
+          {stampEnabled && (
+            <table className="att-stamp">
+              <tbody>
+                <tr>
+                  <td className="att-stamp-label" rowSpan={2}>{t('APPROVAL')}</td>
+                  <th>{t('HR_MANAGER')}</th>
+                  <th>{t('GENERAL_MANAGER')}</th>
+                </tr>
+                <tr>
+                  <td className="att-stamp-cell"></td>
+                  <td className="att-stamp-cell"></td>
+                </tr>
+              </tbody>
+            </table>
+          )}
         </div>
       {isMobile && (
         <MonthlyCards monthly={monthly} weekdayOf={weekdayOf} t={t} onOpen={openDetail} />
