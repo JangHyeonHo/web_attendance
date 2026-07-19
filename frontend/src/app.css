@@ -2688,16 +2688,17 @@ button.day-link:hover {
    폭을 콘텐츠에 맞춰 제한하고 종류는 좌측 정렬해 "종류 | 잔여"가 가깝게 읽히도록. */
 .lv-bal-table {
   width: auto;
-}
-/* 잔여 표는 2컬럼뿐이라 테두리 상자(table-wrap)를 표 폭에 맞게 줄인다 —
-   전체폭이면 표 오른쪽으로 상자 안이 통째로 비어 "잔여 뒤 공백"처럼 보인다 */
-.lv-bal-wrap {
-  width: max-content;
-  max-width: 100%;
+  min-width: 300px;
+  max-width: 460px;
 }
 .lv-bal-table th:first-child,
 .lv-bal-table td:first-child {
   text-align: left;
+}
+/* 잔여(오른쪽 정렬) 값이 오른쪽 테두리에 바싹 붙지 않게 오른쪽 여백을 더 준다 */
+.lv-bal-table th:last-child,
+.lv-bal-table td:last-child {
+  padding-right: 28px;
 }
 
 /* 모바일 PC-전용 화면 접근 안내(잘못된 접근 + 출결 복귀 버튼) */
