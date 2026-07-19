@@ -16,8 +16,10 @@ import com.attendance.pro.billing.BillingDtos.BillingProfileResponse;
 import com.attendance.pro.billing.BillingDtos.InvoiceResponse;
 import com.attendance.pro.billing.BillingDtos.InvoiceStatus;
 import com.attendance.pro.common.ApiException;
+import com.attendance.pro.tenant.Tenant;
 import com.attendance.pro.tenant.TenantBilling;
 import com.attendance.pro.tenant.TenantBillingMapper;
+import com.attendance.pro.tenant.TenantMapper;
 import com.attendance.pro.tenant.TenantDtos.BillingMethod;
 
 /**
@@ -57,19 +59,21 @@ public class BillingService {
     private final TenantBillingMapper tenantBillingMapper;
     private final SeatEventMapper seatEventMapper;
     private final InvoiceMapper invoiceMapper;
+    private final TenantMapper tenantMapper;
     private final Clock clock;
 
     @org.springframework.beans.factory.annotation.Autowired
     public BillingService(TenantBillingMapper tenantBillingMapper, SeatEventMapper seatEventMapper,
-            InvoiceMapper invoiceMapper) {
-        this(tenantBillingMapper, seatEventMapper, invoiceMapper, Clock.systemDefaultZone());
+            InvoiceMapper invoiceMapper, TenantMapper tenantMapper) {
+        this(tenantBillingMapper, seatEventMapper, invoiceMapper, tenantMapper, Clock.systemDefaultZone());
     }
 
     BillingService(TenantBillingMapper tenantBillingMapper, SeatEventMapper seatEventMapper,
-            InvoiceMapper invoiceMapper, Clock clock) {
+            InvoiceMapper invoiceMapper, TenantMapper tenantMapper, Clock clock) {
         this.tenantBillingMapper = tenantBillingMapper;
         this.seatEventMapper = seatEventMapper;
         this.invoiceMapper = invoiceMapper;
+        this.tenantMapper = tenantMapper;
         this.clock = clock;
     }
 
@@ -90,17 +94,35 @@ public class BillingService {
         }
     }
 
-    /** 회사의 최근 {@value #MONTHS_WINDOW}개월 청구서(현재 달 잠정 + 마감월 확정), 최신월 우선. */
+    /**
+     * 회사 청구서 목록(현재 달 잠정 + 마감월 확정), 최신월 우선.
+     * 회사 <b>생성월</b>부터 현재 달까지만 보여준다(가입 전 달은 청구 대상이 아니므로 노출하지 않음).
+     * 상한은 {@value #MONTHS_WINDOW}개월(아주 오래된 회사도 최근 1년만).
+     */
     public List<InvoiceResponse> listForTenant(long tenantId) {
         touchSeatUsage(tenantId);
         TenantBilling config = tenantBillingMapper.findById(tenantId);
         YearMonth cursor = YearMonth.now(clock);
+        YearMonth createdMonth = tenantCreatedMonth(tenantId);
         List<InvoiceResponse> result = new ArrayList<>();
         for (int i = 0; i < MONTHS_WINDOW; i++) {
             result.add(resolve(tenantId, cursor.toString(), config));
+            //생성월에 도달하면 그 이전(가입 전) 달은 제외
+            if (createdMonth != null && !cursor.isAfter(createdMonth)) {
+                break;
+            }
             cursor = cursor.minusMonths(1);
         }
         return result;
+    }
+
+    /** 회사 생성월(tenant.created_at). 조회 실패 시 null → 상한(12개월)만 적용. */
+    private YearMonth tenantCreatedMonth(long tenantId) {
+        Tenant tenant = tenantMapper.findById(tenantId);
+        if (tenant == null || tenant.createdAt() == null) {
+            return null;
+        }
+        return YearMonth.from(tenant.createdAt());
     }
 
     /** 회사에 보여줄 계약 요약(#14, 읽기전용) — 요금제·인당 단가·무료 좌석. 미등록이면 기본값. */

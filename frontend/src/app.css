@@ -2333,6 +2333,11 @@ button.day-link:hover {
 .bill-month-pick .field-select {
   min-width: 200px;
 }
+/* '청구월' 라벨이 좁은 폭에서 "청구/월"로 줄바꿈되던 문제 — 한 줄 고정 + 수축 금지 */
+.bill-month-pick > span {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
 /* 결제 정보 카드(#14) */
 .bill-profile {
   margin-bottom: 20px;

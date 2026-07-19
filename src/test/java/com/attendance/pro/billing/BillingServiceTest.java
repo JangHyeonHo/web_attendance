@@ -48,12 +48,14 @@ class BillingServiceTest {
     private SeatEventMapper seatEventMapper;
     @Mock
     private InvoiceMapper invoiceMapper;
+    @Mock
+    private com.attendance.pro.tenant.TenantMapper tenantMapper;
 
     /** 현재 달을 2026-07로 고정 */
     private final Clock clock = Clock.fixed(Instant.parse("2026-07-13T00:00:00Z"), ZoneId.of("UTC"));
 
     private BillingService service() {
-        return new BillingService(tenantBillingMapper, seatEventMapper, invoiceMapper, clock);
+        return new BillingService(tenantBillingMapper, seatEventMapper, invoiceMapper, tenantMapper, clock);
     }
 
     private static TenantBilling config(int perSeat, int freeSeats) {
@@ -283,5 +285,34 @@ class BillingServiceTest {
         assertThat(r.billedSeats()).isEqualTo(8);
         //base 5×31=155 + (8-5) × (31-25)=18 → 173
         assertThat(r.seatDays()).isEqualTo(173);
+    }
+
+    @Test
+    @DisplayName("LIST-01: 청구서 목록은 회사 생성월부터 현재월까지만 (가입 전 달 제외)")
+    void listStopsAtCreatedMonth() {
+        when(tenantMapper.findById(TENANT)).thenReturn(new com.attendance.pro.tenant.Tenant(
+                TENANT, "ACME", "ACME", "KR",
+                com.attendance.pro.tenant.TenantStatus.ACTIVE, LocalDateTime.of(2026, 5, 10, 0, 0)));
+        when(tenantBillingMapper.findById(TENANT)).thenReturn(config(2000, 5));
+
+        java.util.List<InvoiceResponse> list = service().listForTenant(TENANT);
+
+        //2026-05 생성 → 07·06·05 3건만(그 이전 달은 미노출)
+        assertThat(list).extracting(InvoiceResponse::ym).containsExactly("2026-07", "2026-06", "2026-05");
+    }
+
+    @Test
+    @DisplayName("LIST-02: 생성일이 없거나 12개월보다 오래면 최근 12개월 상한 적용")
+    void listCapsAtTwelveMonths() {
+        when(tenantMapper.findById(TENANT)).thenReturn(new com.attendance.pro.tenant.Tenant(
+                TENANT, "ACME", "ACME", "KR",
+                com.attendance.pro.tenant.TenantStatus.ACTIVE, LocalDateTime.of(2020, 1, 1, 0, 0)));
+        when(tenantBillingMapper.findById(TENANT)).thenReturn(config(2000, 5));
+
+        java.util.List<InvoiceResponse> list = service().listForTenant(TENANT);
+
+        assertThat(list).hasSize(12);
+        assertThat(list.get(0).ym()).isEqualTo("2026-07");
+        assertThat(list.get(11).ym()).isEqualTo("2025-08");
     }
 }
