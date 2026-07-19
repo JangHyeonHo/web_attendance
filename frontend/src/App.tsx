@@ -18,6 +18,7 @@ import { AdminLeaveScreen } from './screens/AdminLeaveScreen'
 import { AuditLogScreen } from './screens/AuditLogScreen'
 import { BillingScreen } from './screens/BillingScreen'
 import { CompanyInfoScreen } from './screens/CompanyInfoScreen'
+import { CompanySettingsScreen } from './screens/CompanySettingsScreen'
 import { SelectField } from './components/fields'
 import { BottomNav } from './components/BottomNav'
 import type { BottomNavItem } from './components/BottomNav'
@@ -38,6 +39,7 @@ const LABEL_KEY: Partial<Record<ScreenCode, string>> = {
   W014: 'MAIL_TEMPLATES',
   W018: 'BILLING',
   W019: 'COMPANY_INFO',
+  W020: 'COMPANY_SETTINGS',
   W007: 'TENANTS',
   W012: 'MAIL_TEMPLATES',
   W017: 'AUDIT_LOG',
@@ -74,12 +76,14 @@ function adminSections(role: Role | null): NavSection[] {
       return [
         { key: 'NAV_SEC_ORG', items: ['W009', 'W013'] },
         { key: 'NAV_SEC_LEAVE', items: ['W016'] },
+        //회사 설정(W020)만 인사관리자에게 노출 — 정보/결제(W019)는 총관리자 전용
+        { key: 'NAV_SEC_SETTINGS', items: ['W020'] },
       ]
     case 'TENANT_ADMIN':
       return [
         { key: 'NAV_SEC_ORG', items: ['W009', 'W013'] },
         { key: 'NAV_SEC_LEAVE', items: ['W016'] },
-        { key: 'NAV_SEC_SETTINGS', items: ['W014', 'W018', 'W019'] },
+        { key: 'NAV_SEC_SETTINGS', items: ['W014', 'W018', 'W019', 'W020'] },
       ]
     case 'SYSTEM_ADMIN':
       return [
@@ -96,7 +100,7 @@ function adminSections(role: Role | null): NavSection[] {
  * 멤버 본인용(출근 W005·휴가 W015·상세 W006)만 모바일 네이티브로 제공한다.
  */
 const PC_ONLY_SCREENS = new Set<ScreenCode>([
-  'W004', 'W007', 'W008', 'W009', 'W012', 'W013', 'W014', 'W016', 'W017', 'W018', 'W019',
+  'W004', 'W007', 'W008', 'W009', 'W012', 'W013', 'W014', 'W016', 'W017', 'W018', 'W019', 'W020',
 ])
 
 /** 모바일 하단 탭 — 멤버 본인용 화면만(관리 화면은 PC 전용, #4). SYSTEM_ADMIN은 하단탭 없음. */
@@ -175,6 +179,8 @@ function ScreenBody({ screen }: { screen: ScreenCode }) {
       return <BillingScreen />
     case 'W019':
       return <CompanyInfoScreen />
+    case 'W020':
+      return <CompanySettingsScreen />
     case 'W000':
     default:
       return <LandingScreen />

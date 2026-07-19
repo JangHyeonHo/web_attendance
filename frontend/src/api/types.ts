@@ -23,7 +23,8 @@ export type ScreenCode =
   | 'W016' // 휴가 관리 (인사관리자+총관리자 — 결재·부여·종류)
   | 'W017' // 감사 로그 조회 (SYSTEM_ADMIN)
   | 'W018' // 청구서 (TENANT_ADMIN — 자사 월별 청구서)
-  | 'W019' // 회사 정보/결제 설정 (TENANT_ADMIN — 사업자정보·결제 + 계약 요약)
+  | 'W019' // 회사 정보/결제 (TENANT_ADMIN — 사업자정보·결제 + 계약 요약)
+  | 'W020' // 회사 설정 (TENANT_ADMIN+HR_ADMIN — 근태 보고서 등 운영 설정)
   | 'W999' // 공통(헤더)
 
 export type Lang = 'KOR' | 'ENG' | 'JPN'
