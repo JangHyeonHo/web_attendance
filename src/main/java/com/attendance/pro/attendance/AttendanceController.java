@@ -28,6 +28,8 @@ import com.attendance.pro.attendance.AttendanceDtos.StampResponse;
 import com.attendance.pro.attendance.AttendanceDtos.StatusResponse;
 import com.attendance.pro.attendance.export.AttendanceExporters;
 import com.attendance.pro.attendance.export.ExportMeta;
+import com.attendance.pro.attendance.export.ReportSettingDtos.ReportSettingResponse;
+import com.attendance.pro.attendance.export.ReportSettingService;
 import com.attendance.pro.auth.LoginUser;
 import com.attendance.pro.auth.SessionUser;
 import com.attendance.pro.user.User;
@@ -51,12 +53,20 @@ public class AttendanceController {
     private final AttendanceService attendanceService;
     private final AttendanceExporters exporters;
     private final UserMapper userMapper;
+    private final ReportSettingService reportSettingService;
 
     public AttendanceController(AttendanceService attendanceService, AttendanceExporters exporters,
-            UserMapper userMapper) {
+            UserMapper userMapper, ReportSettingService reportSettingService) {
         this.attendanceService = attendanceService;
         this.exporters = exporters;
         this.userMapper = userMapper;
+        this.reportSettingService = reportSettingService;
+    }
+
+    @Operation(summary = "api.attendance.report-setting")
+    @GetMapping("/report-setting")
+    public ReportSettingResponse reportSetting(@LoginUser SessionUser user) {
+        return new ReportSettingResponse(reportSettingService.stampEnabled(user.tenantId()));
     }
 
     @Operation(summary = "api.attendance.status.summary", description = "api.attendance.status.description")
@@ -140,11 +150,11 @@ public class AttendanceController {
     public ResponseEntity<byte[]> exportMonthly(@LoginUser SessionUser user,
             @Parameter(description = "schema.field.year", example = "2026") @RequestParam("year") int year,
             @Parameter(description = "schema.field.month", example = "7") @RequestParam("month") int month,
-            @RequestParam(value = "lang", defaultValue = "KOR") String lang,
-            @RequestParam(value = "stamp", defaultValue = "false") boolean stamp) {
+            @RequestParam(value = "lang", defaultValue = "KOR") String lang) {
         MonthlyResponse data = attendanceService.monthly(user.tenantId(), user.userId(), year, month);
         User me = userMapper.findById(user.tenantId(), user.userId());
         String department = me == null ? null : me.departCd();
+        boolean stamp = reportSettingService.stampEnabled(user.tenantId());
         ExportMeta meta = new ExportMeta(user.tenantName(), user.name(), department, year, month,
                 lang, LocalDate.now(), stamp);
         byte[] xlsx = exporters.forTenant(user.tenantId()).toXlsx(data, meta);
