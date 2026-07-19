@@ -4,6 +4,7 @@ import { mailTemplateApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { MailVarsTable } from '../components/MailVarsTable'
+import { MailPreview } from '../components/MailPreview'
 import type { MailTemplatePreviewResponse, MailTemplateResponse } from '../api/types'
 
 /** 편집 대상 식별(행 집합은 시드 6행 고정 — purpose×lang이 자연키) */
@@ -171,11 +172,8 @@ export function MailTemplatesScreen() {
                 <dt>{t('TPL_SUBJECT')}</dt>
                 <dd>{preview.subject}</dd>
               </dl>
-              {/* HTML이면 그대로 렌더, 평문이면 pre-wrap로 줄바꿈 보존(#13) */}
-              <div
-                className={`tpl-preview-body ${/<[a-z][^>]*>/i.test(preview.body) ? 'tpl-preview-html' : 'tpl-preview-text'}`}
-                dangerouslySetInnerHTML={{ __html: preview.body }}
-              />
+              {/* HTML은 iframe으로 격리 렌더(앱 CSS 침범 차단), 평문은 pre-wrap(#13) */}
+              <MailPreview body={preview.body} title={t('PREVIEW')} />
             </div>
           )}
         </div>

@@ -4,6 +4,7 @@ import { tenantMailTemplateApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { MailVarsTable } from '../components/MailVarsTable'
+import { MailPreview } from '../components/MailPreview'
 import type { MailTemplatePreviewResponse, TenantMailTemplateResponse } from '../api/types'
 
 interface EditTarget {
@@ -209,12 +210,8 @@ export function TenantMailTemplatesScreen() {
                 <dt>{t('TPL_SUBJECT')}</dt>
                 <dd>{preview.subject}</dd>
               </dl>
-              {/* HTML이면 그대로 렌더(개행 있는 편집 가능 템플릿이 pre-wrap로 깨지지 않게, #13),
-                  평문이면 pre-wrap로 줄바꿈 보존 — 실제 발송(SmtpMailSender)과 동일 규칙 */}
-              <div
-                className={`tpl-preview-body ${/<[a-z][^>]*>/i.test(preview.body) ? 'tpl-preview-html' : 'tpl-preview-text'}`}
-                dangerouslySetInnerHTML={{ __html: preview.body }}
-              />
+              {/* HTML은 iframe으로 격리 렌더(앱 CSS 침범 차단), 평문은 pre-wrap — 실제 발송과 동일 규칙 */}
+              <MailPreview body={preview.body} title={t('PREVIEW')} />
             </div>
           )}
         </div>
