@@ -297,12 +297,16 @@ export function DetailsScreen() {
             ariaLabel={t('MONTH')}
             onChange={(v) => setMonth(Number(v))}
           />
-          <button type="button" onClick={() => void exportExcel()} disabled={!monthly}>
-            {t('EXPORT_EXCEL')}
-          </button>
-          <button type="button" onClick={() => window.print()} disabled={!monthly}>
-            {t('PRINT')}
-          </button>
+          {/* 근무표 다운로드 — Excel(서버 .xlsx 즉시 다운로드) / PDF(브라우저 인쇄 → PDF 저장) */}
+          <div className="dl-group">
+            <span className="dl-group-label">{t('DOWNLOAD_TIMESHEET')}</span>
+            <button type="button" onClick={() => void exportExcel()} disabled={!monthly}>
+              Excel
+            </button>
+            <button type="button" onClick={() => window.print()} disabled={!monthly}>
+              PDF
+            </button>
+          </div>
         </div>
       </div>
       {/* 정정 진입은 날짜 버튼 → 일자 상세 → [정정 등록]/[수정] 단일 동선 */}

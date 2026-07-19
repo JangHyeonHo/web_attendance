@@ -571,6 +571,18 @@ form button.primary {
   gap: 12px;
 }
 
+/* 근무표 다운로드 묶음(라벨 + Excel/PDF 형식 버튼) */
+.dl-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.dl-group-label {
+  font-size: 13px;
+  color: var(--muted);
+  margin-right: 2px;
+}
+
 /* 우편번호처럼 짧은 입력은 폭을 줄여 지나치게 넓지 않게 */
 .field-narrow input {
   max-width: 180px;
