@@ -9,10 +9,10 @@ import { useIsMobile } from '../hooks/useIsMobile'
 import { localeOf } from '../i18n/lang'
 import type { AttendanceType, DailyAttendance, DailyStampEntry, ManualReason, MonthlyResponse } from '../api/types'
 
-/** 분 → "h:mm" 조립(서버는 로케일 무관 수치만 — 표기는 화면 책임). null은 '-' */
-function formatMinutes(minutes: number | null): string {
+/** 분 → 소수 시간(엑셀 보고서와 동일한 0.00 표기 — 서버는 수치만, 표기는 화면 책임). null은 '-' */
+function formatHours(minutes: number | null): string {
   if (minutes === null) return '-'
-  return `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, '0')}`
+  return (minutes / 60).toFixed(2)
 }
 
 /** 사유 선택지 — 자주 있는 "찍는 것을 잊음"이 선두, OTHER(직접 입력)만 텍스트 필수 */
@@ -351,6 +351,7 @@ export function DetailsScreen() {
               <th colSpan={2}>{t('INPUTTIME')}</th>
               <th rowSpan={2}>{t('BREAK_RECOGNIZED')}</th>
               <th rowSpan={2}>{t('TOTAL_WORK')}</th>
+              <th rowSpan={2}>{t('REMARKS')}</th>
             </tr>
             <tr>
               <th>{t('SCHE_IN')}</th>
@@ -372,8 +373,10 @@ export function DetailsScreen() {
                 day.statutoryBreakMinutes !== null &&
                 day.recognizedBreakMinutes > day.statutoryBreakMinutes
               const offDutyLabel = day.holidayName ?? (day.holiday ? t('HOLIDAY') : t('DAY_OFF'))
+              //엑셀 보고서와 동일한 행 배경: 토=옅은 파랑, 일·공휴일=옅은 빨강(그 외 없음)
+              const rowBg = day.holiday || weekday === 0 ? 'row-sun' : weekday === 6 ? 'row-sat' : ''
               return (
-                <tr key={day.date} className={offDuty ? 'holiday' : ''}>
+                <tr key={day.date} className={rowBg}>
                   <td className={weekday === 0 ? 'sun' : weekday === 6 ? 'sat' : ''}>
                     {/* 행 전체 클릭은 스크롤 중 오조작이 있어 날짜 버튼만 진입점으로 */}
                     <button
@@ -386,9 +389,12 @@ export function DetailsScreen() {
                     {day.manual && <span className="mini-badge">{t('SOURCE_MANUAL')}</span>}
                   </td>
                   {offDuty && !hasStamps ? (
-                    <td colSpan={6} className="center muted">
-                      {offDutyLabel}
-                    </td>
+                    <>
+                      <td colSpan={6} className="center muted">
+                        {offDutyLabel}
+                      </td>
+                      <td>{day.note ?? ''}</td>
+                    </>
                   ) : (
                     <>
                       <td>{day.scheduleStart ?? (offDuty ? offDutyLabel : '')}</td>
@@ -396,9 +402,10 @@ export function DetailsScreen() {
                       <td>{day.stampIn ?? ''}</td>
                       <td>{day.stampOut ?? ''}</td>
                       <td className={breakOver ? 'break-over' : ''}>
-                        {formatMinutes(day.recognizedBreakMinutes)}
+                        {formatHours(day.recognizedBreakMinutes)}
                       </td>
-                      <td>{formatMinutes(day.workMinutes)}</td>
+                      <td>{formatHours(day.workMinutes)}</td>
+                      <td>{day.note ?? ''}</td>
                     </>
                   )}
                 </tr>
@@ -410,10 +417,11 @@ export function DetailsScreen() {
               <td>{t('MONTH_TOTAL')}</td>
               {/* 예정근무는 스케줄 열(4칸) 아래, 인정휴게·실근무는 각 열 아래에 정렬 */}
               <td colSpan={4} className="num">
-                {t('EXPECTED_WORK')} {formatMinutes(monthly.totalScheduledMinutes)}
+                {t('EXPECTED_WORK')} {formatHours(monthly.totalScheduledMinutes)}
               </td>
-              <td>{formatMinutes(monthly.totalBreakMinutes)}</td>
-              <td>{formatMinutes(monthly.totalWorkMinutes)}</td>
+              <td>{formatHours(monthly.totalBreakMinutes)}</td>
+              <td>{formatHours(monthly.totalWorkMinutes)}</td>
+              <td></td>
             </tr>
           </tfoot>
         </table>
@@ -633,7 +641,7 @@ function MonthlyCards({
                 {date.getDate()}({weekdayOf(date)})
               </span>
               {day.manual && <span className="mini-badge">{t('SOURCE_MANUAL')}</span>}
-              <span className="att-card-work">{formatMinutes(day.workMinutes)}</span>
+              <span className="att-card-work">{formatHours(day.workMinutes)}</span>
             </div>
             {offDuty && !hasStamps ? (
               <div className="att-card-off muted">{offDutyLabel}</div>
@@ -649,8 +657,14 @@ function MonthlyCards({
                 </div>
                 <div>
                   <dt>{t('BREAK_RECOGNIZED')}</dt>
-                  <dd>{formatMinutes(day.recognizedBreakMinutes)}</dd>
+                  <dd>{formatHours(day.recognizedBreakMinutes)}</dd>
                 </div>
+                {day.note && (
+                  <div>
+                    <dt>{t('REMARKS')}</dt>
+                    <dd>{day.note}</dd>
+                  </div>
+                )}
               </dl>
             )}
           </button>
@@ -660,15 +674,15 @@ function MonthlyCards({
       <div className="att-total-card">
         <div>
           <span className="muted">{t('EXPECTED_WORK')}</span>
-          <strong>{formatMinutes(monthly.totalScheduledMinutes)}</strong>
+          <strong>{formatHours(monthly.totalScheduledMinutes)}</strong>
         </div>
         <div>
           <span className="muted">{t('BREAK_RECOGNIZED')}</span>
-          <strong>{formatMinutes(monthly.totalBreakMinutes)}</strong>
+          <strong>{formatHours(monthly.totalBreakMinutes)}</strong>
         </div>
         <div>
           <span className="muted">{t('TOTAL_WORK')}</span>
-          <strong>{formatMinutes(monthly.totalWorkMinutes)}</strong>
+          <strong>{formatHours(monthly.totalWorkMinutes)}</strong>
         </div>
       </div>
     </div>

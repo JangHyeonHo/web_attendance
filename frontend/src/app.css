@@ -634,6 +634,15 @@ form button.primary {
   background: var(--surface-alt);
 }
 
+/* 엑셀 보고서와 동일한 주말·공휴일 행 배경 — 토=옅은 파랑, 일·공휴일=옅은 빨강 */
+.detail-table tr.row-sat > td {
+  background: #e7effb;
+}
+
+.detail-table tr.row-sun > td {
+  background: #fbe8e8;
+}
+
 .detail-table td.sun {
   color: var(--error);
 }
@@ -2700,6 +2709,12 @@ button.day-link:hover {
     border: none;
     box-shadow: none;
     background: #fff;
+  }
+  /* 브라우저 기본은 인쇄 시 배경 제거 — 주말·공휴일 행 색과 헤더 음영을 그대로 인쇄 */
+  .printable,
+  .printable * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
   .no-print,
   .toolbar-actions,
