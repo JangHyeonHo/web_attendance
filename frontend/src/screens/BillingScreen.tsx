@@ -3,12 +3,8 @@ import { tenantBillingApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { SelectField } from '../components/fields'
+import { InvoiceDocument } from '../components/InvoiceDocument'
 import type { InvoiceEntry } from '../api/types'
-
-/** 금액(원) 표시 — 천단위 구분 + '원'. */
-function won(n: number): string {
-  return `${n.toLocaleString('ko-KR')}원`
-}
 
 /**
  * W018 청구서 — 회사 총관리자(TENANT_ADMIN) 전용.
@@ -70,44 +66,8 @@ export function BillingScreen() {
           </div>
 
           {selected && (
-            <div className="bill-detail printable">
-              {/* 인쇄 시에만 나오는 청구서 머리말(회사·문서명·청구월) */}
-              <div className="print-only bill-print-head">
-                <strong>{tenantName}</strong>
-                <span>{t('TITLE')} — {selected.ym}</span>
-              </div>
-              <div className="bill-detail-head">
-                <span className="bill-detail-ym">{selected.ym}</span>
-                <span className={`badge ${selected.status === 'ISSUED' ? 'ok' : ''}`}>
-                  {selected.status === 'ISSUED' ? t('BILL_ISSUED') : t('BILL_PROVISIONAL')}
-                </span>
-              </div>
-              <dl className="kv">
-                <dt>{t('BILL_SEATS_MAX')}</dt>
-                <dd>{selected.maxSeats}</dd>
-                <dt>{t('BILL_SEATS_FREE')}</dt>
-                <dd>{selected.freeSeats}</dd>
-                <dt>{t('BILL_SEATS_BILLED')}</dt>
-                <dd>{selected.billedSeats}</dd>
-                {selected.freeBlockDays > 0 && (
-                  <>
-                    <dt>{t('BILL_FREE_HALF')}</dt>
-                    <dd>{selected.freeSeats} × ½</dd>
-                  </>
-                )}
-                <dt>{t('BILL_SEATDAYS')}</dt>
-                <dd className="tnum">{selected.seatDays} / {selected.daysInMonth}</dd>
-                <dt>{t('BILL_UNIT')}</dt>
-                <dd className="tnum">{won(selected.unitPrice)}</dd>
-                <dt>{t('BILL_SUBTOTAL')}</dt>
-                <dd className="tnum">{won(selected.subtotal)}</dd>
-                <dt>{t('BILL_VAT')}</dt>
-                <dd className="tnum">{won(selected.vat)}</dd>
-              </dl>
-              <div className="bill-total">
-                <span>{t('BILL_TOTAL')}</span>
-                <strong className="tnum">{won(selected.total)}</strong>
-              </div>
+            <div className="printable">
+              <InvoiceDocument invoice={selected} tenantName={tenantName} t={t} />
             </div>
           )}
         </>

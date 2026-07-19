@@ -2729,6 +2729,140 @@ button.day-link:hover {
   color: var(--muted);
 }
 
+/* ===== 청구서 문서(화면·인쇄 공용) — 실제 청구서 양식 ===== */
+.inv-doc {
+  max-width: 720px;
+  margin: 4px auto 0;
+  padding: 40px 44px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.inv-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+  padding-bottom: 18px;
+  border-bottom: 2px solid var(--text);
+}
+.inv-head-title h1 {
+  margin: 0;
+  font-size: 30px;
+  letter-spacing: 0.04em;
+}
+.inv-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  letter-spacing: 0.32em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+.inv-meta {
+  margin: 0;
+  min-width: 240px;
+  font-size: 13px;
+}
+.inv-meta > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 3px 0;
+  align-items: center;
+}
+.inv-meta dt {
+  color: var(--muted);
+}
+.inv-meta dd {
+  margin: 0;
+}
+.inv-parties {
+  display: flex;
+  gap: 14px;
+  margin: 22px 0 6px;
+}
+.inv-party {
+  flex: 1;
+  padding: 14px 16px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.inv-party-label {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 5px;
+}
+.inv-party strong {
+  font-size: 16px;
+}
+.inv-items {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 18px;
+  font-size: 14px;
+}
+.inv-items thead th {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 2px solid var(--border-strong);
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.inv-items th.num,
+.inv-items td.num {
+  text-align: right;
+}
+.inv-items tbody td {
+  padding: 13px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.inv-summary {
+  width: 300px;
+  margin: 18px 0 0 auto;
+}
+.inv-summary-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 7px 12px;
+  font-size: 14px;
+}
+.inv-summary-row > span:first-child {
+  color: var(--muted);
+}
+.inv-total {
+  margin-top: 6px;
+  padding-top: 13px;
+  border-top: 2px solid var(--text);
+  font-size: 18px;
+}
+.inv-total strong {
+  color: var(--accent-dark);
+}
+.inv-note {
+  margin: 30px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+@media print {
+  .inv-doc {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+  }
+}
+
 /* 멤버·인원 검색 입력(W009 멤버 관리 · W016 휴가 관리 공용) */
 .member-search {
   width: 100%;
