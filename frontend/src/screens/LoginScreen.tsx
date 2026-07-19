@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import type { FormEvent } from 'react'
+import { useRef, useState } from 'react'
+import type { FormEvent, KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { authApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
@@ -24,12 +24,29 @@ export function LoginScreen() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  //중복 제출 가드 — setState는 비동기라 keyup 핸들러가 즉시 못 읽으므로 ref로 동기 차단
+  const submittingRef = useRef(false)
 
   //테넌트 서브도메인 접속: 호스트가 테넌트를 확정하므로 코드 입력란을 숨긴다(병행 방식)
   const onTenantHost = hostTenantName !== null
 
+  /*
+    한글/일본어 IME로 입력하면 마지막 Enter의 keydown이 조합 확정(isComposing=true, keyCode 229)에
+    먹혀 폼이 제출되지 않는다("타이핑 직후 Enter 먹통, 재클릭 후 Enter는 됨"의 원인). 조합은 keydown에서
+    끝나므로 keyup 시점엔 isComposing=false — 그때 requestSubmit으로 제출하면 한 번의 Enter로 로그인된다.
+    일반(IME 미사용) Enter는 keydown에서 이미 네이티브 제출되므로 submittingRef 가드로 중복을 막는다.
+  */
+  function onFormKeyUp(event: ReactKeyboardEvent<HTMLFormElement>) {
+    if (event.key !== 'Enter') return
+    if (event.nativeEvent.isComposing || event.keyCode === 229) return
+    if (submittingRef.current) return
+    event.currentTarget.requestSubmit()
+  }
+
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
+    if (submittingRef.current) return //keydown 네이티브 제출과 keyup 제출의 경합 차단
+    submittingRef.current = true
     setError(null)
     setSubmitting(true)
     const code = tenantCode.trim() //대문자 정규화는 서버 정책 — 프론트는 trim만
@@ -48,6 +65,7 @@ export function LoginScreen() {
       //401(자격 증명)·429(RATE_LIMITED) 모두 서버가 조립한 단일 메시지를 그대로 표시
       setError(e instanceof ApiError ? e.message : String(e))
     } finally {
+      submittingRef.current = false
       setSubmitting(false)
     }
   }
@@ -56,7 +74,7 @@ export function LoginScreen() {
     <div className="panel narrow">
       <h2>{t('LOGIN')}</h2>
       {onTenantHost && <p className="tenant-badge login-host-tenant">{hostTenantName}</p>}
-      <form onSubmit={onSubmit}>
+      <form onSubmit={onSubmit} onKeyUp={onFormKeyUp}>
         {!onTenantHost && (
           <label>
             {t('TENANT_CODE')}
@@ -93,11 +111,12 @@ export function LoginScreen() {
           />
         </label>
         {error && <p className="error" role="alert">{error}</p>}
-        <button
-          type="submit"
-          className="primary"
-          disabled={submitting || (!onTenantHost && !tenantCode.trim()) || !email || !password}
-        >
+        {/*
+          값 기준으로 disable하지 않는다 — disabled 버튼은 Enter 암묵적 제출을 막고,
+          자동완성 시 React 상태가 늦게 채워지면 버튼이 계속 잠겨 "Enter 먹통"이 된다.
+          빈 칸은 각 input의 required(브라우저 기본 검증)가 잡는다. 중복 제출만 submitting으로 차단.
+        */}
+        <button type="submit" className="primary" disabled={submitting}>
           {t('LOGIN')}
         </button>
       </form>

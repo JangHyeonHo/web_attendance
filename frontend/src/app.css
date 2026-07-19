@@ -911,6 +911,12 @@ form button.primary {
   min-width: 100px;
 }
 
+/* 미리보기/등록/취소를 한 줄에 같은 규격으로 — form button.primary의 width:100%·margin-top을 이 행에서만 무효화 */
+.btn-row button.primary {
+  width: auto;
+  margin-top: 0;
+}
+
 .stamp-meta {
   margin: 4px 0;
   font-size: 14px;
@@ -1225,6 +1231,16 @@ button.link:hover {
   font-family: inherit;
   font-size: 14px;
   margin: 0;
+}
+
+/* 메일 HTML 미리보기 — iframe 격리 렌더(앱 CSS 침범 차단). 높이는 onLoad에서 콘텐츠에 맞춤 */
+.tpl-preview-frame {
+  display: block;
+  width: 100%;
+  min-height: 160px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #fff;
 }
 
 form label textarea {
@@ -2316,6 +2332,11 @@ button.day-link:hover {
 }
 .bill-month-pick .field-select {
   min-width: 200px;
+}
+/* '청구월' 라벨이 좁은 폭에서 "청구/월"로 줄바꿈되던 문제 — 한 줄 고정 + 수축 금지 */
+.bill-month-pick > span {
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 /* 결제 정보 카드(#14) */
 .bill-profile {

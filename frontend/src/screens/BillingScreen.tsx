@@ -83,6 +83,14 @@ export function BillingScreen() {
                 <dd>{selected.freeSeats}</dd>
                 <dt>{t('BILL_SEATS_BILLED')}</dt>
                 <dd>{selected.billedSeats}</dd>
+                {selected.freeBlockDays > 0 && (
+                  <>
+                    <dt>{t('BILL_FREE_HALF')}</dt>
+                    <dd>{selected.freeSeats} × ½</dd>
+                  </>
+                )}
+                <dt>{t('BILL_SEATDAYS')}</dt>
+                <dd className="tnum">{selected.seatDays} / {selected.daysInMonth}</dd>
                 <dt>{t('BILL_UNIT')}</dt>
                 <dd className="tnum">{won(selected.unitPrice)}</dd>
                 <dt>{t('BILL_SUBTOTAL')}</dt>

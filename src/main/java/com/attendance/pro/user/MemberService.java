@@ -130,6 +130,8 @@ public class MemberService {
         }
         userMapper.softDelete(tenantId, userId);
         userTokenService.invalidateAll(tenantId, userId);
+        //활성 멤버 삭제는 좌석 감소 → 좌석 변동 기록(감원은 다음 달부터 반영, best-effort)
+        billingService.touchSeatUsage(tenantId);
     }
 
     /**

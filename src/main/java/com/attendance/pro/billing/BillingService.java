@@ -1,6 +1,7 @@
 package com.attendance.pro.billing;
 
 import java.time.Clock;
+import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -15,22 +16,37 @@ import com.attendance.pro.billing.BillingDtos.BillingProfileResponse;
 import com.attendance.pro.billing.BillingDtos.InvoiceResponse;
 import com.attendance.pro.billing.BillingDtos.InvoiceStatus;
 import com.attendance.pro.common.ApiException;
+import com.attendance.pro.tenant.Tenant;
 import com.attendance.pro.tenant.TenantBilling;
 import com.attendance.pro.tenant.TenantBillingMapper;
+import com.attendance.pro.tenant.TenantMapper;
 import com.attendance.pro.tenant.TenantDtos.BillingMethod;
 
 /**
- * 인당(seat) 과금 계산·청구서 서비스.
+ * 인당(seat) 과금 계산·청구서 서비스 — <b>등록 시점 일할계산</b>(seat-day proration).
  *
- * 과금식(전부 원, VAT 별도 라인):
- *   과금인원 = max(0, 월중최대활성 - 무료인원)
- *   공급가   = 과금인원 × 인당단가
- *   부가세   = round(공급가 × 10%)
- *   합계     = 공급가 + 부가세
+ * 정책(docs/billing-calculation.md §4 확정 v1):
+ * <ul>
+ *   <li>증원/무료→유료(업그레이드): 등록일 <b>다음 날부터</b> 월말까지 일할 과금(전환 당일 제외).</li>
+ *   <li>감원/유료→무료(다운그레이드): <b>당월은 감액·환불 없음</b>, 감소분은 다음 달 1일부터 반영(비대칭).</li>
+ * </ul>
  *
- * 월중 최대 활성은 {@code tenant_seat_usage}의 high-water mark로 추적한다(멤버 활성/비활성/삭제와
- * 청구서 조회 시 {@link #touchSeatUsage}로 갱신). 진행 중인 달은 현재 활성 수까지 반영한 <b>잠정</b>이고,
- * 마감({@link #close})하면 그 시점 값을 {@code invoice}에 스냅샷해 <b>확정</b>한다(이후 단가 변경 소급 없음).
+ * 요금 구조(2단): 활성 ≤ 무료면 0원. 활성 > 무료(유료 진입)면
+ * <b>무료 인원수만큼은 단가의 절반</b>, <b>초과분(추가인원)은 정단가</b>.
+ * 예) 단가 2000·무료 5 → 6명 = 5×1000 + 1×2000 = 7,000, 20명 = 5×1000 + 15×2000 = 35,000.
+ *
+ * 과금식(전부 원, VAT 별도 라인 · 두 블록 모두 일할):
+ * <pre>
+ *   추가인원(billable)  = max(0, 활성좌석 − 무료좌석)
+ *   좌석일(seat-days)   = 기초 추가인원 × 월일수 + Σ_증원( Δ추가인원 × (월일수 − 등록일) )
+ *   반값블록 좌석일     = 무료좌석수 × 유료상태 일수   (유료 진입 익일부터, 감원은 당월 유지)
+ *   공급가              = round( (좌석일 × 단가 + 반값블록 좌석일 × 단가/2) ÷ 월일수 )
+ *   부가세              = round(공급가 × 10%) · 합계 = 공급가 + 부가세
+ * </pre>
+ *
+ * 좌석 변동은 {@code seat_change_event}에 append하고({@link #touchSeatUsage}), 청구 시 그 달 이벤트를
+ * 재생해 좌석일을 산정한다. 진행 중인 달은 <b>잠정</b>(기초좌석을 월말까지 유지한다고 가정한 실시간 계산),
+ * 마감({@link #close})하면 그 시점 좌석일·단가·인원을 {@code invoice}에 스냅샷해 <b>확정</b>한다.
  */
 @Service
 public class BillingService {
@@ -44,47 +60,72 @@ public class BillingService {
     private static final int MONTHS_WINDOW = 12;
 
     private final TenantBillingMapper tenantBillingMapper;
-    private final SeatUsageMapper seatUsageMapper;
+    private final SeatEventMapper seatEventMapper;
     private final InvoiceMapper invoiceMapper;
+    private final TenantMapper tenantMapper;
     private final Clock clock;
 
     @org.springframework.beans.factory.annotation.Autowired
-    public BillingService(TenantBillingMapper tenantBillingMapper, SeatUsageMapper seatUsageMapper,
-            InvoiceMapper invoiceMapper) {
-        this(tenantBillingMapper, seatUsageMapper, invoiceMapper, Clock.systemDefaultZone());
+    public BillingService(TenantBillingMapper tenantBillingMapper, SeatEventMapper seatEventMapper,
+            InvoiceMapper invoiceMapper, TenantMapper tenantMapper) {
+        this(tenantBillingMapper, seatEventMapper, invoiceMapper, tenantMapper, Clock.systemDefaultZone());
     }
 
-    BillingService(TenantBillingMapper tenantBillingMapper, SeatUsageMapper seatUsageMapper,
-            InvoiceMapper invoiceMapper, Clock clock) {
+    BillingService(TenantBillingMapper tenantBillingMapper, SeatEventMapper seatEventMapper,
+            InvoiceMapper invoiceMapper, TenantMapper tenantMapper, Clock clock) {
         this.tenantBillingMapper = tenantBillingMapper;
-        this.seatUsageMapper = seatUsageMapper;
+        this.seatEventMapper = seatEventMapper;
         this.invoiceMapper = invoiceMapper;
+        this.tenantMapper = tenantMapper;
         this.clock = clock;
     }
 
     /**
-     * 현재 달 좌석 사용량 high-water mark를 갱신한다(멤버 활성/비활성/삭제·청구서 조회 훅).
+     * 활성 좌석 변동을 기록한다(멤버 활성/비활성/삭제·초대 활성화 훅).
+     * 직전 기록값과 같으면 append하지 않는다(조회 등으로 인한 중복 방지).
      * 부가 기능 — 실패해도 본 요청을 깨지 않는다(경고 로그만).
      */
     public void touchSeatUsage(long tenantId) {
         try {
-            seatUsageMapper.touch(tenantId, currentYm());
+            int active = seatEventMapper.countActiveSeats(tenantId);
+            Integer last = seatEventMapper.lastActiveSeats(tenantId);
+            if (last == null || last.intValue() != active) {
+                seatEventMapper.insert(tenantId, LocalDate.now(clock), active);
+            }
         } catch (Exception e) {
-            log.warn("seat usage touch failed: tenant={}", tenantId, e);
+            log.warn("seat change record failed: tenant={}", tenantId, e);
         }
     }
 
-    /** 회사의 최근 {@value #MONTHS_WINDOW}개월 청구서(현재 달 잠정 + 마감월 확정), 최신월 우선. */
+    /**
+     * 회사 청구서 목록(현재 달 잠정 + 마감월 확정), 최신월 우선.
+     * 회사 <b>생성월</b>부터 현재 달까지만 보여준다(가입 전 달은 청구 대상이 아니므로 노출하지 않음).
+     * 상한은 {@value #MONTHS_WINDOW}개월(아주 오래된 회사도 최근 1년만).
+     */
     public List<InvoiceResponse> listForTenant(long tenantId) {
         touchSeatUsage(tenantId);
         TenantBilling config = tenantBillingMapper.findById(tenantId);
         YearMonth cursor = YearMonth.now(clock);
+        YearMonth createdMonth = tenantCreatedMonth(tenantId);
         List<InvoiceResponse> result = new ArrayList<>();
         for (int i = 0; i < MONTHS_WINDOW; i++) {
             result.add(resolve(tenantId, cursor.toString(), config));
+            //생성월에 도달하면 그 이전(가입 전) 달은 제외
+            if (createdMonth != null && !cursor.isAfter(createdMonth)) {
+                break;
+            }
             cursor = cursor.minusMonths(1);
         }
         return result;
+    }
+
+    /** 회사 생성월(tenant.created_at). 조회 실패 시 null → 상한(12개월)만 적용. */
+    private YearMonth tenantCreatedMonth(long tenantId) {
+        Tenant tenant = tenantMapper.findById(tenantId);
+        if (tenant == null || tenant.createdAt() == null) {
+            return null;
+        }
+        return YearMonth.from(tenant.createdAt());
     }
 
     /** 회사에 보여줄 계약 요약(#14, 읽기전용) — 요금제·인당 단가·무료 좌석. 미등록이면 기본값. */
@@ -122,7 +163,7 @@ public class BillingService {
     }
 
     /**
-     * 월 마감(확정) — 그 시점의 월중 최대 활성·단가·무료인원을 {@code invoice}에 스냅샷한다.
+     * 월 마감(확정) — 그 시점의 좌석일·단가·인원을 {@code invoice}에 스냅샷한다.
      * 이미 확정된 달이면 409(재마감 방지 — 확정 청구서는 불변).
      */
     public InvoiceResponse close(long tenantId, String ym) {
@@ -134,7 +175,8 @@ public class BillingService {
         TenantBilling config = tenantBillingMapper.findById(tenantId);
         Line line = compute(tenantId, ym, config);
         invoiceMapper.insert(tenantId, ym, line.maxSeats, line.freeSeats, line.billedSeats,
-                line.unitPrice, line.subtotal, line.vat, line.total);
+                line.seatDays, line.daysInMonth, line.freeBlockDays, line.unitPrice,
+                line.subtotal, line.vat, line.total);
         return InvoiceResponse.issued(invoiceMapper.find(tenantId, ym));
     }
 
@@ -146,24 +188,55 @@ public class BillingService {
         }
         Line line = compute(tenantId, ym, config);
         return new InvoiceResponse(ym, line.maxSeats, line.freeSeats, line.billedSeats,
-                line.unitPrice, line.subtotal, line.vat, line.total, InvoiceStatus.PROVISIONAL, null);
+                line.seatDays, line.daysInMonth, line.freeBlockDays, line.unitPrice,
+                line.subtotal, line.vat, line.total, InvoiceStatus.PROVISIONAL, null);
     }
 
-    /** 잠정 금액 산정. 진행 중인 달만 현재 활성 수를 반영(과거 달은 기록된 최대만). */
+    /**
+     * 좌석일 기반 잠정 금액 산정(그 달 좌석 변동 이벤트 재생).
+     * 감원은 chargedLevel(과금 기준선)을 낮추지 않아 당월에 반영되지 않고, 증원만 등록일 다음 날부터 누적된다.
+     */
     private Line compute(long tenantId, String ym, TenantBilling config) {
         int unitPrice = config == null ? DEFAULT_PER_SEAT : config.perSeatAmount();
         int freeSeats = config == null ? DEFAULT_FREE_SEATS : config.freeSeats();
-        Integer stored = seatUsageMapper.findMaxSeats(tenantId, ym);
-        int maxSeats = stored == null ? 0 : stored;
-        int billedSeats = Math.max(0, maxSeats - freeSeats);
-        //단가 상한(1천만)×좌석이면 int를 넘기므로 long으로 계산·저장(오버플로 방지)
-        long subtotal = (long) billedSeats * unitPrice;
-        long vat = Math.round(subtotal / 10.0);
-        return new Line(maxSeats, freeSeats, billedSeats, unitPrice, subtotal, vat, subtotal + vat);
-    }
+        YearMonth month = YearMonth.parse(ym);
+        int daysInMonth = month.lengthOfMonth();
+        LocalDate first = month.atDay(1);
+        LocalDate last = month.atEndOfMonth();
 
-    private String currentYm() {
-        return YearMonth.now(clock).toString();
+        Integer before = seatEventMapper.activeBefore(tenantId, first);
+        int startActive = before == null ? 0 : before;
+        int base = Math.max(0, startActive - freeSeats);   //이월 기초 과금좌석(추가인원) — 그 달 전 일수 과금
+        int chargedLevel = base;                            //과금 기준선(월중 최대 과금좌석, 감원엔 안 내려감)
+        int peakActive = startActive;                       //표시용 최대 활성 수(무료 포함)
+        long accrued = 0;                                   //증원분 좌석일 누적(추가인원)
+
+        //유료 상태(활성 > 무료) 일수 — 무료좌석 반값 블록의 일할 기준. 이월이 이미 유료면 전월 이월 → 전액(전일수).
+        boolean paid = base > 0;
+        int paidDays = paid ? daysInMonth : 0;
+
+        for (SeatEvent e : seatEventMapper.inMonth(tenantId, first, last)) {
+            peakActive = Math.max(peakActive, e.activeSeats());
+            int billable = Math.max(0, e.activeSeats() - freeSeats);
+            if (billable > chargedLevel) {                  //증원(기준선 상향)만 일할 누적
+                int day = e.eventDate().getDayOfMonth();
+                accrued += (long) (billable - chargedLevel) * (daysInMonth - day); //등록 당일 제외
+                chargedLevel = billable;
+                if (!paid) {                                //그 달 첫 유료 진입 — 반값 블록도 익일부터
+                    paid = true;
+                    paidDays = daysInMonth - day;
+                }
+            }
+        }
+
+        //추가인원(초과분): 좌석일 × 단가.  무료인원 반값 블록: 무료좌석 × 유료일수 × (단가/2). 모두 월일수로 나눠 일할.
+        long seatDays = (long) base * daysInMonth + accrued;   //추가인원 좌석-일(표시·과금 기준)
+        long freeBlockDays = (long) freeSeats * paidDays;      //무료좌석 반값 블록 좌석-일
+        double amount = ((double) seatDays * unitPrice + (double) freeBlockDays * unitPrice / 2.0) / daysInMonth;
+        long subtotal = Math.round(amount);
+        long vat = Math.round(subtotal / 10.0);
+        return new Line(peakActive, freeSeats, chargedLevel, unitPrice, seatDays, daysInMonth,
+                freeBlockDays, subtotal, vat, subtotal + vat);
     }
 
     private void validateYm(String ym) {
@@ -174,7 +247,7 @@ public class BillingService {
         }
     }
 
-    private record Line(int maxSeats, int freeSeats, int billedSeats,
-            int unitPrice, long subtotal, long vat, long total) {
+    private record Line(int maxSeats, int freeSeats, int billedSeats, int unitPrice,
+            long seatDays, int daysInMonth, long freeBlockDays, long subtotal, long vat, long total) {
     }
 }
