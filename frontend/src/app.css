@@ -2687,9 +2687,13 @@ button.day-link:hover {
 /* 휴가 잔여 테이블(PC) — 2컬럼이라 full-width면 '잔여' 값이 far-right로 치우쳐 보기 나쁨.
    폭을 콘텐츠에 맞춰 제한하고 종류는 좌측 정렬해 "종류 | 잔여"가 가깝게 읽히도록. */
 .lv-bal-table {
-  /* 2컬럼(종류·잔여)이라 폭을 내용에 맞춰 잔여가 종류 바로 옆에 오게 —
-     width:100%나 넓은 min-width면 잔여가 우측 끝으로 밀려 사이 공백이 과다해진다 */
   width: auto;
+}
+/* 잔여 표는 2컬럼뿐이라 테두리 상자(table-wrap)를 표 폭에 맞게 줄인다 —
+   전체폭이면 표 오른쪽으로 상자 안이 통째로 비어 "잔여 뒤 공백"처럼 보인다 */
+.lv-bal-wrap {
+  width: max-content;
+  max-width: 100%;
 }
 .lv-bal-table th:first-child,
 .lv-bal-table td:first-child {

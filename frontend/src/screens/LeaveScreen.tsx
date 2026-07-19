@@ -315,7 +315,7 @@ export function LeaveScreen() {
           })}
         </div>
       ) : (
-        <div className="table-wrap">
+        <div className="table-wrap lv-bal-wrap">
           <table className="detail-table lv-bal-table">
             <thead>
               <tr>
