@@ -2665,6 +2665,18 @@ button.day-link:hover {
 }
 
 /* 모바일 잔여 — 한 카드에 N줄(#4) */
+/* 휴가 잔여 테이블(PC) — 2컬럼이라 full-width면 '잔여' 값이 far-right로 치우쳐 보기 나쁨.
+   폭을 콘텐츠에 맞춰 제한하고 종류는 좌측 정렬해 "종류 | 잔여"가 가깝게 읽히도록. */
+.lv-bal-table {
+  width: auto;
+  min-width: 300px;
+  max-width: 460px;
+}
+.lv-bal-table th:first-child,
+.lv-bal-table td:first-child {
+  text-align: left;
+}
+
 .lv-bal-box {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
