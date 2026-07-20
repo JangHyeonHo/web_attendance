@@ -16,7 +16,7 @@ INSERT IGNORE INTO language_master (window_id, lang_key, lang, lang_value) VALUE
 ('W009','DETAIL_HINT','ENG','Override only specific dates versus the regular schedule.'),
 ('W009','DETAIL_HINT','JPN','特定の日付のみ定期スケジュールと異なる指定をします。'),
 ('W009','NIGHT_WORK','KOR','심야근무'),               ('W009','NIGHT_WORK','ENG','Overnight'),           ('W009','NIGHT_WORK','JPN','深夜勤務'),
-('W009','FOLLOW_REGULAR','KOR','정기 따름'),          ('W009','FOLLOW_REGULAR','ENG','Regular'),         ('W009','FOLLOW_REGULAR','JPN','定期'),
+('W009','FOLLOW_REGULAR','KOR','정기대로'),           ('W009','FOLLOW_REGULAR','ENG','Regular'),         ('W009','FOLLOW_REGULAR','JPN','定期通り'),
 ('W009','CHANGE_SCHEDULE','KOR','스케줄 변경'),       ('W009','CHANGE_SCHEDULE','ENG','Change'),         ('W009','CHANGE_SCHEDULE','JPN','変更'),
 ('W009','REVERT_REGULAR','KOR','정기로 되돌리기'),    ('W009','REVERT_REGULAR','ENG','Revert to regular'), ('W009','REVERT_REGULAR','JPN','定期に戻す'),
 ('W009','SAVE_REGULAR','KOR','정기 스케줄 저장'),     ('W009','SAVE_REGULAR','ENG','Save regular'),      ('W009','SAVE_REGULAR','JPN','定期を保存'),
