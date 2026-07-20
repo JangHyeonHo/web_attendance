@@ -2745,16 +2745,9 @@ button.day-link:hover {
 /* 모바일 잔여 — 한 카드에 N줄(#4) */
 /* 휴가 잔여 테이블(PC) — 2컬럼이라 full-width면 '잔여' 값이 far-right로 치우쳐 보기 나쁨.
    폭을 콘텐츠에 맞춰 제한하고 종류는 좌측 정렬해 "종류 | 잔여"가 가깝게 읽히도록. */
+/* 잔여 표는 패널 폭을 꽉 채운다(full-width) — 표를 좁히면 오른쪽에 빈 공간이 남으므로 */
 .lv-bal-table {
-  width: auto;
-  min-width: 300px;
-  max-width: 460px;
-}
-/* 테두리 상자(table-wrap)를 표 폭에 맞게 축소 — 표는 min-width로 중간 간격을 유지하되,
-   상자가 전체폭이면 표 오른쪽으로 상자 안이 통째로 비므로(잔여 뒤 빈 공간) 상자만 표에 맞춘다 */
-.lv-bal-wrap {
-  width: max-content;
-  max-width: 100%;
+  width: 100%;
 }
 .lv-bal-table th:first-child,
 .lv-bal-table td:first-child {
