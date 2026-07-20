@@ -94,7 +94,7 @@ class TenantServiceTest {
 
     private static User pendingAdmin(long userId) {
         return new User(userId, 10L, "admin@acme.co.kr", "hash", null, "김관리", null,
-                LocalTime.of(9, 0), LocalTime.of(18, 0), "1111100", null,
+                LocalTime.of(9, 0), LocalTime.of(18, 0), "1111100", null, null,
                 Role.TENANT_ADMIN, UserStatus.PENDING, false, LocalDateTime.now(), LocalDateTime.now());
     }
 

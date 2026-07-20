@@ -22,6 +22,7 @@ public record User(
         LocalTime defaultWorkEnd,
         String workDays,
         LocalDate hireDate,
+        Long baseMonthlySalary,
         Role role,
         UserStatus status,
         boolean deleted,

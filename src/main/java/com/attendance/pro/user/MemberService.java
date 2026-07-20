@@ -83,7 +83,8 @@ public class MemberService {
                 ? null : java.time.LocalDate.parse(request.hireDate());
         UserCreate create = new UserCreate(tenantId, request.email(),
                 unusablePasswordHash(), request.name(), request.departCd(),
-                workStart, workEnd, Role.MEMBER, UserStatus.PENDING, hireDate);
+                workStart, workEnd, Role.MEMBER, UserStatus.PENDING, hireDate,
+                request.baseMonthlySalary());
         try {
             userMapper.insert(create);
         } catch (DuplicateKeyException e) {
@@ -201,12 +202,23 @@ public class MemberService {
     }
 
     /**
+     * 월 기본급 수정(속성별 PUT — /schedule 패턴 계승). null이면 미입력으로 저장(정산 제외).
+     * PENDING·ACTIVE 무관 허용(입사 전 등록 준비 포함).
+     */
+    @Transactional
+    public MemberResponse updateSalary(long tenantId, long userId, Long baseMonthlySalary) {
+        requireManageableMember(tenantId, userId);
+        userMapper.updateSalary(tenantId, userId, baseMonthlySalary);
+        return toResponse(tenantId, userMapper.findById(tenantId, userId));
+    }
+
+    /**
      * 테넌트 생성시 최초 TENANT_ADMIN을 PENDING으로 등록(TenantService용 — UserMapper 접근을 user 패키지에 유지).
      * INVITE 발송은 생성 트랜잭션 커밋 후 호출부(TenantService)가 수행한다.
      */
     public long registerPendingAdmin(long tenantId, String email, String name) {
         UserCreate create = new UserCreate(tenantId, email, unusablePasswordHash(), name, null,
-                DEFAULT_WORK_START, DEFAULT_WORK_END, Role.TENANT_ADMIN, UserStatus.PENDING, null);
+                DEFAULT_WORK_START, DEFAULT_WORK_END, Role.TENANT_ADMIN, UserStatus.PENDING, null, null);
         userMapper.insert(create);
         return create.getUserId();
     }
