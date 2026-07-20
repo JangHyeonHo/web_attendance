@@ -275,6 +275,26 @@ export function MembersScreen() {
       )
     : members
 
+  //스케줄 편집기는 모달이 아니라 전체 화면(패널)으로 — 목록을 밀어내고 그 자리를 채운다(#13)
+  if (patternMember) {
+    return (
+      <PatternEditor
+        userId={patternMember.userId}
+        userName={patternMember.name}
+        onClose={() => setPatternMember(null)}
+      />
+    )
+  }
+  if (rotaMember) {
+    return (
+      <RotaEditor
+        userId={rotaMember.userId}
+        userName={rotaMember.name}
+        onClose={() => setRotaMember(null)}
+      />
+    )
+  }
+
   return (
     <div className="panel">
       <div className="toolbar">
@@ -452,22 +472,6 @@ export function MembersScreen() {
             <button onClick={() => setScheduleEdit(null)}>{t('CANCEL')}</button>
           </div>
         </Modal>
-      )}
-
-      {rotaMember && (
-        <RotaEditor
-          userId={rotaMember.userId}
-          userName={rotaMember.name}
-          onClose={() => setRotaMember(null)}
-        />
-      )}
-
-      {patternMember && (
-        <PatternEditor
-          userId={patternMember.userId}
-          userName={patternMember.name}
-          onClose={() => setPatternMember(null)}
-        />
       )}
 
       {pending && (

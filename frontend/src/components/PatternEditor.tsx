@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { tenantScheduleApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
-import { Modal } from './Modal'
 import { TimeField } from './fields'
 import { localeOf } from '../i18n/lang'
 import type { PatternSlot } from '../api/types'
@@ -131,7 +130,11 @@ export function PatternEditor({
   const days = [1, 2, 3, 4, 5, 6, 7]
 
   return (
-    <Modal title={`${userName} — ${t('PATTERN_TITLE')}`} onClose={onClose}>
+    <div className="panel subscreen">
+      <div className="subscreen-head">
+        <button type="button" className="link subscreen-back" onClick={onClose}>{t('BACK')}</button>
+        <h2>{userName} — {t('PATTERN_TITLE')}</h2>
+      </div>
       <div className="rota">
         <p className="hint">{t('PATTERN_HINT')}</p>
         <label className="pattern-cycle">
@@ -197,6 +200,6 @@ export function PatternEditor({
           <button onClick={onClose}>{t('CANCEL')}</button>
         </div>
       </div>
-    </Modal>
+    </div>
   )
 }

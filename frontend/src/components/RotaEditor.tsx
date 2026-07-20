@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { tenantScheduleApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
-import { Modal } from './Modal'
 import { TimeField } from './fields'
 import { localeOf } from '../i18n/lang'
 import type { RotaSaveCell } from '../api/types'
@@ -163,7 +162,11 @@ export function RotaEditor({
   const rows = Array.from({ length: daysInMonth }, (_, i) => i + 1)
 
   return (
-    <Modal title={`${userName} — ${t('ROTA_TITLE')}`} onClose={onClose}>
+    <div className="panel subscreen">
+      <div className="subscreen-head">
+        <button type="button" className="link subscreen-back" onClick={onClose}>{t('BACK')}</button>
+        <h2>{userName} — {t('ROTA_TITLE')}</h2>
+      </div>
       <div className="rota">
         <div className="rota-monthnav">
           <button type="button" onClick={() => shiftMonth(-1)} aria-label="prev">‹</button>
@@ -269,6 +272,6 @@ export function RotaEditor({
           <button onClick={onClose}>{t('CANCEL')}</button>
         </div>
       </div>
-    </Modal>
+    </div>
   )
 }

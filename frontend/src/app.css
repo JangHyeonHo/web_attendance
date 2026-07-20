@@ -742,6 +742,21 @@ form button.primary {
   border-color: var(--accent);
   color: var(--accent-dark);
 }
+/* 전체 화면 편집기(모달 대신 목록을 밀어내고 채우는 서브스크린, #13) */
+.subscreen-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.subscreen-head h2 {
+  margin: 0;
+}
+.subscreen-back {
+  font-weight: 600;
+}
+
 /* 월 로타 편집기(#13) */
 .rota-monthnav {
   display: flex;
@@ -768,7 +783,7 @@ form button.primary {
   margin-top: 8px;
 }
 .rota-grid {
-  max-height: 44vh;
+  max-height: 60vh;
   overflow-y: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
