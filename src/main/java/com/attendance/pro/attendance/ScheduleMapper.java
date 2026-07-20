@@ -15,7 +15,8 @@ import org.apache.ibatis.annotations.Select;
 public interface ScheduleMapper {
 
     @Select("""
-            SELECT schedule_id, user_id, work_date, start_time, end_time, holiday
+            SELECT schedule_id, user_id, work_date, start_time, end_time,
+                   crosses_midnight, off, holiday
             FROM work_schedule
             WHERE tenant_id = #{tenantId}
               AND user_id = #{userId}

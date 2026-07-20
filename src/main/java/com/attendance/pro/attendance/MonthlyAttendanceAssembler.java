@@ -102,10 +102,12 @@ public class MonthlyAttendanceAssembler {
 
         for (LocalDate day : monthDays) {
             WorkSchedule schedule = schedules.get(day);
+            //스케줄상 휴무(패턴/로타의 OFF일) — 공휴일과 구분되는 근무 없음(#13)
+            boolean scheduledOff = schedule != null && schedule.off();
             boolean holiday = holidays.containsKey(day) || (schedule != null && schedule.holiday());
-            //요일 휴무 — 일자 오버라이드가 있으면 그날은 근무일(오버라이드 우선)
-            boolean dayOff = !holiday && schedule == null
-                    && !WorkDefaults.worksOn(workDays, day.getDayOfWeek());
+            //요일 휴무 — 오버라이드(비-OFF)가 있으면 근무일로 승격(오버라이드 우선), OFF면 휴무
+            boolean dayOff = !holiday && (scheduledOff
+                    || (schedule == null && !WorkDefaults.worksOn(workDays, day.getDayOfWeek())));
             boolean offDuty = holiday || dayOff;
 
             //우선순위: work_schedule(필드 단위) > 개인 기본값 > 상수 — §3-1. 휴일·휴무는 스케줄 없음
@@ -113,6 +115,9 @@ public class MonthlyAttendanceAssembler {
                     : (schedule != null && schedule.startTime() != null ? schedule.startTime() : baseStart);
             LocalTime resolvedEnd = offDuty ? null
                     : (schedule != null && schedule.endTime() != null ? schedule.endTime() : baseEnd);
+            //야간 교대(자정 넘김) — 두 시각이 모두 있고 오버라이드가 지정한 경우만(#13)
+            boolean crosses = !offDuty && schedule != null && schedule.crossesMidnight()
+                    && resolvedStart != null && resolvedEnd != null;
 
             String stampIn = null;
             String stampOut = null;
@@ -176,14 +181,16 @@ public class MonthlyAttendanceAssembler {
                 }
             }
 
+            //스케줄 구간 길이(분) — 야간 교대면 익일 종업까지(자정 넘김 반영, #13)
+            long scheduleWindow = offDuty ? 0
+                    : scheduleWindowMinutes(resolvedStart, resolvedEnd, crosses);
             //법정휴게: 근무일은 스케줄 구간 기반이라 항상 산출(X2 — 미퇴근이어도 표시),
             //휴일·휴무는 스케줄이 없으므로 출퇴근이 확정된 날만 실체류 기반으로 산출
             Integer statutory = offDuty ? null
-                    : (int) breakPolicy.requiredBreak(Duration.between(resolvedStart, resolvedEnd)).toMinutes();
+                    : (int) breakPolicy.requiredBreak(Duration.ofMinutes(scheduleWindow)).toMinutes();
             //예정 근무(분) = 스케줄 구간 − 법정휴게. 근무일만(휴일·휴무는 null). 실근무와 비교용(#1)
             Integer scheduledMinutes = offDuty ? null
-                    : (int) Math.max(0L,
-                            Duration.between(resolvedStart, resolvedEnd).toMinutes() - statutory);
+                    : (int) Math.max(0L, scheduleWindow - statutory);
             Integer breakMinutes = null;
             Integer recognizedBreak = null;
             Integer workMinutes = null;
@@ -202,7 +209,7 @@ public class MonthlyAttendanceAssembler {
             //휴가 명칭(#9) — 공휴일이 아닌 날의 유효 휴가만(공휴일 우선). 없으면 null
             String leaveName = holiday || leaves == null ? null : leaves.get(day);
             result.add(new DailyAttendance(day, holiday, dayOff,
-                    format(resolvedStart), format(resolvedEnd),
+                    format(resolvedStart), crosses ? formatOvernight(resolvedEnd) : format(resolvedEnd),
                     stampIn, stampOut, holiday ? holidays.get(day) : null,
                     scheduledMinutes, breakMinutes, statutory, recognizedBreak, workMinutes,
                     manualDays.contains(day),
@@ -210,6 +217,21 @@ public class MonthlyAttendanceAssembler {
                     leaveName));
         }
         return result;
+    }
+
+    /** 스케줄 구간 길이(분). 야간 교대(자정 넘김)면 [start..24:00) + [00:00..end). */
+    private static long scheduleWindowMinutes(LocalTime start, LocalTime end, boolean crossesMidnight) {
+        int startMin = start.getHour() * 60 + start.getMinute();
+        int endMin = end.getHour() * 60 + end.getMinute();
+        if (crossesMidnight) {
+            return (1440L - startMin) + endMin;
+        }
+        return Math.max(0L, endMin - startMin);
+    }
+
+    /** 야간 교대 종업 표기 — 익일을 25:10처럼 +24시로(실제 퇴근 야근 표기와 동일 관례). */
+    private static String formatOvernight(LocalTime end) {
+        return String.format("%02d:%02d", end.getHour() + 24, end.getMinute());
     }
 
     /** 정정 사유 표시 문자열 — 자유 텍스트가 있으면 그것을, 없으면 코드 라벨을. */
