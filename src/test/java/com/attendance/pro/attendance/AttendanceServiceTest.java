@@ -314,7 +314,7 @@ class AttendanceServiceTest {
             java.time.LocalDate today = java.time.LocalDate.now();
             when(holidayMapper.findHolidaysBetween(eq(TENANT_ID), any(), any())).thenReturn(java.util.List.of(
                     new com.attendance.pro.holiday.Holiday(1L, TENANT_ID, today, "삼일절",
-                            com.attendance.pro.holiday.HolidayType.NATIONAL,
+                            com.attendance.pro.holiday.HolidayType.NATIONAL, false,
                             LocalDateTime.now(), LocalDateTime.now())));
             when(attendanceMapper.findLatest(TENANT_ID, USER_ID)).thenReturn(null);
 
@@ -439,7 +439,7 @@ class AttendanceServiceTest {
             when(holidayMapper.findHolidaysBetween(eq(TENANT_ID), any(), any()))
                     .thenReturn(java.util.List.of(new com.attendance.pro.holiday.Holiday(
                             1L, TENANT_ID, java.time.LocalDate.of(2026, 7, 17), "제헌절",
-                            com.attendance.pro.holiday.HolidayType.NATIONAL,
+                            com.attendance.pro.holiday.HolidayType.NATIONAL, false,
                             LocalDateTime.now(), LocalDateTime.now())));
 
             var response = service.monthly(TENANT_ID, USER_ID, 2026, 7);

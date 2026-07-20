@@ -23,8 +23,9 @@ function syncDoneText(template: string, result: HolidaySyncResult): string {
 
 /**
  * W013 공휴일 관리 — TENANT_ADMIN 전용(holiday-plan §5-1).
- * 국가 공휴일(NATIONAL)은 읽기전용(동기화만 관리) + 회사 공휴일(COMPANY)은 등록·삭제 가능(#7).
- * 같은 날짜 중복 등록 허용(예: 창립기념일 + 광복절). 개별 명칭 수정은 없다(삭제 후 재등록).
+ * 국가 공휴일(NATIONAL)은 읽기전용(동기화만 관리) + 회사 공휴일(COMPANY)은 등록·수정·삭제 가능(#7·#8).
+ * 같은 날짜 중복 등록 허용(예: 창립기념일 + 광복절). 회사 공휴일은 매년 반복 지정 가능하며(#8)
+ * 각 연도 인스턴스는 독립 행이라 연도별로 날짜/명칭 이동·삭제가 가능하다. 수정/삭제는 아이콘+툴팁.
  */
 export function HolidaysScreen() {
   const { t, lang } = useApp()
@@ -48,13 +49,31 @@ export function HolidaysScreen() {
   const [formOpen, setFormOpen] = useState(false)
   const [newDate, setNewDate] = useState('')
   const [newName, setNewName] = useState('')
+  const [newRecurring, setNewRecurring] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
 
+  //회사 공휴일 수정 모달(#8) — 개별 인스턴스(날짜/명칭/반복)
+  const [editTarget, setEditTarget] = useState<HolidayEntry | null>(null)
+  const [editDate, setEditDate] = useState('')
+  const [editName, setEditName] = useState('')
+  const [editRecurring, setEditRecurring] = useState(false)
+  const [editError, setEditError] = useState<string | null>(null)
+  const [editFieldErrors, setEditFieldErrors] = useState<Record<string, string>>({})
+
   //회사 공휴일 삭제(확인 모달) — 국가 공휴일은 삭제 불가
   const [deleteTarget, setDeleteTarget] = useState<HolidayEntry | null>(null)
   const [rowError, setRowError] = useState<string | null>(null)
+
+  function openEdit(holiday: HolidayEntry) {
+    setEditTarget(holiday)
+    setEditDate(holiday.holidayDate)
+    setEditName(holiday.holidayName)
+    setEditRecurring(holiday.recurring)
+    setEditError(null)
+    setEditFieldErrors({})
+  }
 
   //요일 명칭은 사전 없이 Intl 표준 API로 생성(W006 방식).
   //'YYYY-MM-DD'를 new Date(문자열)로 넘기면 UTC 자정 해석 — 음수 오프셋 시간대에서 전날 요일이 되므로 로컬 성분 생성
@@ -81,6 +100,7 @@ export function HolidaysScreen() {
     setSyncError(null)
     setSyncConfirm(false)
     setDeleteTarget(null)
+    setEditTarget(null)
     setRowError(null)
     void reload()
   }, [reload])
@@ -118,9 +138,14 @@ export function HolidaysScreen() {
     setFieldErrors({})
     setSubmitting(true)
     try {
-      await tenantHolidayApi.create({ holidayDate: newDate, holidayName: newName.trim() })
+      await tenantHolidayApi.create({
+        holidayDate: newDate,
+        holidayName: newName.trim(),
+        recurring: newRecurring,
+      })
       setNewDate('')
       setNewName('')
+      setNewRecurring(false)
       setFormOpen(false)
       await reload()
     } catch (e) {
@@ -135,6 +160,38 @@ export function HolidaysScreen() {
         }
       } else {
         setFormError(String(e))
+      }
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function onUpdate(event: FormEvent) {
+    event.preventDefault()
+    if (!editTarget) return
+    setEditError(null)
+    setEditFieldErrors({})
+    setSubmitting(true)
+    try {
+      await tenantHolidayApi.update(editTarget.holidayId, {
+        holidayDate: editDate,
+        holidayName: editName.trim(),
+        recurring: editRecurring,
+      })
+      setEditTarget(null)
+      await reload()
+    } catch (e) {
+      if (e instanceof ApiError) {
+        setEditError(e.message)
+        if (e.fieldErrors) {
+          const byField: Record<string, string> = {}
+          for (const fe of e.fieldErrors) {
+            byField[fe.field] = fe.message
+          }
+          setEditFieldErrors(byField)
+        }
+      } else {
+        setEditError(String(e))
       }
     } finally {
       setSubmitting(false)
@@ -193,9 +250,48 @@ export function HolidaysScreen() {
               <input value={newName} onChange={(e) => setNewName(e.target.value)} required />
               {fieldErrors.holidayName && <span className="error">{fieldErrors.holidayName}</span>}
             </label>
+            <label className="check-inline">
+              <input
+                type="checkbox"
+                checked={newRecurring}
+                onChange={(e) => setNewRecurring(e.target.checked)}
+              />
+              {t('RECURRING')}
+            </label>
+            <p className="hint">{t('RECURRING_HINT')}</p>
             {formError && <p className="error" role="alert">{formError}</p>}
             <button type="submit" className="primary" disabled={submitting}>
               {t('ADD_HOLIDAY')}
+            </button>
+          </form>
+        </Modal>
+      )}
+
+      {editTarget && (
+        <Modal title={t('EDIT_HOLIDAY')} onClose={() => setEditTarget(null)}>
+          <form onSubmit={onUpdate}>
+            <label>
+              {t('DATE')}
+              <DateField value={editDate} onChange={setEditDate} ariaLabel={t('DATE')} />
+              {editFieldErrors.holidayDate && <span className="error">{editFieldErrors.holidayDate}</span>}
+            </label>
+            <label>
+              {t('NAME')}
+              <input value={editName} onChange={(e) => setEditName(e.target.value)} required />
+              {editFieldErrors.holidayName && <span className="error">{editFieldErrors.holidayName}</span>}
+            </label>
+            <label className="check-inline">
+              <input
+                type="checkbox"
+                checked={editRecurring}
+                onChange={(e) => setEditRecurring(e.target.checked)}
+              />
+              {t('RECURRING')}
+            </label>
+            <p className="hint">{t('RECURRING_HINT')}</p>
+            {editError && <p className="error" role="alert">{editError}</p>}
+            <button type="submit" className="primary" disabled={submitting}>
+              {t('SUBMIT')}
             </button>
           </form>
         </Modal>
@@ -239,16 +335,61 @@ export function HolidaysScreen() {
                     <td>
                       {holiday.holidayDate}({weekdayOf(holiday.holidayDate)})
                     </td>
-                    <td>{holiday.holidayName}</td>
+                    <td>
+                      {holiday.holidayName}
+                      {holiday.recurring && (
+                        <span className="badge badge-recurring" title={t('RECURRING_HINT')}>
+                          {t('RECURRING')}
+                        </span>
+                      )}
+                    </td>
                     <td>
                       <span className={`badge ${national ? 'badge-national' : 'badge-company'}`}>
                         {t(TYPE_LABEL_KEYS[holiday.holidayType])}
                       </span>
                     </td>
-                    <td>
-                      {/* 회사 공휴일만 삭제 — 국가 공휴일은 동기화만 관리(읽기전용, #7) */}
+                    <td className="row-actions">
+                      {/* 회사 공휴일만 수정/삭제 — 국가 공휴일은 동기화만 관리(읽기전용, #7·#8).
+                          아이콘+툴팁으로 국가 공휴일 행과 높이를 맞춘다(텍스트 버튼 제거). */}
                       {!national && (
-                        <button onClick={() => setDeleteTarget(holiday)}>{t('DELETE')}</button>
+                        <>
+                          <button
+                            type="button"
+                            className="icon-btn"
+                            title={t('EDIT')}
+                            aria-label={t('EDIT')}
+                            onClick={() => openEdit(holiday)}
+                          >
+                            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                              <path
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M4 20h4L18.5 9.5a1.5 1.5 0 0 0 0-2.1l-1.9-1.9a1.5 1.5 0 0 0-2.1 0L4 16v4Z"
+                              />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            className="icon-btn danger"
+                            title={t('DELETE')}
+                            aria-label={t('DELETE')}
+                            onClick={() => setDeleteTarget(holiday)}
+                          >
+                            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                              <path
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M5 7h14M10 7V5h4v2M6 7l1 13h10l1-13"
+                              />
+                            </svg>
+                          </button>
+                        </>
                       )}
                     </td>
                   </tr>

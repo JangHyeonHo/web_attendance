@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -18,6 +19,7 @@ import com.attendance.pro.auth.SessionUser;
 import com.attendance.pro.holiday.HolidayDtos.HolidayCreateRequest;
 import com.attendance.pro.holiday.HolidayDtos.HolidayResponse;
 import com.attendance.pro.holiday.HolidayDtos.HolidaySyncResponse;
+import com.attendance.pro.holiday.HolidayDtos.HolidayUpdateRequest;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -65,6 +67,17 @@ public class TenantHolidayController {
     public HolidayResponse create(@LoginUser SessionUser user,
             @Valid @RequestBody HolidayCreateRequest request) {
         return holidayService.create(user.tenantId(), request);
+    }
+
+    @Operation(summary = "api.tenant-holiday.update.summary", description = "api.tenant-holiday.update.description")
+    @ApiResponses({
+            @ApiResponse(responseCode = "404", description = "api.tenant-holiday.update.404")
+    })
+    @PutMapping("/{holidayId}")
+    public HolidayResponse update(@LoginUser SessionUser user, @PathVariable("holidayId") long holidayId,
+            @Valid @RequestBody HolidayUpdateRequest request) {
+        //회사 공휴일만 수정 — 국가 공휴일은 서비스/매퍼가 차단(#8)
+        return holidayService.updateCompany(user.tenantId(), holidayId, request);
     }
 
     @Operation(summary = "api.tenant-holiday.delete.summary")

@@ -12,6 +12,8 @@ public record Holiday(
         LocalDate holidayDate,
         String holidayName,
         HolidayType holidayType,
+        /** 매년 반복 여부(COMPANY 전용 — NATIONAL은 동기화가 관리하므로 항상 false) */
+        boolean recurring,
         LocalDateTime createdAt,
         LocalDateTime updatedAt) {
 }
