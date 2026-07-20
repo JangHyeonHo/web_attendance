@@ -41,6 +41,8 @@ import type {
   MemberStatusUpdateRequest,
   MemberSummary,
   MonthlyResponse,
+  RotaCell,
+  RotaSaveRequest,
   NavigateRequest,
   NavigateResponse,
   InvoiceEntry,
@@ -191,6 +193,14 @@ export const tenantMemberApi = {
     put<MemberSummary>(`/api/v1/tenant/members/${userId}/role`, request),
   updateSchedule: (userId: number, request: MemberScheduleUpdateRequest) =>
     put<MemberSummary>(`/api/v1/tenant/members/${userId}/schedule`, request),
+}
+
+/** TENANT_ADMIN+HR_ADMIN — 월 로타(일자 오버라이드: 야간교대·휴무). #13 */
+export const tenantScheduleApi = {
+  rota: (userId: number, year: number, month: number) =>
+    get<RotaCell[]>(`/api/v1/tenant/schedule/${userId}/rota?year=${year}&month=${month}`),
+  saveRota: (userId: number, request: RotaSaveRequest) =>
+    put<void>(`/api/v1/tenant/schedule/${userId}/rota`, request),
 }
 
 /** TENANT_ADMIN 전용 — 공휴일(W013). 읽기전용 목록 + 회사 공휴일 등록 + 국가 공휴일 동기화(#7) */

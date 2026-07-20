@@ -4,6 +4,7 @@ import { authApi, tenantMemberApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { Modal } from '../components/Modal'
+import { RotaEditor } from '../components/RotaEditor'
 import { SelectField, TimeField } from '../components/fields'
 import { DateField } from '../components/DateField'
 import { localeOf } from '../i18n/lang'
@@ -92,6 +93,8 @@ export function MembersScreen() {
   //행 조작
   const [pending, setPending] = useState<PendingAction | null>(null)
   const [scheduleEdit, setScheduleEdit] = useState<ScheduleEdit | null>(null)
+  //월 로타 편집기 대상(#13) — 열면 기본 스케줄 모달은 닫고 로타 편집기로 전환
+  const [rotaMember, setRotaMember] = useState<{ userId: number; name: string } | null>(null)
   const [rowError, setRowError] = useState<{ userId: number; message: string } | null>(null)
 
   const reload = useCallback(async () => {
@@ -411,6 +414,8 @@ export function MembersScreen() {
               )
             })}
           </div>
+          {/* 기본(고정) 스케줄 위에 월 로타(일자별 예외·야간교대·휴무)를 얹는다(#13) */}
+          <p className="hint">{t('ROTA_HINT')}</p>
           <div className="btn-row">
             <button
               className="primary"
@@ -423,9 +428,26 @@ export function MembersScreen() {
             >
               {t('SUBMIT')}
             </button>
+            <button
+              onClick={() => {
+                //중첩 모달 회피 — 기본 스케줄 모달을 닫고 로타 편집기로 전환
+                setRotaMember({ userId: scheduleEdit.userId, name: scheduleEdit.name })
+                setScheduleEdit(null)
+              }}
+            >
+              {t('ROTA_EDIT')}
+            </button>
             <button onClick={() => setScheduleEdit(null)}>{t('CANCEL')}</button>
           </div>
         </Modal>
+      )}
+
+      {rotaMember && (
+        <RotaEditor
+          userId={rotaMember.userId}
+          userName={rotaMember.name}
+          onClose={() => setRotaMember(null)}
+        />
       )}
 
       {pending && (

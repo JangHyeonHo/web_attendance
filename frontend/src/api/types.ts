@@ -595,6 +595,32 @@ export interface HolidayUpdateRequest {
   recurring: boolean
 }
 
+// ---- 근무 스케줄 월 로타 (#13) ----
+
+/** 로타 셀(일자 오버라이드) — off=휴무, 아니면 start/end(+crossesMidnight 야간교대). 시각은 HH:mm(:ss) */
+export interface RotaCell {
+  date: string
+  off: boolean
+  start: string | null
+  end: string | null
+  crossesMidnight: boolean
+  holiday: boolean
+}
+
+export interface RotaSaveCell {
+  date: string
+  off: boolean
+  start: string | null
+  end: string | null
+  crossesMidnight: boolean
+}
+
+export interface RotaSaveRequest {
+  year: number
+  month: number
+  cells: RotaSaveCell[]
+}
+
 // ---- i18n (언어 마스터) ----
 
 export interface LanguageEntry {

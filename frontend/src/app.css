@@ -742,6 +742,66 @@ form button.primary {
   border-color: var(--accent);
   color: var(--accent-dark);
 }
+/* 월 로타 편집기(#13) */
+.rota-monthnav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+.rota-monthnav button {
+  min-width: 36px;
+}
+.rota-fill {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  margin-bottom: 12px;
+  background: var(--surface-alt);
+}
+.rota-fill-shift {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.rota-grid {
+  max-height: 44vh;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.rota-day {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.rota-day:last-child {
+  border-bottom: none;
+}
+.rota-day-date {
+  min-width: 72px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.rota-day-date.sun { color: var(--error); }
+.rota-day-date.sat { color: var(--info); }
+.rota-day-times {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.rota-actions {
+  margin-top: 12px;
+  align-items: center;
+}
+
 /* 날짜/시간 세그먼트 토글(#12 휴가 신청) */
 .seg-toggle {
   display: inline-flex;
