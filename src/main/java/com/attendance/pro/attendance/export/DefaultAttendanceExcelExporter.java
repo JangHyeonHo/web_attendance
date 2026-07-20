@@ -85,6 +85,7 @@ public class DefaultAttendanceExcelExporter implements AttendanceExcelExporter {
 
             //표 헤더
             Row head = sheet.createRow(HEADER_ROW);
+            head.setHeightInPoints(24); //헤더는 조금 더 높게
             for (int c = 0; c < COLS; c++) {
                 cell(head, c, HEADERS[c], header);
             }
@@ -93,6 +94,7 @@ public class DefaultAttendanceExcelExporter implements AttendanceExcelExporter {
             int r = HEADER_ROW + 1;
             for (DailyAttendance d : monthly.days()) {
                 Row row = sheet.createRow(r++);
+                row.setHeightInPoints(20); //행 간격 넉넉하게(한눈에 보기 편하게)
                 boolean red = d.holiday() || (d.date() != null && d.date().getDayOfWeek() == DayOfWeek.SUNDAY);
                 boolean blue = !red && d.date() != null && d.date().getDayOfWeek() == DayOfWeek.SATURDAY;
                 XSSFCellStyle rowText = red ? textSun : blue ? textSat : text;
@@ -114,6 +116,7 @@ public class DefaultAttendanceExcelExporter implements AttendanceExcelExporter {
 
             //합계
             Row total = sheet.createRow(r + 1);
+            total.setHeightInPoints(20);
             for (int c = 0; c < COLS; c++) {
                 total.createCell(c).setCellStyle(totalText);
             }
@@ -122,8 +125,17 @@ public class DefaultAttendanceExcelExporter implements AttendanceExcelExporter {
             setHours(total.getCell(7), monthly.totalBreakMinutes(), totalHour);
             setHours(total.getCell(8), monthly.totalWorkMinutes(), totalHour);
 
+            //autoSizeColumn은 AWT 폰트 메트릭에 의존 — 헤드리스·폰트 미설치 환경에서 예외가 날 수 있어
+            //방어적으로 감싸고, 실패 시 고정 너비로 폴백한다(다운로드 자체가 500으로 죽지 않게).
             for (int c = 0; c < COLS; c++) {
-                sheet.autoSizeColumn(c);
+                try {
+                    sheet.autoSizeColumn(c);
+                    //내용폭 + 여유(약 4자), 최소 12자 보장 · 과도한 폭은 상한 — 열 간격이 너무 좁지 않게
+                    int w = Math.max(sheet.getColumnWidth(c) + 4 * 256, 12 * 256);
+                    sheet.setColumnWidth(c, Math.min(w, 60 * 256));
+                } catch (RuntimeException e) {
+                    sheet.setColumnWidth(c, 16 * 256); //폴백도 넉넉하게
+                }
             }
             wb.write(out);
             return out.toByteArray();

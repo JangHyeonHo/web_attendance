@@ -88,6 +88,13 @@
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
+				<configuration>
+					<!-- 로컬 실행(mvnw spring-boot:run)은 dev 프로파일로 — 커밋된 개발 기본 암호화 키를
+					     FieldCipher가 허용하도록. 운영은 SPRING_PROFILES_ACTIVE=prod로 별도 기동. -->
+					<profiles>
+						<profile>dev</profile>
+					</profiles>
+				</configuration>
 			</plugin>
 		</plugins>
 	</build>

@@ -227,6 +227,29 @@ class HolidayServiceTest {
         }
 
         @Test
+        @DisplayName("동기화 시 반복 회사 공휴일을 그 연도에 실체화(#8) — 명칭별 최신 월-일, 없을 때만")
+        void syncMaterializesRecurring() {
+            when(tenantMapper.findById(TENANT_ID)).thenReturn(tenant("KR"));
+            when(nagerDateClient.fetch(2026, "KR"))
+                    .thenReturn(List.of(publicHoliday("2026-03-01", "삼일절", "KR")));
+            when(holidayMapper.insertNational(anyLong(), anyList())).thenReturn(1);
+            //반복 회사 공휴일(창립기념일 10-05) 존재 → 2026에 실체화 대상
+            when(holidayMapper.findRecurringCompany(TENANT_ID)).thenReturn(List.of(new Holiday(
+                    50L, TENANT_ID, LocalDate.of(2027, 10, 5), "창립기념일",
+                    HolidayType.COMPANY, true, LocalDateTime.now(), LocalDateTime.now())));
+            when(holidayMapper.countByNameInYear(TENANT_ID, "창립기념일",
+                    LocalDate.of(2026, 1, 1), LocalDate.of(2027, 1, 1))).thenReturn(0);
+            when(holidayMapper.insert(any(HolidayMapper.HolidayInsert.class))).thenReturn(1);
+
+            service().sync(TENANT_ID, 2026);
+
+            var captor = org.mockito.ArgumentCaptor.forClass(HolidayMapper.HolidayInsert.class);
+            verify(holidayMapper).insert(captor.capture());
+            assertThat(captor.getValue().getHolidayDate()).isEqualTo(LocalDate.of(2026, 10, 5));
+            assertThat(captor.getValue().isRecurring()).isTrue();
+        }
+
+        @Test
         @DisplayName("소재국이 동기화 국가를 결정한다(JP 테넌트 → JP 요청)")
         void countryFromTenant() {
             when(tenantMapper.findById(TENANT_ID)).thenReturn(tenant("JP"));
@@ -281,12 +304,63 @@ class HolidayServiceTest {
                 inv.getArgument(0, HolidayMapper.HolidayInsert.class).setHolidayId(42L);
                 return 1;
             });
-            when(holidayMapper.findById(TENANT_ID, 42L)).thenReturn(new Holiday(
-                    42L, TENANT_ID, date, "창립기념일", HolidayType.COMPANY, LocalDateTime.now(), LocalDateTime.now()));
+            when(holidayMapper.findById(TENANT_ID, 42L)).thenReturn(new Holiday(42L, TENANT_ID, date,
+                    "창립기념일", HolidayType.COMPANY, false, LocalDateTime.now(), LocalDateTime.now()));
 
-            var response = service().create(TENANT_ID, new HolidayCreateRequest(date, "창립기념일"));
+            var response = service().create(TENANT_ID, new HolidayCreateRequest(date, "창립기념일", false));
             assertThat(response.holidayType()).isEqualTo(HolidayType.COMPANY);
             assertThat(response.holidayId()).isEqualTo(42L);
+        }
+
+        @Test
+        @DisplayName("반복 등록(#8): 동기화된 다른 연도로 같은 월-일 실체화 — 같은 명칭 있는 해는 생략")
+        void recurringCreateSpreadsToSyncedYears() {
+            LocalDate date = LocalDate.of(2026, 10, 1);
+            when(holidayMapper.insert(any(HolidayMapper.HolidayInsert.class))).thenAnswer(inv -> {
+                inv.getArgument(0, HolidayMapper.HolidayInsert.class).setHolidayId(1L);
+                return 1;
+            });
+            //동기화 연도: 2025·2026·2027 — 기준 연도(2026)는 건너뛴다
+            when(holidayMapper.syncedYears(TENANT_ID)).thenReturn(List.of(2025, 2026, 2027));
+            //2025엔 이미 같은 명칭 존재(생략), 2027엔 없음(삽입)
+            when(holidayMapper.countByNameInYear(TENANT_ID, "창립기념일",
+                    LocalDate.of(2025, 1, 1), LocalDate.of(2026, 1, 1))).thenReturn(1);
+            when(holidayMapper.countByNameInYear(TENANT_ID, "창립기념일",
+                    LocalDate.of(2027, 1, 1), LocalDate.of(2028, 1, 1))).thenReturn(0);
+            when(holidayMapper.findById(TENANT_ID, 1L)).thenReturn(new Holiday(1L, TENANT_ID, date,
+                    "창립기념일", HolidayType.COMPANY, true, LocalDateTime.now(), LocalDateTime.now()));
+
+            service().create(TENANT_ID, new HolidayCreateRequest(date, "창립기념일", true));
+
+            //기준 행 1건 + 2027 실체화 1건 = insert 2회, 2027은 10-01
+            verify(holidayMapper, org.mockito.Mockito.times(2))
+                    .insert(any(HolidayMapper.HolidayInsert.class));
+            var captor = org.mockito.ArgumentCaptor.forClass(HolidayMapper.HolidayInsert.class);
+            verify(holidayMapper, org.mockito.Mockito.times(2)).insert(captor.capture());
+            assertThat(captor.getAllValues()).anySatisfy(ins -> {
+                assertThat(ins.getHolidayDate()).isEqualTo(LocalDate.of(2027, 10, 1));
+                assertThat(ins.isRecurring()).isTrue();
+            });
+        }
+
+        @Test
+        @DisplayName("회사 공휴일 수정(#8): 날짜/명칭/반복 갱신, 매칭 0이면 404(NATIONAL·미존재)")
+        void updateCompanyOnly() {
+            LocalDate date = LocalDate.of(2026, 10, 2);
+            when(holidayMapper.updateCompany(TENANT_ID, 7L, date, "창립기념일(수정)", false)).thenReturn(1);
+            when(holidayMapper.findById(TENANT_ID, 7L)).thenReturn(new Holiday(7L, TENANT_ID, date,
+                    "창립기념일(수정)", HolidayType.COMPANY, false, LocalDateTime.now(), LocalDateTime.now()));
+
+            var response = service().updateCompany(TENANT_ID, 7L,
+                    new HolidayDtos.HolidayUpdateRequest(date, "창립기념일(수정)", false));
+            assertThat(response.holidayName()).isEqualTo("창립기념일(수정)");
+
+            //국가 공휴일/미존재 → 0행 → 404
+            when(holidayMapper.updateCompany(TENANT_ID, 9L, date, "x", false)).thenReturn(0);
+            assertThatThrownBy(() -> service().updateCompany(TENANT_ID, 9L,
+                    new HolidayDtos.HolidayUpdateRequest(date, "x", false)))
+                    .isInstanceOf(ApiException.class)
+                    .satisfies(e -> assertThat(((ApiException) e).getCode()).isEqualTo("HOLIDAY_NOT_FOUND"));
         }
 
         @Test

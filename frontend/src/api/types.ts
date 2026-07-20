@@ -124,6 +124,8 @@ export interface LoginResponse {
   tenantCode: string
   /** 헤더 뱃지용 — 비null (뱃지 표시는 role로 분기해 SYSTEM_ADMIN 미표시) */
   tenantName: string
+  /** 본인 부서(코드) — me 조회 시 채워짐(로그인 응답은 null). 근무표 인쇄 머리말용 */
+  departCd: string | null
 }
 
 export interface UserResponse {
@@ -564,6 +566,7 @@ export interface HolidayEntry {
   holidayDate: string // yyyy-MM-dd
   holidayName: string
   holidayType: HolidayType
+  recurring: boolean // 매년 반복(회사 공휴일 — #8)
   updatedAt: string
 }
 
@@ -580,6 +583,14 @@ export interface HolidaySyncResult {
 export interface HolidayCreateRequest {
   holidayDate: string
   holidayName: string
+  recurring: boolean // 매년 반복(#8) — 동기화된 모든 연도로 실체화
+}
+
+/** 회사 공휴일 개별 수정(#8) — 날짜/명칭 이동 + 반복 토글 */
+export interface HolidayUpdateRequest {
+  holidayDate: string
+  holidayName: string
+  recurring: boolean
 }
 
 // ---- i18n (언어 마스터) ----

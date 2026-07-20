@@ -42,6 +42,7 @@ public final class MailTemplateDtos {
             String subject,
 
             @NotBlank(message = "{validation.mail-template.body.required}")
+            @Size(max = 20000, message = "{validation.mail-template.body.size}")
             String body) {
     }
 
@@ -52,7 +53,8 @@ public final class MailTemplateDtos {
             @NotBlank(message = "{validation.mail-template.subject.required}")
             @Size(max = 200, message = "{validation.mail-template.subject.size}")
             String subject,
-            @NotBlank(message = "{validation.mail-template.body.required}") String body) {
+            @NotBlank(message = "{validation.mail-template.body.required}")
+            @Size(max = 20000, message = "{validation.mail-template.body.size}") String body) {
     }
 
     @Schema(description = "schema.mail-template-preview-response")

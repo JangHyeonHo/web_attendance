@@ -107,7 +107,9 @@ export function InvoiceDocument({
               <td className="num tnum">{won(extraAmount)}</td>
             </tr>
           )}
-          {invoice.total === 0 && (
+          {/* 완전 무료(0원) 요약 줄 — 과금 인원(billedSeats)이 0일 때만.
+              마지막 날 증원 등으로 billedSeats>0이면 위 '추가 인원' 줄(0원)이 이미 나오므로 중복 0원 줄 방지 */}
+          {invoice.total === 0 && invoice.billedSeats === 0 && (
             <tr>
               <td>{t('INV_LINE_FREEPLAN')}</td>
               <td className="num tnum">{invoice.maxSeats}</td>

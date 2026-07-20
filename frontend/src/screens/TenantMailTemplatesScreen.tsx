@@ -139,7 +139,7 @@ export function TenantMailTemplatesScreen() {
             return (
               <tr key={key}>
                 <td>{template.purpose}</td>
-                <td>
+                <td className="tpl-source-cell">
                   <span className={template.overridden ? 'tenant-badge' : 'muted'}>
                     {template.overridden ? t('TPL_OVERRIDDEN') : t('TPL_DEFAULT')}
                   </span>

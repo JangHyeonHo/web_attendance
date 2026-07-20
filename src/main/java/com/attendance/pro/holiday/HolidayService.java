@@ -2,6 +2,7 @@ package com.attendance.pro.holiday;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.MonthDay;
 import java.time.Year;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -78,6 +79,9 @@ public class HolidayService {
         return transactionTemplate.execute(status -> {
             int deleted = holidayMapper.deleteNationalByYear(tenantId, from, to);
             int inserted = holidayMapper.insertNational(tenantId, entries);
+            //이 연도가 (재)동기화되는 시점에 반복 지정 회사 공휴일도 채운다(#8) —
+            //같은 명칭이 이미 있으면 생략(멱등). 신규 연도 생성 시 자동 편입되는 경로.
+            materializeRecurringInto(tenantId, year);
             //날짜 중복 허용(#7) — COMPANY와 공존하므로 건너뛰는 항목 없음
             return new HolidaySyncResponse(year, country.name(), entries.size(), inserted, deleted, 0);
         });
@@ -113,13 +117,79 @@ public class HolidayService {
     /**
      * 수동 등록 — 항상 COMPANY(요청에 type 없음 — "수동 NATIONAL"이 다음 동기화에서 소리 없이
      * 지워지는 함정을 닫는다). 날짜 중복 허용(#7) — 대리키로 여러 행 공존.
+     * 반복(recurring) 지정 시 이미 동기화된 모든 연도로 인스턴스를 실체화한다(#8).
      */
     @Transactional
     public HolidayResponse create(long tenantId, HolidayCreateRequest request) {
-        HolidayMapper.HolidayInsert holiday =
-                new HolidayMapper.HolidayInsert(tenantId, request.holidayDate(), request.holidayName());
+        boolean recurring = request.recurringFlag();
+        HolidayMapper.HolidayInsert holiday = new HolidayMapper.HolidayInsert(
+                tenantId, request.holidayDate(), request.holidayName(), recurring);
         holidayMapper.insert(holiday);
+        if (recurring) {
+            spreadRecurringToAllYears(tenantId, request.holidayDate(), request.holidayName());
+        }
         return HolidayResponse.from(holidayMapper.findById(tenantId, holiday.getHolidayId()));
+    }
+
+    /**
+     * 회사 공휴일(COMPANY) 개별 수정(#8) — 날짜/명칭 이동·반복 토글. 국가 공휴일/미존재면 404
+     * (매퍼가 type='COMPANY'로 한정). 각 연도 인스턴스는 독립 행이라 이 수정은 해당 연도만 바꾼다.
+     * 반복을 새로 켜면 다른 동기화 연도로 인스턴스를 채운다(끄는 것은 소급 삭제하지 않음).
+     */
+    @Transactional
+    public HolidayResponse updateCompany(long tenantId, long holidayId, HolidayDtos.HolidayUpdateRequest request) {
+        boolean recurring = request.recurringFlag();
+        int updated = holidayMapper.updateCompany(
+                tenantId, holidayId, request.holidayDate(), request.holidayName(), recurring);
+        if (updated == 0) {
+            throw ApiException.notFound("HOLIDAY_NOT_FOUND", "holiday.not-found");
+        }
+        if (recurring) {
+            spreadRecurringToAllYears(tenantId, request.holidayDate(), request.holidayName());
+        }
+        return HolidayResponse.from(holidayMapper.findById(tenantId, holidayId));
+    }
+
+    /**
+     * 반복 공휴일을 동기화된 모든 연도로 실체화 — 기준 행(seedDate)의 월-일을 각 연도에 적용.
+     * 같은 명칭이 이미 있는 연도는 생략(멱등). 기준 연도 자신은 이미 행이 있으므로 건너뛴다.
+     * (반복 지정/생성 시점 호출 — "이미 있으면 전부 추가" 요구.)
+     */
+    private void spreadRecurringToAllYears(long tenantId, LocalDate seedDate, String name) {
+        MonthDay md = MonthDay.from(seedDate);
+        for (int year : holidayMapper.syncedYears(tenantId)) {
+            if (year == seedDate.getYear()) {
+                continue;
+            }
+            insertRecurringInstance(tenantId, year, md, name);
+        }
+    }
+
+    /**
+     * 특정 연도에 반복 지정 회사 공휴일 인스턴스를 채운다(#8) — 명칭별 최신 정의(월-일)를 사용,
+     * 그 연도에 같은 명칭이 이미 있으면 생략(멱등). sync가 연도 (재)생성 때 호출.
+     */
+    private void materializeRecurringInto(long tenantId, int year) {
+        List<Holiday> recurring = holidayMapper.findRecurringCompany(tenantId);
+        //날짜 내림차순 → 명칭별 첫 등장이 최신 정의. 명칭 중복 제거로 연 1건만 실체화.
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        for (Holiday h : recurring) {
+            if (!seen.add(h.holidayName())) {
+                continue;
+            }
+            insertRecurringInstance(tenantId, year, MonthDay.from(h.holidayDate()), h.holidayName());
+        }
+    }
+
+    /** 한 (연도, 월-일, 명칭) 인스턴스 삽입 — 같은 명칭이 그 해에 이미 있으면 생략. 2/29는 비윤년 2/28로. */
+    private void insertRecurringInstance(long tenantId, int year, MonthDay md, String name) {
+        LocalDate from = LocalDate.of(year, 1, 1);
+        LocalDate to = LocalDate.of(year + 1, 1, 1);
+        if (holidayMapper.countByNameInYear(tenantId, name, from, to) > 0) {
+            return;
+        }
+        //MonthDay.atYear는 비윤년의 2/29를 2/28로 조정한다(예외 없음)
+        holidayMapper.insert(new HolidayMapper.HolidayInsert(tenantId, md.atYear(year), name, true));
     }
 
     /**

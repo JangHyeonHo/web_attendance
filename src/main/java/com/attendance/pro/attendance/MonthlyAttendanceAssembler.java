@@ -151,9 +151,11 @@ public class MonthlyAttendanceAssembler {
                         attending = false;
                         break stampLoop;
                     }
-                    //야근(자정 넘긴 퇴근): 24를 더한 시각으로 표시
+                    //야근(자정 넘긴 퇴근): 근무일로부터의 일수 × 24를 더한 시각으로 표시(예: 25:10, 이틀 뒤면 49:10).
+                    //+24 고정이면 이틀 넘긴 경우 시각이 틀어지므로 실제 일자 차이로 계산한다.
                     LocalDateTime out = stamp.stampedAt();
-                    stampOut = String.format("%02d:%02d", out.getHour() + 24, out.getMinute());
+                    int dayDelta = (int) (out.toLocalDate().toEpochDay() - day.toEpochDay());
+                    stampOut = String.format("%02d:%02d", out.getHour() + 24 * dayDelta, out.getMinute());
                     outAt = out;
                     attending = false;
                     cursor = i + 1;

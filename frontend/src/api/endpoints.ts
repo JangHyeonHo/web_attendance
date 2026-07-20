@@ -10,6 +10,7 @@ import type {
   HolidayCreateRequest,
   HolidayEntry,
   HolidaySyncResult,
+  HolidayUpdateRequest,
   InviteResponse,
   LanguageEntry,
   LanguageUpsertRequest,
@@ -199,6 +200,9 @@ export const tenantHolidayApi = {
     post<HolidaySyncResult>(`/api/v1/tenant/holidays/sync?year=${year}`),
   create: (request: HolidayCreateRequest) =>
     post<HolidayEntry>('/api/v1/tenant/holidays', request),
+  /** 회사 공휴일만 수정(국가 공휴일은 서버가 차단, #8) — 날짜/명칭/반복 */
+  update: (holidayId: number, request: HolidayUpdateRequest) =>
+    put<HolidayEntry>(`/api/v1/tenant/holidays/${holidayId}`, request),
   /** 회사 공휴일만 삭제(국가 공휴일은 서버가 차단, #7) — 대리키 기준 */
   remove: (holidayId: number) => del<void>(`/api/v1/tenant/holidays/${holidayId}`),
 }

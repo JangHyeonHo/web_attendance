@@ -54,7 +54,7 @@ public class MemberService {
         this.memberInviteService = memberInviteService;
         this.rateLimiter = rateLimiter;
         this.billingService = billingService;
-        this.passwordEncoder = new BCryptPasswordEncoder();
+        this.passwordEncoder = new BCryptPasswordEncoder(12); //강도 12(권장)
     }
 
     /**

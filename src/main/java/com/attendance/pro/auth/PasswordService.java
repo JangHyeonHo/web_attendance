@@ -43,7 +43,7 @@ public class PasswordService {
         this.tenantMapper = tenantMapper;
         this.memberInviteService = memberInviteService;
         this.billingService = billingService;
-        this.passwordEncoder = new BCryptPasswordEncoder();
+        this.passwordEncoder = new BCryptPasswordEncoder(12); //강도 12(권장)
     }
 
     /**

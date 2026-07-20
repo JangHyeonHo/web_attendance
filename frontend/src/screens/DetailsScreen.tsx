@@ -4,6 +4,7 @@ import { attendanceApi, languageApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { Modal } from '../components/Modal'
+import { TimesheetPrintReport } from '../components/TimesheetPrintReport'
 import { SelectField, TimeField } from '../components/fields'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { localeOf } from '../i18n/lang'
@@ -13,6 +14,13 @@ import type { AttendanceType, DailyAttendance, DailyStampEntry, ManualReason, Mo
 function formatHours(minutes: number | null): string {
   if (minutes === null) return '-'
   return (minutes / 60).toFixed(2)
+}
+
+/** 오늘 날짜 YYYY-MM-DD(로컬) — 조회 목록에서 오늘 행 강조용. */
+function todayIso(): string {
+  const d = new Date()
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
 }
 
 /** 사유 선택지 — 자주 있는 "찍는 것을 잊음"이 선두, OTHER(직접 입력)만 텍스트 필수 */
@@ -54,7 +62,7 @@ interface EditingStamp {
  * - 잘못 입력 복구는 [수정](시각·구분·사유 변경) — 이력 삭제는 제공하지 않는다
  */
 export function DetailsScreen() {
-  const { t: commonT, lang, userName, tenantName } = useApp()
+  const { t: commonT, lang, userName, tenantName, userDepartment } = useApp()
   const isMobile = useIsMobile()
   const today = new Date()
   const [year, setYear] = useState(today.getFullYear())
@@ -65,6 +73,8 @@ export function DetailsScreen() {
   const [loading, setLoading] = useState(false)
   //회사 설정: 근태 보고서 결재(도장)란 표시 여부 — 인쇄 시에만 반영
   const [stampEnabled, setStampEnabled] = useState(false)
+  //근무표 다운로드 확인 모달 — 형식 선택 시 바로 실행하지 않고 확인 후 실행
+  const [pendingDownload, setPendingDownload] = useState<'excel' | 'pdf' | null>(null)
 
   //일자 상세 모달(스탬프 이력)
   const [detailDate, setDetailDate] = useState<string | null>(null)
@@ -140,13 +150,15 @@ export function DetailsScreen() {
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     }
-  }, [year, month])
+  }, [year, month, lang]) //lang 포함 — 언어 전환 후에도 현재 언어(폰트·로케일)로 엑셀 생성
 
   //요일 명칭은 사전 없이 Intl 표준 API로 생성
   const weekdayOf = useMemo(() => {
     const format = new Intl.DateTimeFormat(localeOf(lang), { weekday: 'short' })
     return (date: Date) => format.format(date)
   }, [lang])
+
+  const todayStr = todayIso() //오늘 행 강조용(#9)
 
   const reload = useCallback(async () => {
     setLoading(true)
@@ -310,8 +322,7 @@ export function DetailsScreen() {
             ]}
             onChange={(v) => {
               if (!monthly) return
-              if (v === 'excel') void exportExcel()
-              else if (v === 'pdf') window.print()
+              if (v === 'excel' || v === 'pdf') setPendingDownload(v) //확인 모달 후 실행
             }}
           />
         </div>
@@ -327,28 +338,18 @@ export function DetailsScreen() {
       {loading && <p className="muted center">{commonT('LOADING')}</p>}
       {monthly && !loading && (
       <div className="printable">
-        {/* 인쇄 시에만 나오는 근태 머리말(성명·회사·기간) + 결재란(설정 시) */}
-        <div className="print-only att-print-head">
-          <div className="att-print-id">
-            <strong>{userName}{tenantName ? ` — ${tenantName}` : ''}</strong>
-            <span>{t('ATTDETAILS')} — {year}. {String(month).padStart(2, '0')}</span>
-          </div>
-          {stampEnabled && (
-            <table className="att-stamp">
-              <tbody>
-                <tr>
-                  <td className="att-stamp-label" rowSpan={2}>{t('APPROVAL')}</td>
-                  <th>{t('HR_MANAGER')}</th>
-                  <th>{t('GENERAL_MANAGER')}</th>
-                </tr>
-                <tr>
-                  <td className="att-stamp-cell"></td>
-                  <td className="att-stamp-cell"></td>
-                </tr>
-              </tbody>
-            </table>
-          )}
-        </div>
+        {/* 인쇄(→PDF) 전용 — 엑셀과 동일한 근무표 양식. 화면에는 안 보이고 인쇄 시에만 노출. */}
+        <TimesheetPrintReport
+          monthly={monthly}
+          tenantName={tenantName}
+          userName={userName}
+          department={userDepartment}
+          stampEnabled={stampEnabled}
+          issueDate={todayStr}
+          lang={lang}
+        />
+      {/* 화면용 인터랙티브 뷰 — 인쇄에서는 숨기고(no-print) 위 전용 양식만 인쇄된다 */}
+      <div className="no-print att-interactive">
       {isMobile && (
         <MonthlyCards monthly={monthly} weekdayOf={weekdayOf} t={t} onOpen={openDetail} />
       )}
@@ -386,8 +387,9 @@ export function DetailsScreen() {
               const offDutyLabel = day.holidayName ?? (day.holiday ? t('HOLIDAY') : t('DAY_OFF'))
               //엑셀 보고서와 동일한 행 배경: 토=옅은 파랑, 일·공휴일=옅은 빨강(그 외 없음)
               const rowBg = day.holiday || weekday === 0 ? 'row-sun' : weekday === 6 ? 'row-sat' : ''
+              const isToday = day.date === todayStr //오늘 행 강조(#9)
               return (
-                <tr key={day.date} className={rowBg}>
+                <tr key={day.date} className={`${rowBg}${isToday ? ' today' : ''}`}>
                   <td className={weekday === 0 ? 'sun' : weekday === 6 ? 'sat' : ''}>
                     {/* 행 전체 클릭은 스크롤 중 오조작이 있어 날짜 버튼만 진입점으로 */}
                     <button
@@ -438,6 +440,7 @@ export function DetailsScreen() {
         </table>
         </div>
       )}
+      </div>{/* /no-print att-interactive */}
       </div>
       )}
 
@@ -612,6 +615,30 @@ export function DetailsScreen() {
           </form>
         </Modal>
       )}
+
+      {pendingDownload && (
+        <Modal title={t('DOWNLOAD_TIMESHEET')} onClose={() => setPendingDownload(null)}>
+          <p className="center">
+            {t('DOWNLOAD_CONFIRM')
+              .replace('{ym}', `${year}. ${String(month).padStart(2, '0')}`)
+              .replace('{fmt}', pendingDownload === 'excel' ? 'Excel' : 'PDF')}
+          </p>
+          <div className="btn-row">
+            <button
+              className="primary"
+              onClick={() => {
+                const fmt = pendingDownload
+                setPendingDownload(null)
+                if (fmt === 'excel') void exportExcel()
+                else window.print()
+              }}
+            >
+              {commonT('CONFIRM')}
+            </button>
+            <button onClick={() => setPendingDownload(null)}>{commonT('CANCEL')}</button>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }
@@ -631,6 +658,7 @@ function MonthlyCards({
   t: (key: string) => string
   onOpen: (date: string) => void | Promise<void>
 }) {
+  const todayStr = todayIso()
   return (
     <div className="att-cards">
       {monthly.days.map((day: DailyAttendance) => {
@@ -644,7 +672,7 @@ function MonthlyCards({
           <button
             key={day.date}
             type="button"
-            className={`att-card${offDuty ? ' off' : ''}`}
+            className={`att-card${offDuty ? ' off' : ''}${day.date === todayStr ? ' today' : ''}`}
             onClick={() => void onOpen(day.date)}
           >
             <div className="att-card-head">
