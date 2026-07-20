@@ -756,6 +756,26 @@ form button.primary {
 .subscreen-back {
   font-weight: 600;
 }
+.subscreen-sub {
+  margin: 2px 0 0;
+  font-size: 13px;
+}
+.member-pick-list {
+  max-height: 46vh;
+  overflow-y: auto;
+  margin: 10px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.member-pick {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  width: 100%;
+  box-sizing: border-box;
+}
+.member-pick:last-child {
+  border-bottom: none;
+}
 
 /* 통합 근무 스케줄 화면 섹션(#13) */
 .sched-section {
