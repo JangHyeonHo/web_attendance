@@ -894,6 +894,7 @@ form button.primary {
 .rota-actions {
   margin-top: 12px;
   align-items: center;
+  justify-content: flex-start;
 }
 .pattern-cycle {
   display: flex;
