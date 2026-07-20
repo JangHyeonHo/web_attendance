@@ -55,9 +55,23 @@ public class MonthlyAttendanceAssembler {
      * @param workDays     요일별 근무 플래그(월~일 '1'=근무). null이면 전 요일 근무(방어)
      * @param breakPolicy  테넌트 소재국 법정 휴게 정책
      */
+    /** 휴가 없는 호출 호환(기존 시그니처) — 빈 휴가 맵으로 위임. */
     public List<DailyAttendance> assemble(List<LocalDate> monthDays,
             Map<LocalDate, WorkSchedule> schedules,
             Map<LocalDate, String> holidays,
+            List<AttendanceStamp> stamps,
+            LocalTime defaultStart,
+            LocalTime defaultEnd,
+            String workDays,
+            BreakPolicy breakPolicy) {
+        return assemble(monthDays, schedules, holidays, java.util.Map.of(), stamps,
+                defaultStart, defaultEnd, workDays, breakPolicy);
+    }
+
+    public List<DailyAttendance> assemble(List<LocalDate> monthDays,
+            Map<LocalDate, WorkSchedule> schedules,
+            Map<LocalDate, String> holidays,
+            Map<LocalDate, String> leaves,
             List<AttendanceStamp> stamps,
             LocalTime defaultStart,
             LocalTime defaultEnd,
@@ -185,12 +199,15 @@ public class MonthlyAttendanceAssembler {
                 recognizedBreak = (int) recognized;
                 workMinutes = (int) Math.max(0L, stay - recognized);
             }
+            //휴가 명칭(#9) — 공휴일이 아닌 날의 유효 휴가만(공휴일 우선). 없으면 null
+            String leaveName = holiday || leaves == null ? null : leaves.get(day);
             result.add(new DailyAttendance(day, holiday, dayOff,
                     format(resolvedStart), format(resolvedEnd),
                     stampIn, stampOut, holiday ? holidays.get(day) : null,
                     scheduledMinutes, breakMinutes, statutory, recognizedBreak, workMinutes,
                     manualDays.contains(day),
-                    noteByDay.containsKey(day) ? String.join(", ", noteByDay.get(day)) : null));
+                    noteByDay.containsKey(day) ? String.join(", ", noteByDay.get(day)) : null,
+                    leaveName));
         }
         return result;
     }

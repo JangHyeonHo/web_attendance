@@ -211,7 +211,9 @@ public final class AttendanceDtos {
             //그 날에 수동 정정 스탬프가 존재하는가(상세는 daily API — 테이블에는 마커만)
             @Schema(description = "schema.daily-attendance.manual") boolean manual,
             //그 날 정정 사유(비고) — 수동 정정 스탬프의 사유(텍스트/코드) 결합. 없으면 null
-            @Schema(description = "schema.daily-attendance.note", example = "미기록") String note) {
+            @Schema(description = "schema.daily-attendance.note", example = "미기록") String note,
+            //승인된 휴가 표시(#9) — 그 날 유효 휴가 명칭(반차/시간은 접미 표기). 없으면 null
+            @Schema(description = "schema.daily-attendance.leave-name", example = "유급휴가") String leaveName) {
     }
 
     @Schema(description = "schema.monthly-response")

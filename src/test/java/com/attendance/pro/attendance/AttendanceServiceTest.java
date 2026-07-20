@@ -53,6 +53,9 @@ class AttendanceServiceTest {
     @Mock
     private com.attendance.pro.tenant.TenantMapper tenantMapper;
 
+    @Mock
+    private com.attendance.pro.leave.LeaveRequestMapper leaveRequestMapper;
+
     private AttendanceService service;
 
     @BeforeEach
@@ -60,7 +63,7 @@ class AttendanceServiceTest {
         //메시지는 실제 번들로 해석하고, 한국어 기준으로 검증한다
         LocaleContextHolder.setLocale(Locale.KOREAN);
         service = new AttendanceService(attendanceMapper, scheduleMapper, holidayMapper, tenantMapper,
-                realMessages());
+                leaveRequestMapper, realMessages());
     }
 
     /** status()의 오늘 스케줄 해석 경로 스텁(오버라이드/공휴일 없음 + 개인 기본값 없음 → 09:00/18:00). */

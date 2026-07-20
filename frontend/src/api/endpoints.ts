@@ -254,6 +254,9 @@ export const tenantLeaveApi = {
     post<void>(`/api/v1/tenant/leave/requests/${requestId}/decision`, request),
   cancelRequests: () =>
     get<LeaveRequestItem[]>('/api/v1/tenant/leave/requests/cancel-requests'),
+  /** 현재/예정 휴가자(APPROVED) — 관리자 직접 취소용(#11) */
+  approved: () =>
+    get<LeaveRequestItem[]>('/api/v1/tenant/leave/requests/approved'),
   cancel: (requestId: number, reason: string) =>
     post<void>(`/api/v1/tenant/leave/requests/${requestId}/cancel`, { reason }),
   rejectCancel: (requestId: number, note: string) =>

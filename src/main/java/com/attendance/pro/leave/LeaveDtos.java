@@ -21,11 +21,12 @@ public final class LeaveDtos {
 
     public record LeaveTypeResponse(
             long leaveTypeId, String code, String name, boolean paid, LeaveUnit unit,
-            boolean requiresApproval, boolean isAnnual, boolean active, int sortOrder) {
+            boolean hourlyEnabled, boolean requiresApproval, boolean isAnnual, boolean active,
+            int sortOrder) {
 
         public static LeaveTypeResponse of(LeaveType t) {
             return new LeaveTypeResponse(t.leaveTypeId(), t.code(), t.name(), t.paid(), t.unit(),
-                    t.requiresApproval(), t.isAnnual(), t.active(), t.sortOrder());
+                    t.hourlyEnabled(), t.requiresApproval(), t.isAnnual(), t.active(), t.sortOrder());
         }
     }
 
@@ -35,17 +36,28 @@ public final class LeaveDtos {
             @NotBlank(message = "{validation.required}") @Size(max = 50) String name,
             boolean paid,
             @NotNull(message = "{validation.required}") LeaveUnit unit,
+            /** null 허용(구 클라이언트) — 미지정은 false */
+            Boolean hourlyEnabled,
             boolean requiresApproval,
             int sortOrder) {
+
+        public boolean hourlyEnabledFlag() {
+            return Boolean.TRUE.equals(hourlyEnabled);
+        }
     }
 
     public record LeaveTypeUpdateRequest(
             @NotBlank(message = "{validation.required}") @Size(max = 50) String name,
             boolean paid,
             @NotNull(message = "{validation.required}") LeaveUnit unit,
+            Boolean hourlyEnabled,
             boolean requiresApproval,
             boolean active,
             int sortOrder) {
+
+        public boolean hourlyEnabledFlag() {
+            return Boolean.TRUE.equals(hourlyEnabled);
+        }
     }
 
     // ---- 잔여 ----

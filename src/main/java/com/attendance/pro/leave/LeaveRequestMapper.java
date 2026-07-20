@@ -84,6 +84,29 @@ public interface LeaveRequestMapper {
     List<LeaveRequestView> findPendingViewByTenant(@Param("tenantId") long tenantId);
 
     /**
+     * 본인 유효 휴가([from, to)와 겹치는 APPROVED/CANCEL_REQUESTED) — 월별 출결에 휴가 표시용(#9).
+     * 반열림 구간 겹침. 두 상태 모두 잔여를 소진하는 유효 휴가라 조회 화면에서도 휴가로 본다.
+     */
+    @Select("SELECT " + VIEW_COLS + VIEW_FROM
+            + " WHERE r.tenant_id = #{tenantId} AND r.user_id = #{userId}"
+            + "   AND r.status IN ('APPROVED', 'CANCEL_REQUESTED')"
+            + "   AND r.start_at < #{to} AND r.end_at > #{from}"
+            + " ORDER BY r.start_at ASC, r.leave_request_id ASC")
+    List<LeaveRequestView> findApprovedForUserBetween(@Param("tenantId") long tenantId,
+            @Param("userId") long userId,
+            @Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+
+    /**
+     * 현재/예정 휴가자(관리자 직접 취소용, #11) — 아직 끝나지 않은 APPROVED. 시작일 순.
+     * (취소 신청 대기(CANCEL_REQUESTED)는 별도 목록에서 처리하므로 여기선 APPROVED만.)
+     */
+    @Select("SELECT " + VIEW_COLS + VIEW_FROM
+            + " WHERE r.tenant_id = #{tenantId} AND r.status = 'APPROVED' AND r.end_at > #{now}"
+            + " ORDER BY r.start_at ASC, r.leave_request_id ASC")
+    List<LeaveRequestView> findApprovedActiveByTenant(@Param("tenantId") long tenantId,
+            @Param("now") LocalDateTime now);
+
+    /**
      * 결재(승인/반려) — PENDING만 전이(동시 결재 레이스 가드). 반환 0이면 이미 처리됨.
      */
     @Update("""

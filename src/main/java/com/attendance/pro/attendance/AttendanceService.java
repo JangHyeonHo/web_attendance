@@ -61,15 +61,18 @@ public class AttendanceService {
     private final ScheduleMapper scheduleMapper;
     private final HolidayMapper holidayMapper;
     private final TenantMapper tenantMapper;
+    private final com.attendance.pro.leave.LeaveRequestMapper leaveRequestMapper;
     private final Messages messages;
     private final MonthlyAttendanceAssembler assembler = new MonthlyAttendanceAssembler();
 
     public AttendanceService(AttendanceMapper attendanceMapper, ScheduleMapper scheduleMapper,
-            HolidayMapper holidayMapper, TenantMapper tenantMapper, Messages messages) {
+            HolidayMapper holidayMapper, TenantMapper tenantMapper,
+            com.attendance.pro.leave.LeaveRequestMapper leaveRequestMapper, Messages messages) {
         this.attendanceMapper = attendanceMapper;
         this.scheduleMapper = scheduleMapper;
         this.holidayMapper = holidayMapper;
         this.tenantMapper = tenantMapper;
+        this.leaveRequestMapper = leaveRequestMapper;
         this.messages = messages;
     }
 
@@ -443,6 +446,8 @@ public class AttendanceService {
         //공휴일은 명칭 포함 Map(판정은 containsKey — 정본: holiday-plan §6, CR3-2)
         Map<LocalDate, String> holidays = holidayMapper.findHolidaysBetween(tenantId, from, to).stream()
                 .collect(Collectors.toMap(Holiday::holidayDate, Holiday::holidayName));
+        //승인된 휴가(APPROVED/CANCEL_REQUESTED) → 날짜별 표시 명칭(#9). 반차/시간은 접미 표기.
+        Map<LocalDate, String> leaves = buildLeaveNames(tenantId, userId, from, to);
         //야근(자정 넘긴 퇴근) 판정을 위해 다음달 1일치 스탬프까지 함께 조회(BREAK 포함)
         List<AttendanceStamp> stamps = attendanceMapper.findBetween(tenantId, userId, from, to.plusDays(1));
         //개인 기본 스케줄 + 테넌트 소재국 법정 휴게 정책(세션 tenantId 전파 — ISO-15)
@@ -452,7 +457,7 @@ public class AttendanceService {
         //country 미설정/미지원이면 KR로 동작(안전한 실패 — X10)
         BreakPolicy policy = BreakPolicy.of(country == null ? ProfileCountry.KR : country);
 
-        List<DailyAttendance> days = assembler.assemble(monthDays, schedules, holidays, stamps,
+        List<DailyAttendance> days = assembler.assemble(monthDays, schedules, holidays, leaves, stamps,
                 defaults == null ? null : defaults.start(),
                 defaults == null ? null : defaults.end(),
                 defaults == null ? null : defaults.workDays(),
@@ -462,6 +467,42 @@ public class AttendanceService {
         int totalWorkMinutes = sumNonNull(days, DailyAttendance::workMinutes);
         return new MonthlyResponse(year, month, days, totalScheduledMinutes, totalBreakMinutes,
                 totalWorkMinutes);
+    }
+
+    /**
+     * 승인된(또는 취소 신청 중) 휴가를 날짜별 표시 명칭으로(#9). 종일=명칭, 반차=명칭+" ½",
+     * 시간=명칭+" (HH:mm~HH:mm)". 같은 날 여러 휴가면 먼저 시작한 것(putIfAbsent). 창 밖 날짜는 제외.
+     */
+    private Map<LocalDate, String> buildLeaveNames(long tenantId, long userId, LocalDate from, LocalDate to) {
+        Map<LocalDate, String> leaves = new java.util.HashMap<>();
+        var views = leaveRequestMapper.findApprovedForUserBetween(
+                tenantId, userId, from.atStartOfDay(), to.atStartOfDay());
+        for (var v : views) {
+            String label = v.typeName();
+            LocalDate first = v.startAt().toLocalDate();
+            LocalDate last;
+            if (v.dayUnit()) {
+                //일 단위 end_at은 반열림(다음날 0시) — 마지막 포함일 = end_at 하루 전
+                last = v.endAt().toLocalDate().minusDays(1);
+                if (v.halfDay()) {
+                    label = label + " ½"; //½
+                }
+            } else {
+                //시간 단위 — 같은 날. 시각 범위를 접미로
+                last = v.startAt().toLocalDate();
+                label = label + " (" + timeHm(v.startAt()) + "~" + timeHm(v.endAt()) + ")";
+            }
+            for (LocalDate d = first; !d.isAfter(last); d = d.plusDays(1)) {
+                if (!d.isBefore(from) && d.isBefore(to)) {
+                    leaves.putIfAbsent(d, label);
+                }
+            }
+        }
+        return leaves;
+    }
+
+    private static String timeHm(LocalDateTime dt) {
+        return String.format("%02d:%02d", dt.getHour(), dt.getMinute());
     }
 
     /** 일자 목록에서 getter가 non-null인 분을 합산(월 예정/휴게/실근무 합계 공통). */

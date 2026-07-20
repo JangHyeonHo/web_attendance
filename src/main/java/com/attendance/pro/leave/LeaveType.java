@@ -13,6 +13,8 @@ public record LeaveType(
         String name,
         boolean paid,
         LeaveUnit unit,
+        /** 시간 단위 휴가 신청 허용 여부(#12) — 단위(unit)와 별개 */
+        boolean hourlyEnabled,
         boolean requiresApproval,
         boolean isAnnual,
         boolean active,

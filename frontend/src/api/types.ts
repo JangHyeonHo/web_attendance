@@ -458,6 +458,8 @@ export interface DailyAttendance {
   manual: boolean
   /** 정정 사유(비고) — 없으면 null */
   note: string | null
+  /** 승인된 휴가 명칭(#9) — 그 날 유효 휴가(반차/시간은 접미 표기). 없으면 null */
+  leaveName: string | null
 }
 
 // ---- 수동 정정 + 일자 이력 (Phase 5) ----
@@ -620,6 +622,8 @@ export interface LeaveType {
   name: string
   paid: boolean
   unit: LeaveUnit
+  /** 시간 단위 휴가 신청 허용(#12) — 켜진 종류만 신청 시 날짜/시간 토글 노출 */
+  hourlyEnabled: boolean
   requiresApproval: boolean
   isAnnual: boolean
   active: boolean
@@ -631,6 +635,7 @@ export interface LeaveTypeCreateRequest {
   name: string
   paid: boolean
   unit: LeaveUnit
+  hourlyEnabled: boolean
   requiresApproval: boolean
   sortOrder: number
 }
@@ -639,6 +644,7 @@ export interface LeaveTypeUpdateRequest {
   name: string
   paid: boolean
   unit: LeaveUnit
+  hourlyEnabled: boolean
   requiresApproval: boolean
   active: boolean
   sortOrder: number

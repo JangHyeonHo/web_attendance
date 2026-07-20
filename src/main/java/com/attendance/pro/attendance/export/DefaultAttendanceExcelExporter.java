@@ -205,6 +205,9 @@ public class DefaultAttendanceExcelExporter implements AttendanceExcelExporter {
         if (d.holiday()) {
             return d.holidayName() == null ? "공휴일" : d.holidayName();
         }
+        if (d.leaveName() != null) {
+            return d.leaveName(); //승인 휴가(#9)
+        }
         return d.dayOff() ? "휴무" : "근무";
     }
 

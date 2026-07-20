@@ -180,12 +180,19 @@ function CancellationsTab() {
   const { t } = useApp()
   const amt = useAmountFormatter(t)
   const [rows, setRows] = useState<LeaveRequestItem[]>([])
+  //현재/예정 휴가자(APPROVED) — 관리자 직접 취소용(#11)
+  const [approved, setApproved] = useState<LeaveRequestItem[]>([])
   const [error, setError] = useState<string | null>(null)
   const [rowError, setRowError] = useState<{ id: number; message: string } | null>(null)
+  //직접 취소 사유 모달
+  const [cancelTarget, setCancelTarget] = useState<LeaveRequestItem | null>(null)
+  const [cancelReason, setCancelReason] = useState('')
 
   const reload = useCallback(async () => {
     try {
-      setRows(await tenantLeaveApi.cancelRequests())
+      const [cr, ap] = await Promise.all([tenantLeaveApi.cancelRequests(), tenantLeaveApi.approved()])
+      setRows(cr)
+      setApproved(ap)
       setError(null)
     } catch (e) {
       setError(e instanceof ApiError ? e.message : String(e))
@@ -206,9 +213,16 @@ function CancellationsTab() {
     }
   }
 
+  const periodText = (r: LeaveRequestItem) =>
+    r.dayUnit
+      ? `${dateOf(r.startAt)}${r.halfDay ? ` (${t('HALF_DAY')})` : ''}`
+      : `${dateOf(r.startAt)} ${r.startAt.slice(11, 16)}~${r.endAt.slice(11, 16)}`
+
   return (
     <>
       {error && <p className="error" role="alert">{error}</p>}
+
+      <h3 className="section-head">{t('CANCEL_REQUESTS_TITLE')}</h3>
       {rows.length === 0 ? (
         <p className="muted center">{t('NO_CANCELS')}</p>
       ) : (
@@ -262,6 +276,71 @@ function CancellationsTab() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {/* 현재/예정 휴가자 — 당일이라 멤버가 취소 신청을 못 만든 경우에도 관리자가 직접 취소(#11) */}
+      <h3 className="section-head" style={{ marginTop: '1.5rem' }}>{t('CURRENT_LEAVES')}</h3>
+      {approved.length === 0 ? (
+        <p className="muted center">{t('NO_CURRENT_LEAVES')}</p>
+      ) : (
+        <div className="table-wrap">
+          <table className="detail-table">
+            <thead>
+              <tr>
+                <th>{t('MEMBER')}</th>
+                <th>{t('LEAVE_TYPE')}</th>
+                <th>{t('PERIOD')}</th>
+                <th>{t('AMOUNT')}</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {approved.map((r) => (
+                <tr key={r.leaveRequestId}>
+                  <td>{r.userName}</td>
+                  <td>{r.typeName}</td>
+                  <td className="wrap">{periodText(r)}</td>
+                  <td className="num">{amt(r.minutes, r.unit, 480)}</td>
+                  <td>
+                    <div className="row-actions">
+                      <button onClick={() => { setCancelTarget(r); setCancelReason('') }}>
+                        {t('CANCEL_LEAVE')}
+                      </button>
+                    </div>
+                    {rowError?.id === r.leaveRequestId && (
+                      <span className="error"> {rowError.message}</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {cancelTarget && (
+        <Modal title={t('CANCEL_LEAVE')} onClose={() => setCancelTarget(null)} danger>
+          <p className="center">{cancelTarget.userName} — {cancelTarget.typeName} ({periodText(cancelTarget)})</p>
+          <label>
+            {t('CANCEL_REASON')}
+            <input value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} maxLength={200} autoFocus />
+          </label>
+          <div className="btn-row">
+            <button
+              className="primary"
+              disabled={!cancelReason.trim()}
+              onClick={() => {
+                const id = cancelTarget.leaveRequestId
+                const reason = cancelReason.trim()
+                setCancelTarget(null)
+                void act(() => tenantLeaveApi.cancel(id, reason), id)
+              }}
+            >
+              {t('CANCEL_LEAVE')}
+            </button>
+            <button onClick={() => setCancelTarget(null)}>{t('CANCEL')}</button>
+          </div>
+        </Modal>
       )}
     </>
   )
@@ -764,6 +843,7 @@ function TypeModal({
   const { t } = useApp()
   const [name, setName] = useState(initial?.name ?? '')
   const [paid, setPaid] = useState(initial?.paid ?? true)
+  const [hourlyEnabled, setHourlyEnabled] = useState(initial?.hourlyEnabled ?? false)
   const [requiresApproval, setRequiresApproval] = useState(initial?.requiresApproval ?? true)
   const [active, setActive] = useState(initial?.active ?? true)
   const [error, setError] = useState<string | null>(null)
@@ -779,6 +859,7 @@ function TypeModal({
           name: name.trim(),
           paid,
           unit: 'DAY',
+          hourlyEnabled,
           requiresApproval,
           active,
           sortOrder: initial.sortOrder,
@@ -789,6 +870,7 @@ function TypeModal({
           name: name.trim(),
           paid,
           unit: 'DAY',
+          hourlyEnabled,
           requiresApproval,
           sortOrder: 0,
         })
@@ -812,6 +894,14 @@ function TypeModal({
         <label className="check-inline">
           <input type="checkbox" checked={paid} onChange={(e) => setPaid(e.target.checked)} />
           {t('PAID')}
+        </label>
+        <label className="check-inline">
+          <input
+            type="checkbox"
+            checked={hourlyEnabled}
+            onChange={(e) => setHourlyEnabled(e.target.checked)}
+          />
+          {t('HOURLY_ENABLED')}
         </label>
         <label className="check-inline">
           <input

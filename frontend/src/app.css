@@ -672,6 +672,20 @@ form button.primary {
   background: #fbe8e8;
 }
 
+/* 승인 휴가일 — 옅은 초록 배경 + 휴가명 강조(#9) */
+.detail-table tr.row-leave > td {
+  background: #e8f5ea;
+}
+.detail-table td.leave-label {
+  color: #2e8c5a;
+  font-weight: 600;
+}
+.mini-badge.leave {
+  background: #e2f3e8;
+  color: #2e8c5a;
+  border-color: rgba(46, 140, 90, 0.35);
+}
+
 /* 오늘 행 강조 — 옅은 노랑(주말 배경보다 뒤에 선언해 우선). #9 */
 .detail-table tr.today > td {
   background: #fff6cc;
@@ -728,6 +742,31 @@ form button.primary {
   border-color: var(--accent);
   color: var(--accent-dark);
 }
+/* 날짜/시간 세그먼트 토글(#12 휴가 신청) */
+.seg-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.seg-toggle button {
+  border: none;
+  border-radius: 0;
+  background: var(--surface);
+  color: var(--muted);
+  padding: 8px 18px;
+  font-weight: 600;
+  min-height: 0;
+}
+.seg-toggle button + button {
+  border-left: 1px solid var(--border-strong);
+}
+.seg-toggle button.active {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
 /* 회사 설정 저장 액션 줄(#7) */
 .ci-actions {
   display: flex;
@@ -2735,6 +2774,15 @@ form label .pw-field input {
 }
 .att-card.off {
   background: var(--surface-alt);
+}
+/* 승인 휴가 카드(#9) */
+.att-card.leave {
+  background: #e8f5ea;
+  border-color: #b6ddc2;
+}
+.att-card-off.leave-label {
+  color: #2e8c5a;
+  font-weight: 600;
 }
 /* 오늘 카드 강조 — 옅은 노랑(#9) */
 .att-card.today {

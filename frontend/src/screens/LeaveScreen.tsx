@@ -5,7 +5,7 @@ import { leaveApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { Modal } from '../components/Modal'
-import { SelectField } from '../components/fields'
+import { SelectField, TimeField } from '../components/fields'
 import { DateField } from '../components/DateField'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { formatLeaveAmount } from '../util/leaveFormat'
@@ -521,25 +521,48 @@ function ApplyModal({
   const { t } = useApp()
   const today = new Date().toISOString().slice(0, 10)
   const [leaveTypeId, setLeaveTypeId] = useState(types[0]?.leaveTypeId ?? 0)
+  //신청 모드(#12) — 시간 휴가 허용 종류일 때만 '시간' 선택 가능
+  const [mode, setMode] = useState<'day' | 'hour'>('day')
   const [startDate, setStartDate] = useState(today)
   const [endDate, setEndDate] = useState(today)
+  const [halfDay, setHalfDay] = useState(false)
+  //시간 모드 — 같은 날 시작~종료 시각
+  const [hourDate, setHourDate] = useState(today)
+  const [startTime, setStartTime] = useState('09:00')
+  const [endTime, setEndTime] = useState('12:00')
   const [reason, setReason] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+
+  const selectedType = types.find((ty) => ty.leaveTypeId === leaveTypeId)
+  const canHour = selectedType?.hourlyEnabled ?? false
+  //시간 미허용 종류로 바꾸면 날짜 모드로 강제(토글 자체가 사라지므로 상태만 정리)
+  const effectiveMode = canHour ? mode : 'day'
+  const singleDay = startDate === endDate
 
   async function submit(event: FormEvent) {
     event.preventDefault()
     setError(null)
     setSubmitting(true)
     try {
-      await leaveApi.apply({
-        leaveTypeId,
-        dayUnit: true,
-        startDate,
-        endDate,
-        halfDay: false,
-        reason: reason.trim() || null,
-      })
+      if (effectiveMode === 'hour') {
+        await leaveApi.apply({
+          leaveTypeId,
+          dayUnit: false,
+          startTime: `${hourDate}T${startTime}:00`,
+          endTime: `${hourDate}T${endTime}:00`,
+          reason: reason.trim() || null,
+        })
+      } else {
+        await leaveApi.apply({
+          leaveTypeId,
+          dayUnit: true,
+          startDate,
+          endDate,
+          halfDay: singleDay && halfDay,
+          reason: reason.trim() || null,
+        })
+      }
       await onDone()
     } catch (e) {
       setError(e instanceof ApiError ? e.message : String(e))
@@ -561,23 +584,75 @@ function ApplyModal({
           />
         </label>
 
-        <div className="field-group">
-          <label>
-            {t('START_DATE')}
-            <DateField
-              value={startDate}
-              ariaLabel={t('START_DATE')}
-              onChange={(v) => {
-                setStartDate(v)
-                if (v > endDate) setEndDate(v)
-              }}
-            />
-          </label>
-          <label>
-            {t('END_DATE')}
-            <DateField value={endDate} min={startDate} onChange={setEndDate} ariaLabel={t('END_DATE')} />
-          </label>
-        </div>
+        {/* 시간 휴가 허용 종류일 때만 날짜/시간 토글 노출(#12) */}
+        {canHour && (
+          <div className="seg-toggle" role="tablist" aria-label={t('LEAVE_TYPE')}>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={effectiveMode === 'day'}
+              className={effectiveMode === 'day' ? 'active' : ''}
+              onClick={() => setMode('day')}
+            >
+              {t('MODE_DAY')}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={effectiveMode === 'hour'}
+              className={effectiveMode === 'hour' ? 'active' : ''}
+              onClick={() => setMode('hour')}
+            >
+              {t('MODE_HOUR')}
+            </button>
+          </div>
+        )}
+
+        {effectiveMode === 'day' ? (
+          <>
+            <div className="field-group">
+              <label>
+                {t('START_DATE')}
+                <DateField
+                  value={startDate}
+                  ariaLabel={t('START_DATE')}
+                  onChange={(v) => {
+                    setStartDate(v)
+                    if (v > endDate) setEndDate(v)
+                  }}
+                />
+              </label>
+              <label>
+                {t('END_DATE')}
+                <DateField value={endDate} min={startDate} onChange={setEndDate} ariaLabel={t('END_DATE')} />
+              </label>
+            </div>
+            {/* 반차는 하루짜리일 때만 */}
+            {singleDay && (
+              <label className="check-inline">
+                <input type="checkbox" checked={halfDay} onChange={(e) => setHalfDay(e.target.checked)} />
+                {t('HALF_DAY')}
+              </label>
+            )}
+          </>
+        ) : (
+          <>
+            <label>
+              {t('DATE')}
+              <DateField value={hourDate} onChange={setHourDate} ariaLabel={t('DATE')} />
+            </label>
+            <div className="field-group">
+              <label>
+                {t('START_TIME')}
+                <TimeField value={startTime} onChange={setStartTime} ariaLabel={t('START_TIME')} />
+              </label>
+              <label>
+                {t('END_TIME')}
+                <TimeField value={endTime} onChange={setEndTime} ariaLabel={t('END_TIME')} />
+              </label>
+            </div>
+          </>
+        )}
 
         <label>
           {t('REASON')}

@@ -48,10 +48,13 @@ class ManualAttendanceServiceTest {
     @Mock
     private TenantMapper tenantMapper;
     @Mock
+    private com.attendance.pro.leave.LeaveRequestMapper leaveRequestMapper;
+    @Mock
     private Messages messages;
 
     private AttendanceService service() {
-        return new AttendanceService(attendanceMapper, scheduleMapper, holidayMapper, tenantMapper, messages);
+        return new AttendanceService(attendanceMapper, scheduleMapper, holidayMapper, tenantMapper,
+                leaveRequestMapper, messages);
     }
 
     private ManualStampRequest request(LocalDate date, String time, AttendanceType type,
