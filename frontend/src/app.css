@@ -668,6 +668,11 @@ form button.primary {
   background: #fbe8e8;
 }
 
+/* 오늘 행 강조 — 옅은 노랑(주말 배경보다 뒤에 선언해 우선). #9 */
+.detail-table tr.today > td {
+  background: #fff6cc;
+}
+
 .detail-table td.sun {
   color: var(--error);
 }
@@ -2627,6 +2632,11 @@ button.day-link:hover {
 }
 .att-card.off {
   background: var(--surface-alt);
+}
+/* 오늘 카드 강조 — 옅은 노랑(#9) */
+.att-card.today {
+  background: #fff6cc;
+  border-color: #e6c34a;
 }
 .att-card-head {
   display: flex;

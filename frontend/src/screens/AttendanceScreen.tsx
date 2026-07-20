@@ -59,7 +59,7 @@ export function AttendanceScreen() {
   const [confirmation, setConfirmation] = useState<PendingConfirmation | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [showDetails, setShowDetails] = useState(false)
+  const [showDetails, setShowDetails] = useState(true) //출결 조회 기본 표시(#9)
   const [now, setNow] = useState(new Date())
 
   useEffect(() => {

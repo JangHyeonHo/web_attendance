@@ -15,6 +15,13 @@ function formatHours(minutes: number | null): string {
   return (minutes / 60).toFixed(2)
 }
 
+/** 오늘 날짜 YYYY-MM-DD(로컬) — 조회 목록에서 오늘 행 강조용. */
+function todayIso(): string {
+  const d = new Date()
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
+
 /** 사유 선택지 — 자주 있는 "찍는 것을 잊음"이 선두, OTHER(직접 입력)만 텍스트 필수 */
 const REASONS: { code: ManualReason; labelKey: string }[] = [
   { code: 'FORGOT', labelKey: 'REASON_FORGOT' },
@@ -149,6 +156,8 @@ export function DetailsScreen() {
     const format = new Intl.DateTimeFormat(localeOf(lang), { weekday: 'short' })
     return (date: Date) => format.format(date)
   }, [lang])
+
+  const todayStr = todayIso() //오늘 행 강조용(#9)
 
   const reload = useCallback(async () => {
     setLoading(true)
@@ -387,8 +396,9 @@ export function DetailsScreen() {
               const offDutyLabel = day.holidayName ?? (day.holiday ? t('HOLIDAY') : t('DAY_OFF'))
               //엑셀 보고서와 동일한 행 배경: 토=옅은 파랑, 일·공휴일=옅은 빨강(그 외 없음)
               const rowBg = day.holiday || weekday === 0 ? 'row-sun' : weekday === 6 ? 'row-sat' : ''
+              const isToday = day.date === todayStr //오늘 행 강조(#9)
               return (
-                <tr key={day.date} className={rowBg}>
+                <tr key={day.date} className={`${rowBg}${isToday ? ' today' : ''}`}>
                   <td className={weekday === 0 ? 'sun' : weekday === 6 ? 'sat' : ''}>
                     {/* 행 전체 클릭은 스크롤 중 오조작이 있어 날짜 버튼만 진입점으로 */}
                     <button
@@ -656,6 +666,7 @@ function MonthlyCards({
   t: (key: string) => string
   onOpen: (date: string) => void | Promise<void>
 }) {
+  const todayStr = todayIso()
   return (
     <div className="att-cards">
       {monthly.days.map((day: DailyAttendance) => {
@@ -669,7 +680,7 @@ function MonthlyCards({
           <button
             key={day.date}
             type="button"
-            className={`att-card${offDuty ? ' off' : ''}`}
+            className={`att-card${offDuty ? ' off' : ''}${day.date === todayStr ? ' today' : ''}`}
             onClick={() => void onOpen(day.date)}
           >
             <div className="att-card-head">
