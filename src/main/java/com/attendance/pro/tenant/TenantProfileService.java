@@ -45,6 +45,17 @@ public class TenantProfileService {
     }
 
     /**
+     * 자사 기업 정보 조회 — 미등록이면 404 대신 null(200 빈 응답). 회사 정보 화면의 '빈 폼' 시작,
+     * 청구서 화면의 '회사 정보 입력 안내'처럼 미등록이 정상 흐름인 자기 화면용.
+     */
+    @Transactional(readOnly = true)
+    public TenantProfileResponse findProfileOrNull(long tenantId) {
+        requireTenant(tenantId);
+        TenantProfile profile = tenantProfileMapper.findById(tenantId);
+        return profile == null ? null : toResponse(profile);
+    }
+
+    /**
      * 기업 정보 create-or-replace(마스킹값 표시 + 전체 재입력 방식).
      * 응답은 조회 경로를 재사용한다(마스킹 일원화).
      * 검증·마스킹의 국가는 요청이 아닌 <b>tenant.country</b>에서 취득한다(V7 승격 — HOL-08).

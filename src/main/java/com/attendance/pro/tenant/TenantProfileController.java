@@ -31,10 +31,11 @@ public class TenantProfileController {
         this.tenantProfileService = tenantProfileService;
     }
 
+    //미등록이면 404가 아니라 200 빈 응답(null) — 자기 회사 정보라 미등록이 정상 흐름(빈 폼·청구서 안내)
     @Operation(summary = "api.tenant-profile.get")
     @GetMapping
     public TenantProfileResponse get(@LoginUser SessionUser user) {
-        return tenantProfileService.getProfile(user.tenantId());
+        return tenantProfileService.findProfileOrNull(user.tenantId());
     }
 
     @Operation(summary = "api.tenant-profile.update")

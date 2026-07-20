@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { ReactNode } from 'react'
 import { useApp } from './app/AppContext'
 import { LandingScreen } from './screens/LandingScreen'
 import { LoginScreen } from './screens/LoginScreen'
@@ -17,6 +18,7 @@ import { AdminLeaveScreen } from './screens/AdminLeaveScreen'
 import { AuditLogScreen } from './screens/AuditLogScreen'
 import { BillingScreen } from './screens/BillingScreen'
 import { CompanyInfoScreen } from './screens/CompanyInfoScreen'
+import { CompanySettingsScreen } from './screens/CompanySettingsScreen'
 import { SelectField } from './components/fields'
 import { BottomNav } from './components/BottomNav'
 import type { BottomNavItem } from './components/BottomNav'
@@ -37,6 +39,7 @@ const LABEL_KEY: Partial<Record<ScreenCode, string>> = {
   W014: 'MAIL_TEMPLATES',
   W018: 'BILLING',
   W019: 'COMPANY_INFO',
+  W020: 'COMPANY_SETTINGS',
   W007: 'TENANTS',
   W012: 'MAIL_TEMPLATES',
   W017: 'AUDIT_LOG',
@@ -73,12 +76,14 @@ function adminSections(role: Role | null): NavSection[] {
       return [
         { key: 'NAV_SEC_ORG', items: ['W009', 'W013'] },
         { key: 'NAV_SEC_LEAVE', items: ['W016'] },
+        //회사 설정(W020)만 인사관리자에게 노출 — 정보/결제(W019)는 총관리자 전용
+        { key: 'NAV_SEC_SETTINGS', items: ['W020'] },
       ]
     case 'TENANT_ADMIN':
       return [
         { key: 'NAV_SEC_ORG', items: ['W009', 'W013'] },
         { key: 'NAV_SEC_LEAVE', items: ['W016'] },
-        { key: 'NAV_SEC_SETTINGS', items: ['W014', 'W018', 'W019'] },
+        { key: 'NAV_SEC_SETTINGS', items: ['W014', 'W018', 'W019', 'W020'] },
       ]
     case 'SYSTEM_ADMIN':
       return [
@@ -95,7 +100,7 @@ function adminSections(role: Role | null): NavSection[] {
  * 멤버 본인용(출근 W005·휴가 W015·상세 W006)만 모바일 네이티브로 제공한다.
  */
 const PC_ONLY_SCREENS = new Set<ScreenCode>([
-  'W004', 'W007', 'W008', 'W009', 'W012', 'W013', 'W014', 'W016', 'W017', 'W018', 'W019',
+  'W004', 'W007', 'W008', 'W009', 'W012', 'W013', 'W014', 'W016', 'W017', 'W018', 'W019', 'W020',
 ])
 
 /** 모바일 하단 탭 — 멤버 본인용 화면만(관리 화면은 PC 전용, #4). SYSTEM_ADMIN은 하단탭 없음. */
@@ -110,18 +115,25 @@ function mobileTabs(role: Role | null): ScreenCode[] {
   }
 }
 
-/** 모바일에서 관리 화면 진입 시 — 표가 깨지지 않도록 PC 이용 안내(하드코딩 3개국어, 서버 텍스트 불요). */
+/** 모바일에서 관리(PC 전용) 화면 진입 시 — 잘못된 접근 안내 + 출결 화면으로 복귀 버튼.
+ *  서버 텍스트에 의존하지 않도록 현재 언어(lang)로 직접 분기한다(로그인 세션이라 lang은 확정). */
 function MobilePcOnlyNotice() {
+  const { navigate, lang } = useApp()
+  const L = (ko: string, en: string, ja: string) => (lang === 'ENG' ? en : lang === 'JPN' ? ja : ko)
   return (
     <div className="panel center pc-only-notice">
-      <p className="pc-only-emoji" aria-hidden="true">🖥️</p>
-      <p>
-        이 화면은 PC(넓은 화면)에서 이용해 주세요.
-        <br />
-        Please use this screen on a desktop (wide screen).
-        <br />
-        この画面はPC（広い画面）でご利用ください。
+      <p className="pc-only-emoji" aria-hidden="true">🚫</p>
+      <p className="pc-only-title">{L('잘못된 접근입니다', 'Invalid access', '不正なアクセスです')}</p>
+      <p className="pc-only-sub">
+        {L(
+          '이 화면은 PC(넓은 화면)에서만 이용할 수 있어요.',
+          'This screen is available on desktop (wide screen) only.',
+          'この画面はPC（広い画面）専用です。',
+        )}
       </p>
+      <button type="button" className="primary" onClick={() => void navigate('W005')}>
+        {L('출결 화면으로 이동', 'Go to attendance', '出勤画面へ移動')}
+      </button>
     </div>
   )
 }
@@ -167,6 +179,8 @@ function ScreenBody({ screen }: { screen: ScreenCode }) {
       return <BillingScreen />
     case 'W019':
       return <CompanyInfoScreen />
+    case 'W020':
+      return <CompanySettingsScreen />
     case 'W000':
     default:
       return <LandingScreen />
@@ -244,12 +258,31 @@ function AdminSidebar() {
   )
 }
 
+/** 하단 탭 아이콘 — 텍스트만이면 탭 타깃이 작아 누르기 어려움. 출근=시계, 휴가=달력(라인 아이콘). */
+const TAB_ICON: Partial<Record<ScreenCode, ReactNode>> = {
+  W005: (
+    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  ),
+  W015: (
+    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="4.5" width="18" height="16.5" rx="2" />
+      <path d="M3 9.5h18M8 2.5v4M16 2.5v4M9 14l2 2 4-4" />
+    </svg>
+  ),
+}
+
 /** 모바일 하단 탭 — 멤버 본인용 화면(출근·휴가)만. 더보기 시트 폐지(언어=헤더, 로그아웃=헤더, 관리=PC전용). */
 function MobileNav() {
   const { screen, role, navigate, t } = useApp()
   const items: BottomNavItem[] = mobileTabs(role).map((code) => ({
     key: code,
     label: t(LABEL_KEY[code] ?? code),
+    icon: TAB_ICON[code],
     active: screen === code,
     onClick: () => void navigate(code),
   }))

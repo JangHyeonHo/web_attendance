@@ -125,7 +125,8 @@ export const tenantBillingApi = {
 
 /** 회사(TENANT_ADMIN) 전용 — 자사 사업자 정보 자율 관리(W019, #14) */
 export const tenantProfileApi = {
-  get: () => get<TenantProfileResponse>('/api/v1/tenant/profile'),
+  //미등록이면 서버가 200 빈 응답(null) — 404 콘솔 노이즈 없이 '미등록'을 표현
+  get: () => get<TenantProfileResponse | null>('/api/v1/tenant/profile'),
   update: (request: TenantProfileUpsertRequest) =>
     put<TenantProfileResponse>('/api/v1/tenant/profile', request),
 }

@@ -490,6 +490,20 @@ textarea:hover {
   flex-wrap: wrap;
 }
 
+/* 모바일 출결 상세 툴바 — 연·월은 한 줄에 나눠 채우고, 근무표 다운로드는 그 아래 전체폭으로.
+   기본 flex-wrap이면 3개가 제각각 개행돼 지저분하므로 의도된 레이아웃으로 정리 */
+@media (max-width: 640px) {
+  .att-detail-actions {
+    width: 100%;
+  }
+  .att-detail-actions .field-select {
+    flex: 1;
+  }
+  .att-detail-actions .field-select:last-child {
+    flex: 1 0 100%;
+  }
+}
+
 .center {
   text-align: center;
 }
@@ -571,17 +585,6 @@ form button.primary {
   gap: 12px;
 }
 
-/* 근무표 다운로드 묶음(라벨 + Excel/PDF 형식 버튼) */
-.dl-group {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.dl-group-label {
-  font-size: 13px;
-  color: var(--muted);
-  margin-right: 2px;
-}
 
 /* 우편번호처럼 짧은 입력은 폭을 줄여 지나치게 넓지 않게 */
 .field-narrow input {
@@ -2268,11 +2271,15 @@ button.day-link:hover {
   font-weight: 600;
 }
 .bottom-nav .bn-ic {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+.bottom-nav .bn-ic svg {
+  width: 100%;
+  height: 100%;
 }
 @media (min-width: 641px) {
   .bottom-nav { display: none; }
@@ -2702,6 +2709,38 @@ button.day-link:hover {
 .lv-bal-table td:first-child {
   text-align: left;
 }
+/* 잔여(오른쪽 정렬) 값이 오른쪽 테두리에 바싹 붙지 않게 오른쪽 여백을 더 준다 */
+.lv-bal-table th:last-child,
+.lv-bal-table td:last-child {
+  padding-right: 28px;
+}
+
+/* 모바일 PC-전용 화면 접근 안내(잘못된 접근 + 출결 복귀 버튼) */
+.pc-only-notice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 40px 24px;
+}
+.pc-only-emoji {
+  font-size: 44px;
+  margin: 0;
+}
+.pc-only-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+}
+.pc-only-sub {
+  color: var(--muted);
+  margin: 0;
+  font-size: 14px;
+}
+.pc-only-notice button.primary {
+  margin-top: 8px;
+  min-width: 200px;
+}
 
 /* ===== 인쇄(브라우저 → PDF) — .printable 영역만 인쇄, .no-print/앱 크롬은 숨김 =====
    visibility 기법: 전체를 숨기고 인쇄 영역 서브트리만 보이게(레이아웃 보존). .print-only는 인쇄 시에만. */
@@ -2877,6 +2916,31 @@ button.day-link:hover {
   color: var(--muted);
   margin-top: 4px;
   line-height: 1.4;
+}
+
+/* 청구서 회사 정보 미등록 안내 — 청구월과 청구서 사이의 경고 박스(계절 테마 변수 기반) */
+.inv-profile-warn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 14px 0 2px;
+  padding: 12px 16px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: var(--radius-sm);
+  color: var(--accent-dark);
+  font-size: 14px;
+}
+.inv-profile-warn button {
+  flex-shrink: 0;
+  min-height: 34px;
+  padding: 6px 14px;
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--border-strong));
+  color: var(--accent-dark);
+  font-weight: 600;
 }
 .inv-items {
   width: 100%;
