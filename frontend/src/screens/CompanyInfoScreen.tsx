@@ -14,6 +14,39 @@ function won(n: number): string {
   return `${n.toLocaleString('ko-KR')}원`
 }
 
+//입력 자동 포맷(숫자만 입력해도 하이픈 자동) — 국가별 형식. 저장값도 백엔드 검증 형식에 맞는다.
+const onlyDigits = (s: string) => s.replace(/\D/g, '')
+
+/** 사업자 식별번호 — KR ###-##-#####(하이픈), JP 13자리(하이픈 없음). */
+function fmtBizRegNo(raw: string, jp: boolean): string {
+  const d = onlyDigits(raw).slice(0, jp ? 13 : 10)
+  if (jp) return d
+  if (d.length <= 3) return d
+  if (d.length <= 5) return `${d.slice(0, 3)}-${d.slice(3)}`
+  return `${d.slice(0, 3)}-${d.slice(3, 5)}-${d.slice(5)}`
+}
+
+/** 우편번호 — KR 5자리, JP ###-####(7자리). */
+function fmtPostal(raw: string, jp: boolean): string {
+  const d = onlyDigits(raw).slice(0, jp ? 7 : 5)
+  return jp && d.length > 3 ? `${d.slice(0, 3)}-${d.slice(3)}` : d
+}
+
+/** 연락처 — KR 휴대폰/서울번호 best-effort 하이픈. JP는 숫자만(형식이 다양해 자동 그룹화 안 함). */
+function fmtPhone(raw: string, jp: boolean): string {
+  if (jp) return onlyDigits(raw).slice(0, 15)
+  const d = onlyDigits(raw).slice(0, 11)
+  if (d.startsWith('02')) {
+    if (d.length <= 2) return d
+    if (d.length <= 5) return `${d.slice(0, 2)}-${d.slice(2)}`
+    if (d.length <= 9) return `${d.slice(0, 2)}-${d.slice(2, 5)}-${d.slice(5)}`
+    return `${d.slice(0, 2)}-${d.slice(2, 6)}-${d.slice(6)}`
+  }
+  if (d.length <= 3) return d
+  if (d.length <= 7) return `${d.slice(0, 3)}-${d.slice(3)}`
+  return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`
+}
+
 /**
  * W019 회사 정보/결제 설정 — 회사 총관리자(TENANT_ADMIN) 전용(#14).
  * 운영사가 '계약(요금제·단가·무료좌석)'을 관리한다면, 회사는 자기 '사업자 정보'와 '결제 수단'을 스스로 관리한다.
@@ -133,8 +166,9 @@ function BusinessProfileSection() {
             {bizLabel}
             <input
               value={businessRegNo}
-              onChange={(e) => { setBusinessRegNo(e.target.value); setSaved(false) }}
+              onChange={(e) => { setBusinessRegNo(fmtBizRegNo(e.target.value, profile?.country === 'JP')); setSaved(false) }}
               placeholder={profile?.country === 'JP' ? '1234567890123' : '123-45-67890'}
+              inputMode="numeric"
               maxLength={20}
               required
             />
@@ -154,8 +188,9 @@ function BusinessProfileSection() {
             {t('CONTACT_PHONE')}
             <input
               value={contactPhone}
-              onChange={(e) => { setContactPhone(e.target.value); setSaved(false) }}
-              placeholder="010-1234-5678"
+              onChange={(e) => { setContactPhone(fmtPhone(e.target.value, profile?.country === 'JP')); setSaved(false) }}
+              placeholder={profile?.country === 'JP' ? '0312345678' : '010-1234-5678'}
+              inputMode="tel"
               maxLength={20}
             />
             {fieldErrors.contactPhone && <span className="error">{fieldErrors.contactPhone}</span>}
@@ -169,7 +204,7 @@ function BusinessProfileSection() {
         {/* 주소는 우편번호·기본주소·상세주소로 분리 — 청구서 공급받는자에 그대로 반영 */}
         <label className="field-narrow">
           {t('POSTAL_CODE')}
-          <input value={postalCode} onChange={(e) => { setPostalCode(e.target.value); setSaved(false) }} maxLength={10} placeholder="06236" inputMode="numeric" />
+          <input value={postalCode} onChange={(e) => { setPostalCode(fmtPostal(e.target.value, profile?.country === 'JP')); setSaved(false) }} maxLength={10} placeholder={profile?.country === 'JP' ? '100-0001' : '06236'} inputMode="numeric" />
         </label>
         <label>
           {t('ADDRESS')}

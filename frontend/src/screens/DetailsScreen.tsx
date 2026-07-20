@@ -65,6 +65,8 @@ export function DetailsScreen() {
   const [loading, setLoading] = useState(false)
   //회사 설정: 근태 보고서 결재(도장)란 표시 여부 — 인쇄 시에만 반영
   const [stampEnabled, setStampEnabled] = useState(false)
+  //근무표 다운로드 확인 모달 — 형식 선택 시 바로 실행하지 않고 확인 후 실행
+  const [pendingDownload, setPendingDownload] = useState<'excel' | 'pdf' | null>(null)
 
   //일자 상세 모달(스탬프 이력)
   const [detailDate, setDetailDate] = useState<string | null>(null)
@@ -310,8 +312,7 @@ export function DetailsScreen() {
             ]}
             onChange={(v) => {
               if (!monthly) return
-              if (v === 'excel') void exportExcel()
-              else if (v === 'pdf') window.print()
+              if (v === 'excel' || v === 'pdf') setPendingDownload(v) //확인 모달 후 실행
             }}
           />
         </div>
@@ -610,6 +611,30 @@ export function DetailsScreen() {
               {editing ? t('EDIT') : t('MANUAL_ADD')}
             </button>
           </form>
+        </Modal>
+      )}
+
+      {pendingDownload && (
+        <Modal title={t('DOWNLOAD_TIMESHEET')} onClose={() => setPendingDownload(null)}>
+          <p className="center">
+            {t('DOWNLOAD_CONFIRM')
+              .replace('{ym}', `${year}. ${String(month).padStart(2, '0')}`)
+              .replace('{fmt}', pendingDownload === 'excel' ? 'Excel' : 'PDF')}
+          </p>
+          <div className="btn-row">
+            <button
+              className="primary"
+              onClick={() => {
+                const fmt = pendingDownload
+                setPendingDownload(null)
+                if (fmt === 'excel') void exportExcel()
+                else window.print()
+              }}
+            >
+              {commonT('CONFIRM')}
+            </button>
+            <button onClick={() => setPendingDownload(null)}>{commonT('CANCEL')}</button>
+          </div>
         </Modal>
       )}
     </div>
