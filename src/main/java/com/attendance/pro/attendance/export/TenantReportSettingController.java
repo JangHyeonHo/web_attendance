@@ -1,13 +1,17 @@
 package com.attendance.pro.attendance.export;
 
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.attendance.pro.attendance.export.ReportSettingDtos.ReportSettingRequest;
 import com.attendance.pro.attendance.export.ReportSettingDtos.ReportSettingResponse;
+import com.attendance.pro.attendance.export.ReportSettingDtos.StampImageRequest;
 import com.attendance.pro.auth.LoginUser;
 import com.attendance.pro.auth.SessionUser;
 
@@ -34,17 +38,39 @@ public class TenantReportSettingController {
     @Operation(summary = "api.tenant-report-setting.get")
     @GetMapping
     public ReportSettingResponse get(@LoginUser SessionUser user) {
-        return new ReportSettingResponse(
-                reportSettingService.stampEnabled(user.tenantId()),
-                reportSettingService.premiumEnabled(user.tenantId()));
+        return current(user.tenantId());
     }
 
     @Operation(summary = "api.tenant-report-setting.update")
     @PutMapping
     public ReportSettingResponse update(@LoginUser SessionUser user,
             @Valid @RequestBody ReportSettingRequest request) {
-        boolean stamp = reportSettingService.setStampEnabled(user.tenantId(), request.stampEnabled());
-        boolean premium = reportSettingService.setPremiumEnabled(user.tenantId(), request.premiumEnabled());
-        return new ReportSettingResponse(stamp, premium);
+        reportSettingService.setStampEnabled(user.tenantId(), request.stampEnabled());
+        reportSettingService.setPremiumEnabled(user.tenantId(), request.premiumEnabled());
+        reportSettingService.setStampSize(user.tenantId(), request.stampSize());
+        return current(user.tenantId());
+    }
+
+    @Operation(summary = "api.tenant-report-setting.stamp-image")
+    @PutMapping("/stamp-image")
+    public ReportSettingResponse uploadStamp(@LoginUser SessionUser user,
+            @Valid @RequestBody StampImageRequest request) {
+        reportSettingService.setStampImage(user.tenantId(), request.imageBase64(), request.mime());
+        return current(user.tenantId());
+    }
+
+    @Operation(summary = "api.tenant-report-setting.stamp-image-delete")
+    @DeleteMapping("/stamp-image")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void removeStamp(@LoginUser SessionUser user) {
+        reportSettingService.clearStampImage(user.tenantId());
+    }
+
+    private ReportSettingResponse current(long tenantId) {
+        return new ReportSettingResponse(
+                reportSettingService.stampEnabled(tenantId),
+                reportSettingService.premiumEnabled(tenantId),
+                reportSettingService.stampSize(tenantId),
+                reportSettingService.stampImageDataUrl(tenantId));
     }
 }
