@@ -48,11 +48,17 @@ public final class AuthDtos {
             @Schema(description = "schema.field.name") String name,
             @Schema(description = "schema.field.role", example = "MEMBER") Role role,
             @Schema(description = "schema.field.tenant-code", example = "ACME") String tenantCode,
-            @Schema(description = "schema.field.tenant-name", example = "에이크미(주)") String tenantName) {
+            @Schema(description = "schema.field.tenant-name", example = "에이크미(주)") String tenantName,
+            //본인 부서(코드) — 세션엔 없어 me 조회 시 채운다(로그인 응답은 null). 근무표 인쇄 머리말용
+            @Schema(description = "schema.field.depart-cd") String departCd) {
 
         public static LoginResponse from(SessionUser user) {
+            return from(user, null);
+        }
+
+        public static LoginResponse from(SessionUser user, String departCd) {
             return new LoginResponse(user.userId(), user.email(), user.name(),
-                    user.role(), user.tenantCode(), user.tenantName());
+                    user.role(), user.tenantCode(), user.tenantName(), departCd);
         }
     }
 

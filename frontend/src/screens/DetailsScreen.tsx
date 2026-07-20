@@ -4,6 +4,7 @@ import { attendanceApi, languageApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { Modal } from '../components/Modal'
+import { TimesheetPrintReport } from '../components/TimesheetPrintReport'
 import { SelectField, TimeField } from '../components/fields'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { localeOf } from '../i18n/lang'
@@ -61,7 +62,7 @@ interface EditingStamp {
  * - 잘못 입력 복구는 [수정](시각·구분·사유 변경) — 이력 삭제는 제공하지 않는다
  */
 export function DetailsScreen() {
-  const { t: commonT, lang, userName, tenantName } = useApp()
+  const { t: commonT, lang, userName, tenantName, userDepartment } = useApp()
   const isMobile = useIsMobile()
   const today = new Date()
   const [year, setYear] = useState(today.getFullYear())
@@ -337,28 +338,18 @@ export function DetailsScreen() {
       {loading && <p className="muted center">{commonT('LOADING')}</p>}
       {monthly && !loading && (
       <div className="printable">
-        {/* 인쇄 시에만 나오는 근태 머리말(성명·회사·기간) + 결재란(설정 시) */}
-        <div className="print-only att-print-head">
-          <div className="att-print-id">
-            <strong>{userName}{tenantName ? ` — ${tenantName}` : ''}</strong>
-            <span>{t('ATTDETAILS')} — {year}. {String(month).padStart(2, '0')}</span>
-          </div>
-          {stampEnabled && (
-            <table className="att-stamp">
-              <tbody>
-                <tr>
-                  <td className="att-stamp-label" rowSpan={2}>{t('APPROVAL')}</td>
-                  <th>{t('HR_MANAGER')}</th>
-                  <th>{t('GENERAL_MANAGER')}</th>
-                </tr>
-                <tr>
-                  <td className="att-stamp-cell"></td>
-                  <td className="att-stamp-cell"></td>
-                </tr>
-              </tbody>
-            </table>
-          )}
-        </div>
+        {/* 인쇄(→PDF) 전용 — 엑셀과 동일한 근무표 양식. 화면에는 안 보이고 인쇄 시에만 노출. */}
+        <TimesheetPrintReport
+          monthly={monthly}
+          tenantName={tenantName}
+          userName={userName}
+          department={userDepartment}
+          stampEnabled={stampEnabled}
+          issueDate={todayStr}
+          lang={lang}
+        />
+      {/* 화면용 인터랙티브 뷰 — 인쇄에서는 숨기고(no-print) 위 전용 양식만 인쇄된다 */}
+      <div className="no-print att-interactive">
       {isMobile && (
         <MonthlyCards monthly={monthly} weekdayOf={weekdayOf} t={t} onOpen={openDetail} />
       )}
@@ -449,6 +440,7 @@ export function DetailsScreen() {
         </table>
         </div>
       )}
+      </div>{/* /no-print att-interactive */}
       </div>
       )}
 

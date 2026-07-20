@@ -37,13 +37,16 @@ public class AuthController {
     private final LoginRateLimiter loginRateLimiter;
     private final TenantHostResolver tenantHostResolver;
     private final AuditService auditService;
+    private final com.attendance.pro.user.UserMapper userMapper;
 
     public AuthController(AuthService authService, LoginRateLimiter loginRateLimiter,
-            TenantHostResolver tenantHostResolver, AuditService auditService) {
+            TenantHostResolver tenantHostResolver, AuditService auditService,
+            com.attendance.pro.user.UserMapper userMapper) {
         this.authService = authService;
         this.loginRateLimiter = loginRateLimiter;
         this.tenantHostResolver = tenantHostResolver;
         this.auditService = auditService;
+        this.userMapper = userMapper;
     }
 
     @Operation(summary = "api.auth.login.summary", description = "api.auth.login.description")
@@ -149,7 +152,9 @@ public class AuthController {
     })
     @GetMapping("/me")
     public LoginResponse me(@LoginUser SessionUser user) {
-        return LoginResponse.from(user);
+        //부서(코드)는 세션에 없어 조회로 채운다 — 근무표 인쇄 머리말 등에서 사용
+        com.attendance.pro.user.User me = userMapper.findById(user.tenantId(), user.userId());
+        return LoginResponse.from(user, me == null ? null : me.departCd());
     }
 
 }

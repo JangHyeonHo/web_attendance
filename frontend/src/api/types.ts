@@ -124,6 +124,8 @@ export interface LoginResponse {
   tenantCode: string
   /** 헤더 뱃지용 — 비null (뱃지 표시는 role로 분기해 SYSTEM_ADMIN 미표시) */
   tenantName: string
+  /** 본인 부서(코드) — me 조회 시 채워짐(로그인 응답은 null). 근무표 인쇄 머리말용 */
+  departCd: string | null
 }
 
 export interface UserResponse {

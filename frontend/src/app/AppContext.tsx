@@ -19,6 +19,8 @@ interface AppState {
   role: Role | null
   /** 헤더 뱃지용 테넌트명 (auth/me 기준, SYSTEM_ADMIN·비로그인은 null) */
   tenantName: string | null
+  /** 본인 부서(코드) — auth/me 기준. 근무표 인쇄 머리말 등에 사용 */
+  userDepartment: string | null
   /** 테넌트 서브도메인 접속 시 그 테넌트명 — 로그인 화면이 코드 입력란을 숨기고 회사명을 표시 */
   hostTenantName: string | null
   lang: Lang
@@ -60,6 +62,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [userName, setUserName] = useState<string | null>(null)
   const [role, setRole] = useState<Role | null>(null)
   const [tenantName, setTenantName] = useState<string | null>(null)
+  const [userDepartment, setUserDepartment] = useState<string | null>(null)
   const [hostTenantName, setHostTenantName] = useState<string | null>(null)
   const [lang, setLang] = useState<Lang>('KOR')
   const [theme, setTheme] = useState<UiTheme | null>(null)
@@ -145,13 +148,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!role || role === 'SYSTEM_ADMIN') {
       setTenantName(null)
+      setUserDepartment(null)
       return
     }
     let cancelled = false
     authApi
       .me()
       .then((me) => {
-        if (!cancelled) setTenantName(me.tenantName)
+        if (!cancelled) {
+          setTenantName(me.tenantName)
+          setUserDepartment(me.departCd)
+        }
       })
       .catch(() => {
         //뱃지는 부가 정보 — 취득 실패는 무시(401은 클라이언트 훅이 처리)
@@ -165,10 +172,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<AppState>(
     () => ({
-      screen, userName, role, tenantName, hostTenantName, lang, theme, applyTheme, data, t,
+      screen, userName, role, tenantName, userDepartment, hostTenantName, lang, theme, applyTheme, data, t,
       navigate, ready, navError, getPasswordToken, clearPasswordToken,
     }),
-    [screen, userName, role, tenantName, hostTenantName, lang, theme, applyTheme, data, t,
+    [screen, userName, role, tenantName, userDepartment, hostTenantName, lang, theme, applyTheme, data, t,
       navigate, ready, navError, getPasswordToken, clearPasswordToken],
   )
 

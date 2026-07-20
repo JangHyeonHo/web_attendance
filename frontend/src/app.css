@@ -2881,6 +2881,80 @@ button.day-link:hover {
   height: 46px;
 }
 
+/* 근무표 인쇄 전용 레이아웃(엑셀 양식과 일치) — .print-only라 화면엔 안 보이고 인쇄 시에만 */
+.ts-report {
+  color: #000;
+  font-size: 12px;
+}
+.tsr-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  margin-bottom: 12px;
+}
+.tsr-meta {
+  border-collapse: collapse;
+}
+.tsr-meta th,
+.tsr-meta td {
+  border: 1px solid #444;
+  padding: 4px 12px;
+  text-align: left;
+  font-size: 12px;
+}
+.tsr-meta th {
+  background: #f2f2f2;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.tsr-stamp {
+  border-collapse: collapse;
+  font-size: 11px;
+}
+.tsr-stamp th,
+.tsr-stamp td {
+  border: 1px solid #444;
+  padding: 3px 8px;
+  text-align: center;
+  min-width: 72px;
+  height: 26px;
+}
+.tsr-stamp th,
+.tsr-stamp-label {
+  background: #f2f2f2;
+  font-weight: 700;
+}
+.tsr-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.tsr-table th,
+.tsr-table td {
+  border: 1px solid #444;
+  padding: 5px 6px;
+  text-align: center;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.tsr-table thead th {
+  background: #d9e1f2;
+  font-weight: 600;
+}
+.tsr-table td.num {
+  text-align: right;
+}
+.tsr-table tr.tsr-sat > td {
+  background: #e7effb;
+}
+.tsr-table tr.tsr-sun > td {
+  background: #fbe8e8;
+}
+.tsr-table .tsr-total td {
+  background: #f2f2f2;
+  font-weight: 700;
+}
+
 .bill-print-head {
   margin-bottom: 12px;
 }
