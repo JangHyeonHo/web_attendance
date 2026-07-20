@@ -427,8 +427,10 @@ button.wide {
   margin-top: 20px;
 }
 
+/* 체크박스·라디오는 이 기본 필드 스타일(패딩·전폭 등) 대상에서 제외 —
+   커스텀 박스는 각자 규칙이 크기를 정한다. 포함하면 패딩/최소높이가 새어 직사각형이 된다(#5). */
 select,
-input,
+input:not([type='checkbox']):not([type='radio']),
 textarea {
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
@@ -441,7 +443,7 @@ textarea {
 }
 
 select:hover,
-input:hover,
+input:not([type='checkbox']):not([type='radio']):hover,
 textarea:hover {
   border-color: var(--accent);
 }
@@ -451,8 +453,10 @@ textarea:hover {
     min-height: 44px;
   }
 
+  /* 체크박스·라디오 제외 — 44px 최소높이가 정사각 체크박스를 세로 직사각형으로 늘린다(#5).
+     탭 영역은 감싸는 label(.check-inline/.row-check) 전체가 담당하므로 접근성 문제 없음. */
   select,
-  input {
+  input:not([type='checkbox']):not([type='radio']) {
     min-height: 44px;
   }
 }
@@ -723,6 +727,39 @@ form button.primary {
 .row-actions button:hover {
   border-color: var(--accent);
   color: var(--accent-dark);
+}
+/* 회사 설정 저장 액션 줄(#7) */
+.ci-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+/* 월 합계 3합계 라벨 행(#4) — 우측 정렬, 라벨은 옅게 */
+.month-total-sums {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  justify-content: flex-end;
+  font-variant-numeric: tabular-nums;
+}
+.month-total-sums em {
+  font-style: normal;
+  font-weight: 600;
+  color: var(--muted);
+  margin-right: 4px;
+}
+
+/* row-actions 안의 주요(승인 등) 버튼 — 위 규칙이 color:muted로 덮어써 초록 배경에 글자가
+   묻히던 문제(#8). 대비 색을 명시적으로 복구한다(specificity 0,2,1로 우선). */
+.row-actions button.primary {
+  color: var(--accent-contrast);
+  border-color: var(--accent);
+}
+.row-actions button.primary:hover {
+  color: var(--accent-contrast);
+  border-color: var(--accent-dark);
 }
 
 /* 아이콘 액션 버튼(#8) — 텍스트 버튼(min-height 32) 대신 콤팩트하게 그려
@@ -2000,8 +2037,12 @@ button.day-link:hover {
 .check-inline input[type='checkbox'] {
   appearance: none;
   -webkit-appearance: none;
+  box-sizing: border-box; /* 테두리 포함 정확히 정사각(#5) */
   width: 22px;
   height: 22px;
+  min-width: 22px;
+  min-height: 22px; /* 터치 환경 전역 44px 규칙을 이겨 정사각 유지(#5) */
+  padding: 0; /* 전역 필드 패딩 유입 차단 */
   margin: 0;
   flex-shrink: 0;
   border: 1px solid var(--border-strong);
@@ -2017,17 +2058,11 @@ button.day-link:hover {
 .check-inline input[type='checkbox']:checked {
   background: var(--accent);
   border-color: var(--accent);
-}
-.check-inline input[type='checkbox']:checked::after {
-  content: '';
-  position: absolute;
-  left: 7px;
-  top: 3px;
-  width: 6px;
-  height: 11px;
-  border: solid var(--accent-contrast);
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
+  /* 둥근 라인캡 SVG 체크(#5) — 흰색 stroke, 박스 중앙 정렬 */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.2 4.2L19 7'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 15px 15px;
 }
 .check-inline input[type='checkbox']:focus-visible {
   outline: 2px solid var(--accent);
@@ -2037,15 +2072,47 @@ button.day-link:hover {
   opacity: 0.5;
   cursor: default;
 }
+/* 비밀번호 입력 + 눈 토글(#2) — 래퍼는 form label 안에서 입력 폭 그대로, 토글은 우측 겹침 */
+.pw-field {
+  position: relative;
+  display: block;
+}
+form label .pw-field input {
+  width: 100%;
+  padding-right: 44px;
+}
+.pw-toggle {
+  position: absolute;
+  right: 4px;
+  top: 6px; /* 입력의 margin-top(6px) 보정 — 입력 영역과 정렬 */
+  height: calc(100% - 6px);
+  width: 36px;
+  min-height: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.pw-toggle:hover {
+  color: var(--accent-dark);
+  background: transparent;
+}
+
 .field-group {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
   align-items: flex-end;
-  margin-bottom: 12px;
+  /* 위(단일 라벨 16)와 동일 간격으로 — 안쪽 라벨의 하단 마진은 0으로 없애 이중 간격을 막는다(#6) */
+  margin-bottom: 16px;
 }
 .field-group > label {
   flex: 1 1 auto;
+  margin-bottom: 0;
 }
 .detail-table td.num {
   text-align: right;

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { attendanceApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
@@ -66,6 +66,12 @@ export function AttendanceScreen() {
     const timer = setInterval(() => setNow(new Date()), 1000)
     return () => clearInterval(timer)
   }, [])
+
+  //요일 명칭은 사전 없이 Intl 표준으로(언어별) — 날짜 옆에 표기(#3)
+  const weekdayFmt = useMemo(
+    () => new Intl.DateTimeFormat(localeOf(lang), { weekday: 'short' }),
+    [lang],
+  )
 
   //언어 전환 등으로 화면이 재전개되면 navigation 응답의 초기 데이터로 상태를 동기화하고,
   //이전 언어로 받아둔 일회성 메시지(성공/에러/확인 패널)는 정리한다
@@ -164,7 +170,9 @@ export function AttendanceScreen() {
     <div className="panel">
       <div className="center">
         <div className="today">
-          {now.getMonth() + 1}/{now.getDate()}{' '}
+          <span className="today-date">
+            {now.getMonth() + 1}/{now.getDate()} ({weekdayFmt.format(now)})
+          </span>
           <span className="clock">{now.toLocaleTimeString(localeOf(lang))}</span>
         </div>
         <p>

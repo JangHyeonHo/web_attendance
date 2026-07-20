@@ -3,6 +3,7 @@ import type { FormEvent, KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { authApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
+import { PasswordInput } from '../components/PasswordInput'
 
 /** 마지막 성공 테넌트 코드 기억용 localStorage 키 (이메일/비밀번호는 저장하지 않는다) */
 const TENANT_CODE_STORAGE_KEY = 'wa.tenantCode'
@@ -102,13 +103,7 @@ export function LoginScreen() {
         </label>
         <label>
           {t('PWD')}
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="current-password"
-            required
-          />
+          <PasswordInput value={password} onChange={setPassword} autoComplete="current-password" required />
         </label>
         {error && <p className="error" role="alert">{error}</p>}
         {/*

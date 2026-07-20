@@ -428,13 +428,14 @@ export function DetailsScreen() {
           <tfoot>
             <tr className="month-total">
               <td>{t('MONTH_TOTAL')}</td>
-              {/* 예정근무는 스케줄 열(4칸) 아래, 인정휴게·실근무는 각 열 아래에 정렬 */}
-              <td colSpan={4} className="num">
-                {t('EXPECTED_WORK')} {formatHours(monthly.totalScheduledMinutes)}
+              {/* 세 합계를 라벨과 함께 한 줄로 — 예정근무만 라벨 있고 나머지 숫자만이던 비대칭·빈 공간 제거(#4) */}
+              <td colSpan={7}>
+                <div className="month-total-sums">
+                  <span><em>{t('EXPECTED_WORK')}</em> {formatHours(monthly.totalScheduledMinutes)}</span>
+                  <span><em>{t('TOTAL_WORK')}</em> {formatHours(monthly.totalWorkMinutes)}</span>
+                  <span><em>{t('BREAK_RECOGNIZED')}</em> {formatHours(monthly.totalBreakMinutes)}</span>
+                </div>
               </td>
-              <td>{formatHours(monthly.totalBreakMinutes)}</td>
-              <td>{formatHours(monthly.totalWorkMinutes)}</td>
-              <td></td>
             </tr>
           </tfoot>
         </table>

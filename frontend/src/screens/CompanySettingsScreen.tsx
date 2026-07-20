@@ -18,10 +18,15 @@ export function CompanySettingsScreen() {
   )
 }
 
-/** 근태 보고서 설정 — 결재(도장)란 표시 on/off. Excel·인쇄 근태 보고서에 반영된다. */
+/**
+ * 근태 보고서 설정 — 결재(도장)란 표시 on/off. Excel·인쇄 근태 보고서에 반영된다.
+ * 체크 즉시 저장하지 않고, [저장] 버튼으로만 서버에 반영한다(#7 — 앞으로 설정이 누적되는 화면).
+ */
 function ReportSettingSection() {
   const { t } = useApp()
   const [stampEnabled, setStampEnabled] = useState(false)
+  //서버에 저장된 원본값 — 변경 여부(dirty) 판정용
+  const [savedStamp, setSavedStamp] = useState(false)
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -29,17 +34,23 @@ function ReportSettingSection() {
   useEffect(() => {
     attendanceApi
       .reportSetting()
-      .then((r) => setStampEnabled(r.stampEnabled))
+      .then((r) => {
+        setStampEnabled(r.stampEnabled)
+        setSavedStamp(r.stampEnabled)
+      })
       .catch((e) => setError(e instanceof ApiError ? e.message : String(e)))
   }, [])
 
-  async function toggle(next: boolean) {
+  const dirty = stampEnabled !== savedStamp
+
+  async function save() {
     setBusy(true)
     setSaved(false)
     setError(null)
     try {
-      const r = await tenantReportApi.updateStamp(next)
+      const r = await tenantReportApi.updateStamp(stampEnabled)
       setStampEnabled(r.stampEnabled)
+      setSavedStamp(r.stampEnabled)
       setSaved(true)
     } catch (e) {
       setError(e instanceof ApiError ? e.message : String(e))
@@ -57,11 +68,20 @@ function ReportSettingSection() {
           type="checkbox"
           checked={stampEnabled}
           disabled={busy}
-          onChange={(e) => void toggle(e.target.checked)}
+          onChange={(e) => {
+            //로컬 상태만 변경 — 실제 저장은 [저장] 버튼(#7)
+            setStampEnabled(e.target.checked)
+            setSaved(false)
+          }}
         />
         {t('REPORT_STAMP_TOGGLE')}
       </label>
-      {saved && <p className="success" role="status">{t('SAVED')}</p>}
+      <div className="ci-actions">
+        <button className="primary" onClick={() => void save()} disabled={busy || !dirty}>
+          {t('SAVE')}
+        </button>
+        {saved && !dirty && <span className="success" role="status">{t('SAVED')}</span>}
+      </div>
       {error && <p className="error" role="alert">{error}</p>}
     </section>
   )
