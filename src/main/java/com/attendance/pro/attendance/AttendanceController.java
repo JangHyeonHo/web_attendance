@@ -54,19 +54,32 @@ public class AttendanceController {
     private final AttendanceExporters exporters;
     private final UserMapper userMapper;
     private final ReportSettingService reportSettingService;
+    private final PayrollService payrollService;
 
     public AttendanceController(AttendanceService attendanceService, AttendanceExporters exporters,
-            UserMapper userMapper, ReportSettingService reportSettingService) {
+            UserMapper userMapper, ReportSettingService reportSettingService,
+            PayrollService payrollService) {
         this.attendanceService = attendanceService;
         this.exporters = exporters;
         this.userMapper = userMapper;
         this.reportSettingService = reportSettingService;
+        this.payrollService = payrollService;
     }
 
     @Operation(summary = "api.attendance.report-setting")
     @GetMapping("/report-setting")
     public ReportSettingResponse reportSetting(@LoginUser SessionUser user) {
-        return new ReportSettingResponse(reportSettingService.stampEnabled(user.tenantId()));
+        return new ReportSettingResponse(reportSettingService.stampEnabled(user.tenantId()),
+                reportSettingService.premiumEnabled(user.tenantId()));
+    }
+
+    @Operation(summary = "api.attendance.payroll.summary", description = "api.attendance.payroll.description")
+    @GetMapping("/payroll")
+    public AttendanceDtos.PayrollResponse payroll(@LoginUser SessionUser user,
+            @Parameter(description = "schema.field.year", example = "2026") @RequestParam("year") int year,
+            @Parameter(description = "schema.field.month", example = "7") @RequestParam("month") int month) {
+        return AttendanceDtos.PayrollResponse.of(
+                payrollService.settlement(user.tenantId(), user.userId(), year, month));
     }
 
     @Operation(summary = "api.attendance.status.summary", description = "api.attendance.status.description")

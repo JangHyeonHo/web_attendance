@@ -1,5 +1,6 @@
 package com.attendance.pro.attendance.export;
 
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -30,11 +31,20 @@ public class TenantReportSettingController {
         this.reportSettingService = reportSettingService;
     }
 
+    @Operation(summary = "api.tenant-report-setting.get")
+    @GetMapping
+    public ReportSettingResponse get(@LoginUser SessionUser user) {
+        return new ReportSettingResponse(
+                reportSettingService.stampEnabled(user.tenantId()),
+                reportSettingService.premiumEnabled(user.tenantId()));
+    }
+
     @Operation(summary = "api.tenant-report-setting.update")
     @PutMapping
     public ReportSettingResponse update(@LoginUser SessionUser user,
             @Valid @RequestBody ReportSettingRequest request) {
-        return new ReportSettingResponse(
-                reportSettingService.setStampEnabled(user.tenantId(), request.stampEnabled()));
+        boolean stamp = reportSettingService.setStampEnabled(user.tenantId(), request.stampEnabled());
+        boolean premium = reportSettingService.setPremiumEnabled(user.tenantId(), request.premiumEnabled());
+        return new ReportSettingResponse(stamp, premium);
     }
 }
