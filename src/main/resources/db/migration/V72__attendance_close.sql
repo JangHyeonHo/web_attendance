@@ -52,4 +52,4 @@ INSERT IGNORE INTO language_master (window_id, lang_key, lang, lang_value) VALUE
 ('W021','CLOSE_REQUESTED_AT','KOR','신청일'),           ('W021','CLOSE_REQUESTED_AT','ENG','Requested'),  ('W021','CLOSE_REQUESTED_AT','JPN','申請日'),
 ('W021','CLOSE_APPROVE','KOR','승인'),                  ('W021','CLOSE_APPROVE','ENG','Approve'),         ('W021','CLOSE_APPROVE','JPN','承認'),
 ('W021','CLOSE_REJECT','KOR','반려'),                   ('W021','CLOSE_REJECT','ENG','Reject'),           ('W021','CLOSE_REJECT','JPN','差戻し'),
-('W021','CLOSE_NAV','KOR','근태 마감'),                 ('W021','CLOSE_NAV','ENG','Close'),               ('W021','CLOSE_NAV','JPN','勤怠締め');
+('W999','CLOSE_NAV','KOR','근태 마감'),                 ('W999','CLOSE_NAV','ENG','Close'),               ('W999','CLOSE_NAV','JPN','勤怠締め');

@@ -84,6 +84,7 @@ export function MembersScreen() {
   const [workStart, setWorkStart] = useState(DEFAULT_WORK_START)
   const [workEnd, setWorkEnd] = useState(DEFAULT_WORK_END)
   const [hireDate, setHireDate] = useState('') //입사일(선택) — 연차 계산 기준(#11)
+  const [salary, setSalary] = useState('') //월 기본급(선택) — 급여 정산 기준
   const [formError, setFormError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
@@ -94,6 +95,8 @@ export function MembersScreen() {
   //행 조작
   const [pending, setPending] = useState<PendingAction | null>(null)
   const [scheduleEdit, setScheduleEdit] = useState<ScheduleEdit | null>(null)
+  //월 기본급 수정 대상 — 급여 정산 기준값(멤버 관리에서 조정)
+  const [salaryEdit, setSalaryEdit] = useState<{ userId: number; name: string; value: string } | null>(null)
   //통합 근무 스케줄 화면 대상(#13) — 반복 패턴 + 월 달력(예외)을 한 화면에서
   const [scheduleMember, setScheduleMember] = useState<{ userId: number; name: string; email: string } | null>(null)
   const [rowError, setRowError] = useState<{ userId: number; message: string } | null>(null)
@@ -148,6 +151,7 @@ export function MembersScreen() {
         workStart,
         workEnd,
         hireDate: hireDate || null,
+        baseMonthlySalary: salary.trim() ? Number(salary) : null,
       })
       //mailSent=false여도 멤버는 PENDING으로 생성됨(201) — 재발송이 수습 경로
       setCreated({ email: response.email, mailSent: response.mailSent })
@@ -157,6 +161,7 @@ export function MembersScreen() {
       setWorkStart(DEFAULT_WORK_START)
       setWorkEnd(DEFAULT_WORK_END)
       setHireDate('')
+      setSalary('')
       await reload()
     } catch (e) {
       //오류 시 폼 값을 유지한 채 등록 모달을 다시 연다(오타 수정 후 재시도)
@@ -244,6 +249,24 @@ export function MembersScreen() {
         message: e instanceof ApiError ? e.message : String(e),
       })
       setScheduleEdit(null)
+    }
+  }
+
+  async function saveSalary() {
+    if (!salaryEdit) return
+    setRowError(null)
+    const raw = salaryEdit.value.trim()
+    const value = raw === '' ? null : Number(raw)
+    try {
+      await tenantMemberApi.updateSalary(salaryEdit.userId, value)
+      setSalaryEdit(null)
+      await reload()
+    } catch (e) {
+      setRowError({
+        userId: salaryEdit.userId,
+        message: e instanceof ApiError ? e.message : String(e),
+      })
+      setSalaryEdit(null)
     }
   }
 
@@ -349,6 +372,21 @@ export function MembersScreen() {
               />
               {fieldErrors.hireDate && <span className="error">{fieldErrors.hireDate}</span>}
             </label>
+            {/* 월 기본급(선택) — 급여 정산 기준값 */}
+            <label>
+              {t('SALARY')}
+              <input
+                type="number"
+                min={0}
+                inputMode="numeric"
+                value={salary}
+                placeholder={t('SALARY_HINT')}
+                onChange={(e) => setSalary(e.target.value)}
+              />
+              {fieldErrors.baseMonthlySalary && (
+                <span className="error">{fieldErrors.baseMonthlySalary}</span>
+              )}
+            </label>
             {formError && <p className="error" role="alert">{formError}</p>}
             <button type="submit" className="primary" disabled={submitting}>
               {t('MEMBER_CREATE')}
@@ -451,6 +489,30 @@ export function MembersScreen() {
               {t('SCHEDULE_MANAGE')}
             </button>
             <button onClick={() => setScheduleEdit(null)}>{t('CANCEL')}</button>
+          </div>
+        </Modal>
+      )}
+
+      {salaryEdit && (
+        <Modal title={`${salaryEdit.name} — ${t('SALARY')}`} onClose={() => setSalaryEdit(null)}>
+          <label className="salary-edit">
+            {t('SALARY')}
+            <input
+              type="number"
+              min={0}
+              inputMode="numeric"
+              autoFocus
+              value={salaryEdit.value}
+              placeholder={t('SALARY_HINT')}
+              onChange={(e) => setSalaryEdit({ ...salaryEdit, value: e.target.value })}
+            />
+          </label>
+          <p className="hint">{t('SALARY_HINT')}</p>
+          <div className="btn-row">
+            <button className="primary" onClick={() => void saveSalary()}>
+              {t('SALARY_SAVE')}
+            </button>
+            <button onClick={() => setSalaryEdit(null)}>{t('CANCEL')}</button>
           </div>
         </Modal>
       )}
@@ -576,6 +638,17 @@ export function MembersScreen() {
                           }
                         >
                           {t('EDIT_SCHEDULE')}
+                        </button>
+                        <button
+                          onClick={() =>
+                            setSalaryEdit({
+                              userId: member.userId,
+                              name: member.name,
+                              value: member.baseMonthlySalary == null ? '' : String(member.baseMonthlySalary),
+                            })
+                          }
+                        >
+                          {t('SALARY')}
                         </button>
                         {!self && (
                           <button

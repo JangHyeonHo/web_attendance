@@ -8,14 +8,14 @@ ALTER TABLE tenant_report_setting
     ADD COLUMN IF NOT EXISTS pay_premium_enabled BOOLEAN NOT NULL DEFAULT TRUE
         COMMENT '연장·야간·휴일 가산수당 적용(§56). 5인 미만 사업장은 false' AFTER stamp_enabled;
 
--- 회사 설정(W020) 가산 적용 토글 --------------------------
+-- 회사 설정(공통 W999 — CompanySettingsScreen은 공통 번들 사용) 가산 적용 토글 --
 INSERT IGNORE INTO language_master (window_id, lang_key, lang, lang_value) VALUES
-('W020','PAY_PREMIUM_TOGGLE','KOR','연장·야간·휴일 가산수당 적용'),
-('W020','PAY_PREMIUM_TOGGLE','ENG','Apply overtime/night/holiday premiums'),
-('W020','PAY_PREMIUM_TOGGLE','JPN','時間外・深夜・休日の割増を適用'),
-('W020','PAY_PREMIUM_HINT','KOR','상시 5인 이상 사업장은 켜 두세요. 5인 미만은 가산 의무 대상이 아니므로 끌 수 있습니다(급여 정산 참고값에 반영).'),
-('W020','PAY_PREMIUM_HINT','ENG','Keep on for workplaces with 5+ employees. Under 5 may turn it off (reflected in the reference payroll).'),
-('W020','PAY_PREMIUM_HINT','JPN','常時5人以上の事業場はオンのままに。5人未満は割増義務の対象外のためオフにできます（給与精算の参考値に反映）。'),
+('W999','PAY_PREMIUM_TOGGLE','KOR','연장·야간·휴일 가산수당 적용'),
+('W999','PAY_PREMIUM_TOGGLE','ENG','Apply overtime/night/holiday premiums'),
+('W999','PAY_PREMIUM_TOGGLE','JPN','時間外・深夜・休日の割増を適用'),
+('W999','PAY_PREMIUM_HINT','KOR','상시 5인 이상 사업장은 켜 두세요. 5인 미만은 가산 의무 대상이 아니므로 끌 수 있습니다(급여 정산 참고값에 반영).'),
+('W999','PAY_PREMIUM_HINT','ENG','Keep on for workplaces with 5+ employees. Under 5 may turn it off (reflected in the reference payroll).'),
+('W999','PAY_PREMIUM_HINT','JPN','常時5人以上の事業場はオンのままに。5人未満は割増義務の対象外のためオフにできます（給与精算の参考値に反映）。'),
 
 -- 급여 정산(참고) 명세 라벨 — 근무표(W006) 하단 표시 --------
 ('W006','PAYROLL_TITLE','KOR','급여 정산 (참고)'),        ('W006','PAYROLL_TITLE','ENG','Payroll settlement (reference)'), ('W006','PAYROLL_TITLE','JPN','給与精算（参考）'),

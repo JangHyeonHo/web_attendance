@@ -3658,3 +3658,165 @@ form label .pw-field input {
   border-top: 1px solid var(--border);
   padding-top: 0.6rem;
 }
+
+/* ===== 근태 마감 #근태마감 ===== */
+
+/* 마감 바 — 근무표 상단, 상태 + 신청/취소 */
+.close-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 4px 0 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-alt);
+}
+.close-bar.locked {
+  border-color: var(--border-strong);
+}
+.close-state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.close-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 0.92rem;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+.close-badge.done {
+  color: var(--success);
+  background: rgba(37, 110, 60, 0.1);
+}
+.close-badge.pending {
+  color: var(--info);
+  background: rgba(59, 98, 181, 0.1);
+}
+.close-badge.rejected {
+  color: var(--error);
+  background: rgba(179, 55, 42, 0.1);
+}
+.close-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* 급여 정산(참고) 패널 */
+.payroll-panel {
+  margin-top: 20px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+.payroll-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0;
+}
+.payroll-table th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--muted);
+  padding: 6px 8px;
+  white-space: nowrap;
+}
+.payroll-table td {
+  padding: 6px 8px;
+}
+.payroll-table td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.payroll-table td.num.plus { color: var(--success); }
+.payroll-table td.num.minus { color: var(--error); }
+.payroll-table td.muted { color: var(--muted); font-size: 0.86rem; }
+.payroll-table tr.payroll-net {
+  border-top: 2px solid var(--border-strong);
+}
+.payroll-table tr.payroll-net th,
+.payroll-table tr.payroll-net td.num {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
+  padding-top: 10px;
+}
+
+/* 회사 설정 — 도장 이미지 업로드 */
+.section-subhead {
+  margin: 20px 0 4px;
+  font-size: 0.98rem;
+}
+.stamp-setting {
+  margin-top: 12px;
+}
+.stamp-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 10px 0;
+}
+.stamp-preview {
+  width: 64px;
+  height: 64px;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+.stamp-preview img {
+  max-width: 56px;
+  max-height: 56px;
+  object-fit: contain;
+}
+.stamp-circle {
+  width: 44px;
+  height: 44px;
+  border: 3px solid #111;
+  border-radius: 50%;
+}
+.stamp-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.stamp-size {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.salary-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* 인쇄 결재란 도장(PDF) */
+.tsr-seal-cell {
+  text-align: center;
+  vertical-align: middle;
+}
+.tsr-seal-img {
+  object-fit: contain;
+}
+.tsr-seal-circle {
+  display: inline-block;
+  border: 3px solid #000;
+  border-radius: 50%;
+}
+@media print {
+  .tsr-seal-circle { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

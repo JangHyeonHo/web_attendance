@@ -16,6 +16,9 @@ export function TimesheetPrintReport({
   userName,
   department,
   stampEnabled,
+  sealApproved,
+  stampImageUrl,
+  stampSize,
   issueDate,
   lang,
 }: {
@@ -24,9 +27,23 @@ export function TimesheetPrintReport({
   userName: string | null
   department: string | null
   stampEnabled: boolean
+  /** 그 달이 마감 승인됨 → 인사담당자 칸에 도장 날인(승인 전엔 빈 칸) */
+  sealApproved?: boolean
+  /** 회사 도장 이미지(data URL). 없으면 검은 원 대체 */
+  stampImageUrl?: string | null
+  /** 도장 표시 크기 SMALL|MEDIUM|LARGE */
+  stampSize?: string
   issueDate: string
   lang: Lang
 }) {
+  const sealPx = stampSize === 'SMALL' ? 34 : stampSize === 'LARGE' ? 50 : 42
+  const seal = sealApproved ? (
+    stampImageUrl ? (
+      <img className="tsr-seal-img" src={stampImageUrl} alt="" style={{ width: sealPx, height: sealPx }} />
+    ) : (
+      <span className="tsr-seal-circle" style={{ width: sealPx, height: sealPx }} />
+    )
+  ) : null
   const L = (ko: string, en: string, ja: string) => (lang === 'ENG' ? en : lang === 'JPN' ? ja : ko)
 
   const category = (d: DailyAttendance): string => {
@@ -73,7 +90,7 @@ export function TimesheetPrintReport({
                 <th>{L('인사담당자', 'HR', '人事担当')}</th>
                 <th>{L('총괄담당자', 'Manager', '総括担当')}</th>
               </tr>
-              <tr><td /><td /></tr>
+              <tr><td className="tsr-seal-cell">{seal}</td><td /></tr>
             </tbody>
           </table>
         )}

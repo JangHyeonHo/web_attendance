@@ -65,6 +65,10 @@ import type {
   TenantStatusUpdateRequest,
   TenantSummary,
   ReportSetting,
+  ReportSettingUpdateRequest,
+  PayrollResponse,
+  CloseStatusResponse,
+  PendingCloseResponse,
   TokenPurpose,
   TokenVerifyRequest,
   TokenVerifyResponse,
@@ -137,10 +141,15 @@ export const tenantProfileApi = {
     put<TenantProfileResponse>('/api/v1/tenant/profile', request),
 }
 
-/** 회사(TENANT_ADMIN) 근태 보고서 설정 — 결재(도장)란 표시 on/off */
+/** 회사(TENANT_ADMIN/HR_ADMIN) 회사 설정 — 결재란·가산 적용·도장 이미지/크기 */
 export const tenantReportApi = {
-  updateStamp: (stampEnabled: boolean) =>
-    put<ReportSetting>('/api/v1/tenant/report-setting', { stampEnabled }),
+  get: () => get<ReportSetting>('/api/v1/tenant/report-setting'),
+  update: (request: ReportSettingUpdateRequest) =>
+    put<ReportSetting>('/api/v1/tenant/report-setting', request),
+  /** 도장 이미지 업로드(base64 data URL 허용 + MIME) — 서버가 크기·형식 검증 */
+  uploadStamp: (imageBase64: string, mime: string) =>
+    put<ReportSetting>('/api/v1/tenant/report-setting/stamp-image', { imageBase64, mime }),
+  removeStamp: () => del<void>('/api/v1/tenant/report-setting/stamp-image'),
 }
 
 /** SYSTEM_ADMIN 전용 — 감사 로그 조회(W017). 전역 최신순 + category 필터 */
@@ -196,6 +205,26 @@ export const tenantMemberApi = {
     put<MemberSummary>(`/api/v1/tenant/members/${userId}/role`, request),
   updateSchedule: (userId: number, request: MemberScheduleUpdateRequest) =>
     put<MemberSummary>(`/api/v1/tenant/members/${userId}/schedule`, request),
+  /** 월 기본급 수정(급여 정산 기준) — null이면 미입력으로 저장 */
+  updateSalary: (userId: number, baseMonthlySalary: number | null) =>
+    put<MemberSummary>(`/api/v1/tenant/members/${userId}/salary`, { baseMonthlySalary }),
+}
+
+/** 근태 마감 — 멤버 셀프(본인 월 마감 신청/취소/상태) */
+export const attendanceCloseApi = {
+  status: (year: number, month: number) =>
+    get<CloseStatusResponse>(`/api/v1/attendance/close/status?year=${year}&month=${month}`),
+  request: (year: number, month: number) =>
+    post<CloseStatusResponse>('/api/v1/attendance/close', { year, month }),
+  cancel: (year: number, month: number) =>
+    del<CloseStatusResponse>(`/api/v1/attendance/close?year=${year}&month=${month}`),
+}
+
+/** 근태 마감 결재(HR_ADMIN/TENANT_ADMIN) — 대기 목록 + 승인/반려(W021) */
+export const tenantCloseApi = {
+  pending: () => get<PendingCloseResponse[]>('/api/v1/tenant/attendance-close/pending'),
+  decide: (closeId: number, approve: boolean, note?: string) =>
+    post<void>(`/api/v1/tenant/attendance-close/${closeId}/decision`, { approve, note }),
 }
 
 /** TENANT_ADMIN+HR_ADMIN — 월 로타(일자 오버라이드: 야간교대·휴무). #13 */
@@ -234,6 +263,9 @@ export const attendanceApi = {
   confirm: (request: ConfirmRequest) => post<StampResponse>('/api/v1/attendance', request),
   monthly: (year: number, month: number) =>
     get<MonthlyResponse>(`/api/v1/attendance/monthly?year=${year}&month=${month}`),
+  /** 급여 정산(참고) — 본인 월 근태 기반 가감 명세(월 기본급 미입력이면 available=false) */
+  payroll: (year: number, month: number) =>
+    get<PayrollResponse>(`/api/v1/attendance/payroll?year=${year}&month=${month}`),
   /** 근태 보고서 설정(결재란 표시) 조회 — 전 멤버(인쇄 시 결재란 판단) */
   reportSetting: () => get<ReportSetting>('/api/v1/attendance/report-setting'),
   /** 수동 정정 등록(사유 필수) — MANUAL로 기록되어 버튼 스탬프와 구분 */
