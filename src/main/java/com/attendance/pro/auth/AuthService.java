@@ -23,11 +23,14 @@ public class AuthService {
     private final TenantMapper tenantMapper;
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
+    //계정 부재/미설정 시에도 bcrypt를 한 번 수행해 응답 시간을 계정 존재 시와 맞추기 위한 더미 해시(타이밍 사용자열거 차단)
+    private final String dummyHash;
 
     public AuthService(TenantMapper tenantMapper, UserMapper userMapper) {
         this.tenantMapper = tenantMapper;
         this.userMapper = userMapper;
-        this.passwordEncoder = new BCryptPasswordEncoder();
+        this.passwordEncoder = new BCryptPasswordEncoder(12);
+        this.dummyHash = passwordEncoder.encode("timing-equalizer");
     }
 
     /**
@@ -43,8 +46,16 @@ public class AuthService {
             throw ApiException.unauthorized("auth.login.failed");
         }
         User user = userMapper.findByEmail(tenant.tenantId(), email);
-        if (user == null || user.status() != UserStatus.ACTIVE
-                || !passwordEncoder.matches(rawPassword, user.passwordHash())) {
+        //비밀번호 검증은 항상 bcrypt를 수행한다 — 계정이 없거나 해시가 없으면 더미 해시로 비교해
+        //응답 시간을 계정 존재 시와 동일하게 만든다(계정 존재 여부 타이밍 오라클 차단).
+        boolean passwordOk;
+        if (user != null && user.passwordHash() != null) {
+            passwordOk = passwordEncoder.matches(rawPassword, user.passwordHash());
+        } else {
+            passwordEncoder.matches(rawPassword, dummyHash);
+            passwordOk = false;
+        }
+        if (user == null || user.status() != UserStatus.ACTIVE || !passwordOk) {
             throw ApiException.unauthorized("auth.login.failed");
         }
         //단일 세션 강제: 로그인마다 새 토큰을 발급·저장해 이전 기기 세션을 무효화(마지막 로그인만 유효)

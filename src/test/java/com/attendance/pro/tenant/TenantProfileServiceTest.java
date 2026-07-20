@@ -38,7 +38,7 @@ class TenantProfileServiceTest {
     @Mock
     private TenantBillingMapper tenantBillingMapper;
 
-    private final FieldCipher fieldCipher = new FieldCipher(TEST_KEY);
+    private final FieldCipher fieldCipher = new FieldCipher(TEST_KEY, "test");
 
     private TenantProfileService service() {
         return new TenantProfileService(tenantMapper, tenantProfileMapper, tenantBillingMapper, fieldCipher);

@@ -27,11 +27,15 @@ public class AdminAuditController {
         this.auditService = auditService;
     }
 
+    /** 조회 상한 — 과도한 limit로 감사 테이블 전체를 끌어오는 것을 방지(1~MAX 클램프). */
+    private static final int MAX_LIMIT = 500;
+
     @Operation(summary = "api.audit.list")
     @GetMapping
     public List<AuditLogResponse> list(
             @RequestParam(name = "category", required = false) String category,
             @RequestParam(name = "limit", required = false, defaultValue = "100") int limit) {
-        return auditService.recentView(category, limit);
+        int clamped = Math.max(1, Math.min(limit, MAX_LIMIT));
+        return auditService.recentView(category, clamped);
     }
 }

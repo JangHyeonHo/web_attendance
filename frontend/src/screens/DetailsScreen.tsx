@@ -140,7 +140,7 @@ export function DetailsScreen() {
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     }
-  }, [year, month])
+  }, [year, month, lang]) //lang 포함 — 언어 전환 후에도 현재 언어(폰트·로케일)로 엑셀 생성
 
   //요일 명칭은 사전 없이 Intl 표준 API로 생성
   const weekdayOf = useMemo(() => {

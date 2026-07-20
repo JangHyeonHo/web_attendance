@@ -2,6 +2,7 @@ package com.attendance.pro;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 
 /**
  * 애플리케이션 컨텍스트 기동 테스트 — 전체 빈 그래프가 실제로 조립되는지(DI 배선) 검증한다.
@@ -13,6 +14,7 @@ import org.springframework.boot.test.context.SpringBootTest;
  * DB 없는 CI를 도입하면 이 클래스만 프로파일/조건으로 분리할 것.
  */
 @SpringBootTest
+@ActiveProfiles("test") //base 설정의 개발 기본 암호화 키를 FieldCipher가 허용하도록(dev/test/local만 허용)
 class WebAttendanceApplicationTests {
 
 	@Test

@@ -26,8 +26,13 @@ export function setUnauthorizedHandler(handler: () => void): void {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     credentials: 'same-origin',
-    headers: init?.body ? { 'Content-Type': 'application/json' } : undefined,
     ...init,
+    //CSRF 심층방어: 서버가 상태변경 요청에 요구하는 비단순 헤더. 모든 요청에 부착(교차출처 위조 차단).
+    headers: {
+      'X-Requested-With': 'XMLHttpRequest',
+      ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
+      ...(init?.headers as Record<string, string> | undefined),
+    },
   })
   if (response.status === 204) {
     return undefined as T

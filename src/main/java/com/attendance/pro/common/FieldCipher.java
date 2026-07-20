@@ -38,7 +38,8 @@ public class FieldCipher {
     private final SecretKey key;
     private final SecureRandom random = new SecureRandom();
 
-    public FieldCipher(@Value("${app.crypto.key}") String base64Key) {
+    public FieldCipher(@Value("${app.crypto.key}") String base64Key,
+            @Value("${spring.profiles.active:}") String activeProfiles) {
         byte[] raw;
         try {
             raw = Base64.getDecoder().decode(base64Key == null ? "" : base64Key.trim());
@@ -49,13 +50,29 @@ public class FieldCipher {
             throw new IllegalStateException("APP_CRYPTO_KEY must be base64 of 32 bytes");
         }
         if (DEV_DEFAULT_KEY.equals(base64Key.trim())) {
-            //저장소에 커밋된 공개 키 — prod 프로파일은 APP_CRYPTO_KEY 미설정시 기동 실패하지만,
-            //프로파일 미지정 기동은 조용히 이 키를 쓰게 되므로 명시적으로 경고한다.
-            log.warn("개발 기본 암호화 키(APP_CRYPTO_KEY 미설정)를 사용 중입니다. "
-                    + "이 키로 암호화된 데이터는 운영 반입 금지 — 운영 기동은 반드시 prod 프로파일"
-                    + "(SPRING_PROFILES_ACTIVE=prod) + APP_CRYPTO_KEY 주입으로 하세요.");
+            //저장소에 커밋된 공개 키 — dev/test/local 프로파일에서만 허용하고, 그 외(운영·프로파일 미지정)에서는
+            //조용히 공개 키로 암호화하는 사고를 막기 위해 기동 자체를 실패시킨다(warn→fail-fast).
+            if (!isDevLikeProfile(activeProfiles)) {
+                throw new IllegalStateException("커밋된 개발용 기본 암호화 키는 dev/test/local 프로파일에서만 허용됩니다. "
+                        + "운영은 SPRING_PROFILES_ACTIVE=prod + APP_CRYPTO_KEY 주입으로 기동하세요.");
+            }
+            log.warn("개발 기본 암호화 키를 사용 중입니다(dev/test). 이 키로 암호화된 데이터는 운영 반입 금지.");
         }
         this.key = new SecretKeySpec(raw, "AES");
+    }
+
+    /** dev/test/local 프로파일이 하나라도 활성인지 — 개발 기본 키 허용 판단용. */
+    private static boolean isDevLikeProfile(String activeProfiles) {
+        if (activeProfiles == null || activeProfiles.isBlank()) {
+            return false;
+        }
+        for (String p : activeProfiles.split(",")) {
+            String t = p.trim().toLowerCase(java.util.Locale.ROOT);
+            if (t.equals("dev") || t.equals("test") || t.equals("local")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

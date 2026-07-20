@@ -83,7 +83,7 @@ public class MailTemplateService {
         resolveLang(lang);
         validate(resolved, subject, body);
         Map<String, String> samples = sampleVariables(resolved, "에이크미(주)", "홍길동", "김관리");
-        return new MailTemplatePreviewResponse(substitute(subject, samples), substitute(body, samples));
+        return new MailTemplatePreviewResponse(substitute(subject, samples), substitute(body, samples, looksLikeHtml(body)));
     }
 
     /**
@@ -98,7 +98,7 @@ public class MailTemplateService {
         String tenantName = tenant == null ? "" : tenant.name();
         String name = actorName == null || actorName.isBlank() ? "홍길동" : actorName;
         Map<String, String> samples = sampleVariables(resolved, tenantName, name, name);
-        return new MailTemplatePreviewResponse(substitute(subject, samples), substitute(body, samples));
+        return new MailTemplatePreviewResponse(substitute(subject, samples), substitute(body, samples, looksLikeHtml(body)));
     }
 
     // ---------------------------------------------------------
@@ -198,7 +198,7 @@ public class MailTemplateService {
             //DB 직수정 등으로 허용 외 변수가 들어온 방어 — 미치환 본문을 발송하지 않는다
             throw new IllegalStateException("unresolved mail placeholder: {" + unknown + "}");
         }
-        return new RenderedMail(substitute(subjectTemplate, variables), substitute(bodyTemplate, variables));
+        return new RenderedMail(substitute(subjectTemplate, variables), substitute(bodyTemplate, variables, looksLikeHtml(bodyTemplate)));
     }
 
     /** 미리보기 샘플 값 — 회사명·이름은 호출부가 전달(전역=대표값, 회사=실데이터). */
@@ -240,15 +240,33 @@ public class MailTemplateService {
      * 맵에 없는 플레이스홀더는 원문 유지(잔존 검출은 render의 사전 템플릿 스캔이 담당).
      */
     private String substitute(String text, Map<String, String> variables) {
+        return substitute(text, variables, false);
+    }
+
+    /**
+     * HTML 본문이면 변수 값을 HTML 이스케이프해 치환한다 — 관리자 설정 이름 등에 든 마크업(&lt;a&gt; 등)이
+     * 수신자 메일에 그대로 렌더되는 것을 막는다. 제목·평문 본문은 이스케이프하지 않는다.
+     */
+    private String substitute(String text, Map<String, String> variables, boolean escapeHtml) {
         Matcher matcher = PLACEHOLDER.matcher(text);
         StringBuilder result = new StringBuilder();
         while (matcher.find()) {
             String value = variables.get(matcher.group(1));
-            matcher.appendReplacement(result,
-                    Matcher.quoteReplacement(value != null ? value : matcher.group()));
+            String replacement = value != null ? (escapeHtml ? escapeHtml(value) : value) : matcher.group();
+            matcher.appendReplacement(result, Matcher.quoteReplacement(replacement));
         }
         matcher.appendTail(result);
         return result.toString();
+    }
+
+    /** 본문이 HTML로 취급되는지(SmtpMailSender의 판정과 동일한 단순 휴리스틱). */
+    private static boolean looksLikeHtml(String body) {
+        return body != null && body.contains("<") && body.contains(">");
+    }
+
+    private static String escapeHtml(String s) {
+        return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                .replace("\"", "&quot;").replace("'", "&#39;");
     }
 
     /** 치환 전 템플릿에서 변수 맵에 없는 첫 플레이스홀더 이름(없으면 null). */

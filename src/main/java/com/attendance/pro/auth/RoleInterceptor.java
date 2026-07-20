@@ -46,15 +46,23 @@ public class RoleInterceptor implements HandlerInterceptor {
         if (user == null) {
             throw ApiException.unauthorized();      //401 error.unauthorized
         }
+        //컨텍스트 패스를 제외한 경로로 매칭 — server.servlet.context-path 설정 시에도 규칙이 어긋나지 않게.
+        //getRequestURI()는 컨텍스트 패스를 포함하므로 그대로 쓰면 매칭이 전부 빗나가 fail-open 될 수 있다.
+        String contextPath = request.getContextPath();
+        String uri = request.getRequestURI();
+        String path = (contextPath != null && !contextPath.isEmpty() && uri.startsWith(contextPath))
+                ? uri.substring(contextPath.length()) : uri;
         for (RouteRule rule : RULES) {
-            if (matcher.match(rule.pattern(), request.getRequestURI())) {
+            if (matcher.match(rule.pattern(), path)) {
                 if (!rule.allowed().contains(user.role())) {
                     throw ApiException.forbidden(); //403 error.forbidden
                 }
                 return true;
             }
         }
-        return true;   //규칙에 없는 인증 필수 경로(auth/me 등)는 role 무관 통과
+        //이 인터셉터는 role 게이트 대상 프리픽스(system/admin/tenant/attendance)에만 등록된다.
+        //따라서 미매칭은 규칙-등록 불일치(설정 오류)이므로 통과가 아니라 거부한다(fail-closed).
+        throw ApiException.forbidden();
     }
 
 }

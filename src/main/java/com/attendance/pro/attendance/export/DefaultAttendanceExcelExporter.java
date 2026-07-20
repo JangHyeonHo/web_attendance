@@ -122,8 +122,14 @@ public class DefaultAttendanceExcelExporter implements AttendanceExcelExporter {
             setHours(total.getCell(7), monthly.totalBreakMinutes(), totalHour);
             setHours(total.getCell(8), monthly.totalWorkMinutes(), totalHour);
 
+            //autoSizeColumn은 AWT 폰트 메트릭에 의존 — 헤드리스·폰트 미설치 환경에서 예외가 날 수 있어
+            //방어적으로 감싸고, 실패 시 고정 너비로 폴백한다(다운로드 자체가 500으로 죽지 않게).
             for (int c = 0; c < COLS; c++) {
-                sheet.autoSizeColumn(c);
+                try {
+                    sheet.autoSizeColumn(c);
+                } catch (RuntimeException e) {
+                    sheet.setColumnWidth(c, 14 * 256); //약 14자 폭
+                }
             }
             wb.write(out);
             return out.toByteArray();

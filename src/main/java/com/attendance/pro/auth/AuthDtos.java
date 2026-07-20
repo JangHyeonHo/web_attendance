@@ -34,6 +34,11 @@ public final class AuthDtos {
             @Schema(description = "schema.field.password", example = "Admin123!")
             @NotBlank(message = "{validation.password.required}")
             String password) {
+
+        @Override
+        public String toString() {  //로그 유출 방지: 비밀번호는 toString에서 제외(다른 민감 DTO와 동일 규약)
+            return "LoginRequest[tenantCode=%s, email=%s, password=***]".formatted(tenantCode, email);
+        }
     }
 
     @Schema(description = "schema.login-response")

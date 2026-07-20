@@ -10,6 +10,7 @@ import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import com.attendance.pro.auth.AuthInterceptor;
+import com.attendance.pro.auth.CsrfHeaderInterceptor;
 import com.attendance.pro.auth.LoginUserArgumentResolver;
 import com.attendance.pro.auth.RoleInterceptor;
 import com.attendance.pro.auth.SessionRevalidationInterceptor;
@@ -22,6 +23,7 @@ import com.attendance.pro.auth.SlidingSessionCookieInterceptor;
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
+    private final CsrfHeaderInterceptor csrfHeaderInterceptor;
     private final SessionRevalidationInterceptor sessionRevalidationInterceptor;
     private final SlidingSessionCookieInterceptor slidingSessionCookieInterceptor;
     private final AuthInterceptor authInterceptor;
@@ -29,12 +31,14 @@ public class WebConfig implements WebMvcConfigurer {
     private final LoginUserArgumentResolver loginUserArgumentResolver;
     private final List<String> corsAllowedOrigins;
 
-    public WebConfig(SessionRevalidationInterceptor sessionRevalidationInterceptor,
+    public WebConfig(CsrfHeaderInterceptor csrfHeaderInterceptor,
+            SessionRevalidationInterceptor sessionRevalidationInterceptor,
             SlidingSessionCookieInterceptor slidingSessionCookieInterceptor,
             AuthInterceptor authInterceptor,
             RoleInterceptor roleInterceptor,
             LoginUserArgumentResolver loginUserArgumentResolver,
             @Value("${app.cors.allowed-origins:}") List<String> corsAllowedOrigins) {
+        this.csrfHeaderInterceptor = csrfHeaderInterceptor;
         this.sessionRevalidationInterceptor = sessionRevalidationInterceptor;
         this.slidingSessionCookieInterceptor = slidingSessionCookieInterceptor;
         this.authInterceptor = authInterceptor;
@@ -45,6 +49,9 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
+        //CSRF 심층방어 — 상태변경 요청에 커스텀 헤더 요구. 인증 이전(로그인 등 공개 변경도 포함)에 최우선 적용.
+        registry.addInterceptor(csrfHeaderInterceptor)
+                .addPathPatterns("/api/**");
         //세션 스냅샷 재검증(정지/비활성 → 세션 무효화, role 변경 → 스냅샷 갱신).
         //navigation 등 공개 API도 포함해 전 /api에 최우선 적용한다.
         registry.addInterceptor(sessionRevalidationInterceptor)

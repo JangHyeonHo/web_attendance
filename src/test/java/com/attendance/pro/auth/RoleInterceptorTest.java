@@ -95,10 +95,6 @@ class RoleInterceptorTest {
             "/api/v1/attendance/check,          SYSTEM_ADMIN, deny",
             "/api/v1/attendance,                SYSTEM_ADMIN, deny",
             "/api/v1/attendance/monthly,        SYSTEM_ADMIN, deny",
-            //규칙에 없는 인증 필수 경로는 role 무관 통과
-            "/api/v1/auth/me,                   MEMBER,       allow",
-            "/api/v1/auth/me,                   SYSTEM_ADMIN, allow",
-            "/api/v1/navigation,                TENANT_ADMIN, allow",
     })
     @DisplayName("경로 × role 화이트리스트 매트릭스")
     void whitelistMatrix(String uri, Role role, String expected) {
@@ -115,6 +111,31 @@ class RoleInterceptorTest {
                         assertThat(apiException.getCode()).isEqualTo("FORBIDDEN");
                     });
         }
+    }
+
+    @Test
+    @DisplayName("규칙에 없는 경로는 fail-closed로 거부(403) — 이 인터셉터는 role 게이트 프리픽스에만 등록되므로 미매칭=설정오류")
+    void unmatchedPathDeniedFailClosed() {
+        //auth/me·navigation 등은 WebConfig에서 이 인터셉터에 등록되지 않아 실제로는 도달하지 않는다.
+        //만약 등록 프리픽스가 규칙 없이 확장되면, 통과가 아니라 거부되어야 한다(권한 우회 방지).
+        MockHttpServletRequest request = request("/api/v1/unmapped/whatever", Role.SYSTEM_ADMIN);
+        assertThatThrownBy(() -> interceptor.preHandle(request, new MockHttpServletResponse(), new Object()))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getStatus().value()).isEqualTo(403));
+    }
+
+    @Test
+    @DisplayName("컨텍스트 패스가 있어도 규칙이 정상 매칭된다(getRequestURI 대신 컨텍스트 제외 경로)")
+    void contextPathStrippedForMatching() {
+        //컨텍스트 패스 '/app'이 붙은 요청 — SYSTEM_ADMIN 전용 경로에 MEMBER 접근은 여전히 거부되어야 한다
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/app/api/v1/system/tenants");
+        request.setContextPath("/app");
+        SessionUser member = new SessionUser(1L, 1L, "ACME", "에이크미(주)", "u@acme.co.kr", "유저", Role.MEMBER,
+                java.time.LocalDateTime.now(), null);
+        request.getSession(true).setAttribute(SessionUser.SESSION_KEY, member);
+        assertThatThrownBy(() -> interceptor.preHandle(request, new MockHttpServletResponse(), new Object()))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getStatus().value()).isEqualTo(403));
     }
 
     @Test

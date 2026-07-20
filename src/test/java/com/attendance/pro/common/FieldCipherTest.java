@@ -20,7 +20,7 @@ class FieldCipherTest {
     private static final String KEY = Base64.getEncoder().encodeToString(
             "0123456789abcdef0123456789abcdef".getBytes());
 
-    private final FieldCipher cipher = new FieldCipher(KEY);
+    private final FieldCipher cipher = new FieldCipher(KEY, "test");
 
     @ParameterizedTest
     @ValueSource(strings = {
@@ -102,9 +102,22 @@ class FieldCipherTest {
     void invalidKeyFailsFast() {
         //길이 불일치
         String shortKey = Base64.getEncoder().encodeToString("short-key".getBytes());
-        assertThatThrownBy(() -> new FieldCipher(shortKey)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> new FieldCipher(shortKey, "test")).isInstanceOf(IllegalStateException.class);
         //base64 디코딩 불가
-        assertThatThrownBy(() -> new FieldCipher("!!not-base64!!")).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> new FieldCipher("!!not-base64!!", "test")).isInstanceOf(IllegalStateException.class);
+    }
+
+    private static final String DEV_DEFAULT_KEY = "d2ViLWF0dGVuZGFuY2UtZGV2LWNyeXB0by1rZXktMzI=";
+
+    @Test
+    @DisplayName("커밋된 개발 기본 키는 dev/test/local 외 프로파일(운영·미지정)에서 기동 실패")
+    void devDefaultKeyRejectedOutsideDev() {
+        //운영/스테이징 프로파일 또는 프로파일 미지정에서 공개 키 사용 차단
+        assertThatThrownBy(() -> new FieldCipher(DEV_DEFAULT_KEY, "prod")).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> new FieldCipher(DEV_DEFAULT_KEY, "")).isInstanceOf(IllegalStateException.class);
+        //dev/test/local에서는 허용(경고만)
+        assertThat(new FieldCipher(DEV_DEFAULT_KEY, "dev").encrypt("x")).startsWith("v1:");
+        assertThat(new FieldCipher(DEV_DEFAULT_KEY, "prod,test").encrypt("x")).startsWith("v1:");
     }
 
 }
