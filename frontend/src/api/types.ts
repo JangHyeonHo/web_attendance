@@ -641,6 +641,16 @@ export interface PatternSaveRequest {
   slots: PatternSlot[]
 }
 
+/** 실효 스케줄 한 날 — 우선순위(오버라이드>패턴>기본) 적용 결과 + 출처. */
+export interface EffectiveDay {
+  date: string
+  source: 'OVERRIDE' | 'PATTERN' | 'DEFAULT'
+  off: boolean
+  start: string | null
+  end: string | null
+  crossesMidnight: boolean
+}
+
 // ---- i18n (언어 마스터) ----
 
 export interface LanguageEntry {

@@ -45,6 +45,7 @@ import type {
   RotaSaveRequest,
   PatternResponse,
   PatternSaveRequest,
+  EffectiveDay,
   NavigateRequest,
   NavigateResponse,
   InvoiceEntry,
@@ -199,6 +200,9 @@ export const tenantMemberApi = {
 
 /** TENANT_ADMIN+HR_ADMIN — 월 로타(일자 오버라이드: 야간교대·휴무). #13 */
 export const tenantScheduleApi = {
+  /** 실효 스케줄(오버라이드>패턴>기본 적용) — 통합 화면 달력 표시용 */
+  effective: (userId: number, year: number, month: number) =>
+    get<EffectiveDay[]>(`/api/v1/tenant/schedule/${userId}/effective?year=${year}&month=${month}`),
   rota: (userId: number, year: number, month: number) =>
     get<RotaCell[]>(`/api/v1/tenant/schedule/${userId}/rota?year=${year}&month=${month}`),
   saveRota: (userId: number, request: RotaSaveRequest) =>

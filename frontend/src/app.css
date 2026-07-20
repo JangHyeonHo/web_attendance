@@ -757,6 +757,28 @@ form button.primary {
   font-weight: 600;
 }
 
+/* 통합 근무 스케줄 화면 섹션(#13) */
+.sched-section {
+  margin-bottom: 24px;
+}
+.sched-section + .sched-section {
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+}
+.rota-baseline {
+  font-variant-numeric: tabular-nums;
+}
+.rota-day.overridden {
+  background: #fff6e6;
+}
+.rota-day.overridden .rota-day-date::after {
+  content: '●';
+  color: #e0922f;
+  font-size: 9px;
+  margin-left: 5px;
+  vertical-align: middle;
+}
+
 /* 월 로타 편집기(#13) */
 .rota-monthnav {
   display: flex;

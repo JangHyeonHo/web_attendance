@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.YearMonth;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,6 +42,54 @@ public class ScheduleAdminService {
         requireMember(tenantId, userId);
         YearMonth ym = validMonth(year, month);
         return scheduleMapper.findBetween(tenantId, userId, ym.atDay(1), ym.plusMonths(1).atDay(1));
+    }
+
+    /**
+     * 그 달의 <b>실효 스케줄</b> — 우선순위(오버라이드 > 반복 패턴 > 개인 기본값)를 적용해 날짜별 결과 + 출처(#13).
+     * 통합 스케줄 화면의 달력이 "패턴이 적용된 실제 모습"을 보여주고 예외만 덮어쓰게 한다.
+     */
+    @Transactional(readOnly = true)
+    public List<EffectiveDay> effectiveMonth(long tenantId, long userId, int year, int month) {
+        requireMember(tenantId, userId);
+        YearMonth ym = validMonth(year, month);
+        LocalDate from = ym.atDay(1);
+        LocalDate to = ym.plusMonths(1).atDay(1);
+
+        Map<LocalDate, WorkSchedule> overrides = new java.util.HashMap<>();
+        for (WorkSchedule s : scheduleMapper.findBetween(tenantId, userId, from, to)) {
+            overrides.put(s.workDate(), s);
+        }
+        SchedulePattern pattern = patternMapper.findByUser(tenantId, userId);
+        SchedulePatternResolver resolver = pattern == null ? null
+                : new SchedulePatternResolver(pattern, patternMapper.findSlots(pattern.patternId()));
+        WorkDefaults defaults = scheduleMapper.findWorkDefaults(tenantId, userId);
+        LocalTime dStart = defaults != null && defaults.start() != null
+                ? defaults.start() : MonthlyAttendanceAssembler.DEFAULT_START;
+        LocalTime dEnd = defaults != null && defaults.end() != null
+                ? defaults.end() : MonthlyAttendanceAssembler.DEFAULT_END;
+        String workDays = defaults == null ? null : defaults.workDays();
+
+        List<EffectiveDay> result = new java.util.ArrayList<>();
+        for (LocalDate day = from; day.isBefore(to); day = day.plusDays(1)) {
+            WorkSchedule ov = overrides.get(day);
+            if (ov != null) {
+                result.add(EffectiveDay.of(day, "OVERRIDE", ov.off(), ov.startTime(), ov.endTime(),
+                        ov.crossesMidnight()));
+                continue;
+            }
+            WorkSchedule pj = resolver == null ? null : resolver.resolve(day);
+            if (pj != null) {
+                result.add(EffectiveDay.of(day, "PATTERN", pj.off(), pj.startTime(), pj.endTime(),
+                        pj.crossesMidnight()));
+                continue;
+            }
+            //개인 기본값: 근무 요일이면 기본 시각, 아니면 휴무
+            boolean off = !WorkDefaults.worksOn(workDays, day.getDayOfWeek());
+            result.add(off
+                    ? EffectiveDay.of(day, "DEFAULT", true, null, null, false)
+                    : EffectiveDay.of(day, "DEFAULT", false, dStart, dEnd, false));
+        }
+        return result;
     }
 
     /** 월 로타 저장 — 그 달을 통째로 대체. cells는 오버라이드할 날짜만(빈 목록이면 그 달 오버라이드 전부 해제). */
@@ -194,5 +243,15 @@ public class ScheduleAdminService {
     /** 패턴 슬롯 DTO — (주차, 요일1..7) → 휴무/근무(시각·야간). */
     public record PatternSlotDto(int weekIndex, int dayOfWeek, boolean off,
             LocalTime start, LocalTime end, boolean crossesMidnight) {
+    }
+
+    /** 실효 스케줄 한 날 — source: OVERRIDE(로타)/PATTERN(반복)/DEFAULT(개인 기본). */
+    public record EffectiveDay(LocalDate date, String source, boolean off,
+            LocalTime start, LocalTime end, boolean crossesMidnight) {
+
+        static EffectiveDay of(LocalDate date, String source, boolean off,
+                LocalTime start, LocalTime end, boolean crossesMidnight) {
+            return new EffectiveDay(date, source, off, start, end, crossesMidnight);
+        }
     }
 }

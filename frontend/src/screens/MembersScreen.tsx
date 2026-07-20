@@ -4,8 +4,7 @@ import { authApi, tenantMemberApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { Modal } from '../components/Modal'
-import { RotaEditor } from '../components/RotaEditor'
-import { PatternEditor } from '../components/PatternEditor'
+import { ScheduleEditor } from '../components/ScheduleEditor'
 import { SelectField, TimeField } from '../components/fields'
 import { DateField } from '../components/DateField'
 import { localeOf } from '../i18n/lang'
@@ -94,10 +93,8 @@ export function MembersScreen() {
   //행 조작
   const [pending, setPending] = useState<PendingAction | null>(null)
   const [scheduleEdit, setScheduleEdit] = useState<ScheduleEdit | null>(null)
-  //월 로타 편집기 대상(#13) — 열면 기본 스케줄 모달은 닫고 로타 편집기로 전환
-  const [rotaMember, setRotaMember] = useState<{ userId: number; name: string } | null>(null)
-  //반복 패턴 편집기 대상(#13)
-  const [patternMember, setPatternMember] = useState<{ userId: number; name: string } | null>(null)
+  //통합 근무 스케줄 화면 대상(#13) — 반복 패턴 + 월 달력(예외)을 한 화면에서
+  const [scheduleMember, setScheduleMember] = useState<{ userId: number; name: string } | null>(null)
   const [rowError, setRowError] = useState<{ userId: number; message: string } | null>(null)
 
   const reload = useCallback(async () => {
@@ -275,22 +272,13 @@ export function MembersScreen() {
       )
     : members
 
-  //스케줄 편집기는 모달이 아니라 전체 화면(패널)으로 — 목록을 밀어내고 그 자리를 채운다(#13)
-  if (patternMember) {
+  //스케줄 화면은 모달이 아니라 전체 화면(패널)으로 — 목록을 밀어내고 그 자리를 채운다(#13)
+  if (scheduleMember) {
     return (
-      <PatternEditor
-        userId={patternMember.userId}
-        userName={patternMember.name}
-        onClose={() => setPatternMember(null)}
-      />
-    )
-  }
-  if (rotaMember) {
-    return (
-      <RotaEditor
-        userId={rotaMember.userId}
-        userName={rotaMember.name}
-        onClose={() => setRotaMember(null)}
+      <ScheduleEditor
+        userId={scheduleMember.userId}
+        userName={scheduleMember.name}
+        onClose={() => setScheduleMember(null)}
       />
     )
   }
@@ -453,21 +441,12 @@ export function MembersScreen() {
             </button>
             <button
               onClick={() => {
-                //중첩 모달 회피 — 기본 스케줄 모달을 닫고 반복 패턴 편집기로 전환
-                setPatternMember({ userId: scheduleEdit.userId, name: scheduleEdit.name })
+                //기본(고정) 스케줄 모달을 닫고 통합 근무 스케줄 화면(반복 패턴 + 월 달력)으로
+                setScheduleMember({ userId: scheduleEdit.userId, name: scheduleEdit.name })
                 setScheduleEdit(null)
               }}
             >
-              {t('PATTERN_EDIT')}
-            </button>
-            <button
-              onClick={() => {
-                //중첩 모달 회피 — 기본 스케줄 모달을 닫고 로타 편집기로 전환
-                setRotaMember({ userId: scheduleEdit.userId, name: scheduleEdit.name })
-                setScheduleEdit(null)
-              }}
-            >
-              {t('ROTA_EDIT')}
+              {t('SCHEDULE_MANAGE')}
             </button>
             <button onClick={() => setScheduleEdit(null)}>{t('CANCEL')}</button>
           </div>
