@@ -43,6 +43,7 @@ interface PendingAction {
 interface ScheduleEdit {
   userId: number
   name: string
+  email: string
   workStart: string
   workEnd: string
   workDays: string
@@ -94,7 +95,7 @@ export function MembersScreen() {
   const [pending, setPending] = useState<PendingAction | null>(null)
   const [scheduleEdit, setScheduleEdit] = useState<ScheduleEdit | null>(null)
   //통합 근무 스케줄 화면 대상(#13) — 반복 패턴 + 월 달력(예외)을 한 화면에서
-  const [scheduleMember, setScheduleMember] = useState<{ userId: number; name: string } | null>(null)
+  const [scheduleMember, setScheduleMember] = useState<{ userId: number; name: string; email: string } | null>(null)
   const [rowError, setRowError] = useState<{ userId: number; message: string } | null>(null)
 
   const reload = useCallback(async () => {
@@ -278,6 +279,7 @@ export function MembersScreen() {
       <ScheduleEditor
         userId={scheduleMember.userId}
         userName={scheduleMember.name}
+        userEmail={scheduleMember.email}
         onClose={() => setScheduleMember(null)}
       />
     )
@@ -442,7 +444,7 @@ export function MembersScreen() {
             <button
               onClick={() => {
                 //기본(고정) 스케줄 모달을 닫고 통합 근무 스케줄 화면(반복 패턴 + 월 달력)으로
-                setScheduleMember({ userId: scheduleEdit.userId, name: scheduleEdit.name })
+                setScheduleMember({ userId: scheduleEdit.userId, name: scheduleEdit.name, email: scheduleEdit.email })
                 setScheduleEdit(null)
               }}
             >
@@ -566,6 +568,7 @@ export function MembersScreen() {
                             setScheduleEdit({
                               userId: member.userId,
                               name: member.name,
+                              email: member.email,
                               workStart: member.workStart,
                               workEnd: member.workEnd,
                               workDays: member.workDays,

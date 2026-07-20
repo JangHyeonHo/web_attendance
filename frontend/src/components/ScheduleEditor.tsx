@@ -26,10 +26,12 @@ const hhmm = (t: string | null) => (t ? t.slice(0, 5) : '09:00')
 export function ScheduleEditor({
   userId,
   userName,
+  userEmail,
   onClose,
 }: {
   userId: number
   userName: string
+  userEmail: string
   onClose: () => void
 }) {
   const { t, lang } = useApp()
@@ -165,22 +167,27 @@ export function ScheduleEditor({
     }
   }
 
+  //현재 월의 상세(예외) 셀 — 저장·타 멤버 적용 공용
+  function detailCells() {
+    const cells = []
+    for (let d = 1; d <= daysInMonth; d++) {
+      const date = iso(year, month, d)
+      const c = days[date]
+      if (!c || c.mode === 'follow') continue
+      cells.push(
+        c.mode === 'off'
+          ? { date, off: true, start: null, end: null, crossesMidnight: false }
+          : { date, off: false, start: c.start, end: c.end, crossesMidnight: c.night },
+      )
+    }
+    return cells
+  }
+
   async function saveDetail() {
     setBusy(true)
     setError(null)
     try {
-      const cells = []
-      for (let d = 1; d <= daysInMonth; d++) {
-        const date = iso(year, month, d)
-        const c = days[date]
-        if (!c || c.mode === 'follow') continue
-        cells.push(
-          c.mode === 'off'
-            ? { date, off: true, start: null, end: null, crossesMidnight: false }
-            : { date, off: false, start: c.start, end: c.end, crossesMidnight: c.night },
-        )
-      }
-      await tenantScheduleApi.saveRota(userId, { year, month, cells })
+      await tenantScheduleApi.saveRota(userId, { year, month, cells: detailCells() })
       setRotaSaved(true)
       await loadMonth()
     } catch (e) {
@@ -207,8 +214,13 @@ export function ScheduleEditor({
     setBusy(true)
     setError(null)
     try {
-      const body = { cycleWeeks: 1, slots: slots() }
-      for (const id of targets) await tenantScheduleApi.savePattern(id, body)
+      //이 스케줄 전체(정기 + 현재 월 상세)를 대상 멤버에 그대로 복사
+      const pattern = { cycleWeeks: 1, slots: slots() }
+      const cells = detailCells()
+      for (const id of targets) {
+        await tenantScheduleApi.savePattern(id, pattern)
+        await tenantScheduleApi.saveRota(id, { year, month, cells })
+      }
       setPickOpen(false)
       setApplyMsg(t('APPLIED_N').replace('{n}', String(targets.length)))
     } catch (e) {
@@ -243,7 +255,7 @@ export function ScheduleEditor({
       <div className="subscreen-head">
         <button type="button" className="link subscreen-back" onClick={onClose}>{t('BACK')}</button>
         <div>
-          <h2>{userName} — {t('SCHEDULE_TITLE')}</h2>
+          <h2>{t('SCHEDULE_TITLE')} <span className="subscreen-who">({userName} : {userEmail})</span></h2>
           <p className="subscreen-sub muted">{t('SCHEDULE_SUBTITLE')}</p>
         </div>
       </div>
@@ -308,31 +320,19 @@ export function ScheduleEditor({
               return (
                 <div key={date} className={`rota-day${c.mode !== 'follow' ? ' overridden' : ''}`}>
                   <span className={`rota-day-date ${dowClass}`}>{d}({weekdayFmt.format(new Date(year, month - 1, d))})</span>
-                  {c.mode === 'follow' ? (
-                    <>
-                      <span className="rota-baseline muted">{t('FOLLOW_REGULAR')} → {baseLabel(date)}</span>
-                      <button type="button" className="link" onClick={() => setDay(date, { mode: 'work' })}>
-                        {t('CHANGE_SCHEDULE')}
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <select value={c.mode} onChange={(e) => setDay(date, { mode: e.target.value as DayMode })}>
-                        <option value="work">{t('SHIFT_WORK')}</option>
-                        <option value="off">{t('SHIFT_OFF')}</option>
-                      </select>
-                      {c.mode === 'work' && (
-                        <span className="rota-day-times">
-                          <TimeField value={c.start} onChange={(v) => setDay(date, { start: v })} ariaLabel={t('WORK_START')} />
-                          <span aria-hidden="true">~</span>
-                          <TimeField value={c.end} onChange={(v) => setDay(date, { end: v })} ariaLabel={t('WORK_END')} />
-                          {nightBox(c.night, (v) => setDay(date, { night: v }))}
-                        </span>
-                      )}
-                      <button type="button" className="link" onClick={() => setDay(date, { mode: 'follow' })}>
-                        {t('REVERT_REGULAR')}
-                      </button>
-                    </>
+                  <select value={c.mode} onChange={(e) => setDay(date, { mode: e.target.value as DayMode })}>
+                    <option value="follow">{t('FOLLOW_REGULAR')}</option>
+                    <option value="work">{t('SHIFT_WORK')}</option>
+                    <option value="off">{t('SHIFT_OFF')}</option>
+                  </select>
+                  {c.mode === 'follow' && <span className="rota-baseline muted">→ {baseLabel(date)}</span>}
+                  {c.mode === 'work' && (
+                    <span className="rota-day-times">
+                      <TimeField value={c.start} onChange={(v) => setDay(date, { start: v })} ariaLabel={t('WORK_START')} />
+                      <span aria-hidden="true">~</span>
+                      <TimeField value={c.end} onChange={(v) => setDay(date, { end: v })} ariaLabel={t('WORK_END')} />
+                      {nightBox(c.night, (v) => setDay(date, { night: v }))}
+                    </span>
                   )}
                 </div>
               )

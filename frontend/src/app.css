@@ -760,6 +760,11 @@ form button.primary {
   margin: 2px 0 0;
   font-size: 13px;
 }
+.subscreen-who {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--muted);
+}
 .member-pick-list {
   max-height: 46vh;
   overflow-y: auto;
