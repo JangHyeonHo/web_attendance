@@ -427,8 +427,10 @@ button.wide {
   margin-top: 20px;
 }
 
+/* 체크박스·라디오는 이 기본 필드 스타일(패딩·전폭 등) 대상에서 제외 —
+   커스텀 박스는 각자 규칙이 크기를 정한다. 포함하면 패딩/최소높이가 새어 직사각형이 된다(#5). */
 select,
-input,
+input:not([type='checkbox']):not([type='radio']),
 textarea {
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
@@ -441,7 +443,7 @@ textarea {
 }
 
 select:hover,
-input:hover,
+input:not([type='checkbox']):not([type='radio']):hover,
 textarea:hover {
   border-color: var(--accent);
 }
@@ -451,8 +453,10 @@ textarea:hover {
     min-height: 44px;
   }
 
+  /* 체크박스·라디오 제외 — 44px 최소높이가 정사각 체크박스를 세로 직사각형으로 늘린다(#5).
+     탭 영역은 감싸는 label(.check-inline/.row-check) 전체가 담당하므로 접근성 문제 없음. */
   select,
-  input {
+  input:not([type='checkbox']):not([type='radio']) {
     min-height: 44px;
   }
 }
@@ -668,6 +672,20 @@ form button.primary {
   background: #fbe8e8;
 }
 
+/* 승인 휴가일 — 옅은 초록 배경 + 휴가명 강조(#9) */
+.detail-table tr.row-leave > td {
+  background: #e8f5ea;
+}
+.detail-table td.leave-label {
+  color: #2e8c5a;
+  font-weight: 600;
+}
+.mini-badge.leave {
+  background: #e2f3e8;
+  color: #2e8c5a;
+  border-color: rgba(46, 140, 90, 0.35);
+}
+
 /* 오늘 행 강조 — 옅은 노랑(주말 배경보다 뒤에 선언해 우선). #9 */
 .detail-table tr.today > td {
   background: #fff6cc;
@@ -723,6 +741,238 @@ form button.primary {
 .row-actions button:hover {
   border-color: var(--accent);
   color: var(--accent-dark);
+}
+/* 전체 화면 편집기(모달 대신 목록을 밀어내고 채우는 서브스크린, #13) */
+.subscreen-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.subscreen-head h2 {
+  margin: 0;
+}
+.subscreen-back {
+  font-weight: 600;
+}
+.subscreen-sub {
+  margin: 2px 0 0;
+  font-size: 13px;
+}
+.subscreen-who {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.member-pick-list {
+  max-height: 46vh;
+  overflow-y: auto;
+  margin: 10px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.member-pick {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  width: 100%;
+  box-sizing: border-box;
+}
+.member-pick:last-child {
+  border-bottom: none;
+}
+.member-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.member-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 13px;
+  font-weight: 600;
+}
+.member-chip button {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  padding: 0 4px;
+  min-height: 0;
+  cursor: pointer;
+}
+.sched-save {
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 2px solid var(--border-strong);
+}
+
+/* 통합 근무 스케줄 화면 섹션(#13) */
+.sched-section {
+  margin-bottom: 24px;
+}
+.sched-section + .sched-section {
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+}
+.rota-baseline {
+  font-variant-numeric: tabular-nums;
+}
+.rota-day.overridden {
+  background: #fff6e6;
+}
+.rota-day.overridden .rota-day-date::after {
+  content: '●';
+  color: #e0922f;
+  font-size: 9px;
+  margin-left: 5px;
+  vertical-align: middle;
+}
+
+/* 월 로타 편집기(#13) */
+.rota-monthnav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+.rota-monthnav button {
+  min-width: 36px;
+}
+.rota-fill {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  margin-bottom: 12px;
+  background: var(--surface-alt);
+}
+.rota-fill-shift {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.rota-grid {
+  max-height: 60vh;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.rota-day {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.rota-day:last-child {
+  border-bottom: none;
+}
+.rota-day-date {
+  min-width: 72px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.rota-day-date.sun { color: var(--error); }
+.rota-day-date.sat { color: var(--info); }
+.rota-day-times {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.rota-actions {
+  margin-top: 12px;
+  align-items: center;
+  justify-content: flex-start;
+}
+.pattern-cycle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+.pattern-cycle select {
+  width: auto;
+}
+.pattern-week + .pattern-week {
+  border-top: 2px solid var(--border-strong);
+}
+.pattern-week-head {
+  padding: 6px 10px;
+  font-weight: 700;
+  background: var(--surface-alt);
+  color: var(--muted);
+}
+
+/* 날짜/시간 세그먼트 토글(#12 휴가 신청) */
+.seg-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.seg-toggle button {
+  border: none;
+  border-radius: 0;
+  background: var(--surface);
+  color: var(--muted);
+  padding: 8px 18px;
+  font-weight: 600;
+  min-height: 0;
+}
+.seg-toggle button + button {
+  border-left: 1px solid var(--border-strong);
+}
+.seg-toggle button.active {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+/* 회사 설정 저장 액션 줄(#7) */
+.ci-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+/* 월 합계 3합계 라벨 행(#4) — 우측 정렬, 라벨은 옅게 */
+.month-total-sums {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  justify-content: flex-end;
+  font-variant-numeric: tabular-nums;
+}
+.month-total-sums em {
+  font-style: normal;
+  font-weight: 600;
+  color: var(--muted);
+  margin-right: 4px;
+}
+
+/* row-actions 안의 주요(승인 등) 버튼 — 위 규칙이 color:muted로 덮어써 초록 배경에 글자가
+   묻히던 문제(#8). 대비 색을 명시적으로 복구한다(specificity 0,2,1로 우선). */
+.row-actions button.primary {
+  color: var(--accent-contrast);
+  border-color: var(--accent);
+}
+.row-actions button.primary:hover {
+  color: var(--accent-contrast);
+  border-color: var(--accent-dark);
 }
 
 /* 아이콘 액션 버튼(#8) — 텍스트 버튼(min-height 32) 대신 콤팩트하게 그려
@@ -2000,8 +2250,12 @@ button.day-link:hover {
 .check-inline input[type='checkbox'] {
   appearance: none;
   -webkit-appearance: none;
+  box-sizing: border-box; /* 테두리 포함 정확히 정사각(#5) */
   width: 22px;
   height: 22px;
+  min-width: 22px;
+  min-height: 22px; /* 터치 환경 전역 44px 규칙을 이겨 정사각 유지(#5) */
+  padding: 0; /* 전역 필드 패딩 유입 차단 */
   margin: 0;
   flex-shrink: 0;
   border: 1px solid var(--border-strong);
@@ -2017,17 +2271,11 @@ button.day-link:hover {
 .check-inline input[type='checkbox']:checked {
   background: var(--accent);
   border-color: var(--accent);
-}
-.check-inline input[type='checkbox']:checked::after {
-  content: '';
-  position: absolute;
-  left: 7px;
-  top: 3px;
-  width: 6px;
-  height: 11px;
-  border: solid var(--accent-contrast);
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
+  /* 둥근 라인캡 SVG 체크(#5) — 흰색 stroke, 박스 중앙 정렬 */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.2 4.2L19 7'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 15px 15px;
 }
 .check-inline input[type='checkbox']:focus-visible {
   outline: 2px solid var(--accent);
@@ -2037,15 +2285,47 @@ button.day-link:hover {
   opacity: 0.5;
   cursor: default;
 }
+/* 비밀번호 입력 + 눈 토글(#2) — 래퍼는 form label 안에서 입력 폭 그대로, 토글은 우측 겹침 */
+.pw-field {
+  position: relative;
+  display: block;
+}
+form label .pw-field input {
+  width: 100%;
+  padding-right: 44px;
+}
+.pw-toggle {
+  position: absolute;
+  right: 4px;
+  top: 6px; /* 입력의 margin-top(6px) 보정 — 입력 영역과 정렬 */
+  height: calc(100% - 6px);
+  width: 36px;
+  min-height: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.pw-toggle:hover {
+  color: var(--accent-dark);
+  background: transparent;
+}
+
 .field-group {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
   align-items: flex-end;
-  margin-bottom: 12px;
+  /* 위(단일 라벨 16)와 동일 간격으로 — 안쪽 라벨의 하단 마진은 0으로 없애 이중 간격을 막는다(#6) */
+  margin-bottom: 16px;
 }
 .field-group > label {
   flex: 1 1 auto;
+  margin-bottom: 0;
 }
 .detail-table td.num {
   text-align: right;
@@ -2668,6 +2948,15 @@ button.day-link:hover {
 }
 .att-card.off {
   background: var(--surface-alt);
+}
+/* 승인 휴가 카드(#9) */
+.att-card.leave {
+  background: #e8f5ea;
+  border-color: #b6ddc2;
+}
+.att-card-off.leave-label {
+  color: #2e8c5a;
+  font-weight: 600;
 }
 /* 오늘 카드 강조 — 옅은 노랑(#9) */
 .att-card.today {

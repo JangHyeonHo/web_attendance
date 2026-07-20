@@ -348,11 +348,12 @@ export function HolidaysScreen() {
                         {t(TYPE_LABEL_KEYS[holiday.holidayType])}
                       </span>
                     </td>
-                    <td className="row-actions">
+                    <td>
                       {/* 회사 공휴일만 수정/삭제 — 국가 공휴일은 동기화만 관리(읽기전용, #7·#8).
-                          아이콘+툴팁으로 국가 공휴일 행과 높이를 맞춘다(텍스트 버튼 제거). */}
+                          아이콘+툴팁으로 국가 공휴일 행과 높이를 맞춘다(텍스트 버튼 제거).
+                          flex는 div에만 — td에 직접 걸면 table-cell이 깨져 테두리가 어긋난다(#10). */}
                       {!national && (
-                        <>
+                        <div className="row-actions">
                           <button
                             type="button"
                             className="icon-btn"
@@ -389,7 +390,7 @@ export function HolidaysScreen() {
                               />
                             </svg>
                           </button>
-                        </>
+                        </div>
                       )}
                     </td>
                   </tr>

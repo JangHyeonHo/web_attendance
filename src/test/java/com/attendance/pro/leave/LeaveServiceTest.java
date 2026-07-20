@@ -68,7 +68,7 @@ class LeaveServiceTest {
     }
 
     private static LeaveType annual() {
-        return new LeaveType(ANNUAL_ID, TENANT, "ANNUAL", "연차", true, LeaveUnit.DAY, true, true,
+        return new LeaveType(ANNUAL_ID, TENANT, "ANNUAL", "연차", true, LeaveUnit.DAY, false, true, true,
                 true, 0, LocalDateTime.now(), LocalDateTime.now());
     }
 
@@ -202,18 +202,40 @@ class LeaveServiceTest {
                 .hasMessageContaining("leave.request.overlap");
     }
 
+    /** 시간 휴가 허용 종류(#12) — 시간 단위 검증 경로 테스트용. */
+    private static LeaveType hourlyType() {
+        return new LeaveType(ANNUAL_ID, TENANT, "HOURLY", "시간연차", true, LeaveUnit.DAY, true, true,
+                false, true, 1, LocalDateTime.now(), LocalDateTime.now());
+    }
+
     @Test
     @DisplayName("APPLY-04: 시간단위 종료<=시작 또는 날짜 다르면 400")
     void applyHourInvalid() {
         when(userMapper.findById(TENANT, USER))
                 .thenReturn(member(LocalTime.of(9, 0), LocalTime.of(18, 0), "1111100", null));
-        when(typeMapper.findById(TENANT, ANNUAL_ID)).thenReturn(annual());
+        //시간 휴가 허용 종류라야 단위 검증까지 도달(#12)
+        when(typeMapper.findById(TENANT, ANNUAL_ID)).thenReturn(hourlyType());
         stubCountry();
         LeaveApplyRequest req = new LeaveApplyRequest(ANNUAL_ID, false, null, null, null,
                 LocalDateTime.of(2026, 7, 20, 16, 0), LocalDateTime.of(2026, 7, 20, 14, 0), null);
         assertThatThrownBy(() -> service().apply(TENANT, USER, req))
                 .isInstanceOf(ApiException.class)
                 .hasMessageContaining("leave.request.range");
+    }
+
+    @Test
+    @DisplayName("APPLY-04b(#12): 시간 휴가 미허용 종류에 시간단위 신청 → 400 hourly-not-allowed")
+    void applyHourNotAllowed() {
+        when(userMapper.findById(TENANT, USER))
+                .thenReturn(member(LocalTime.of(9, 0), LocalTime.of(18, 0), "1111100", null));
+        //annual()은 hourly_enabled=false → 시간 단위 신청 거부
+        when(typeMapper.findById(TENANT, ANNUAL_ID)).thenReturn(annual());
+        stubCountry();
+        LeaveApplyRequest req = new LeaveApplyRequest(ANNUAL_ID, false, null, null, null,
+                LocalDateTime.of(2026, 7, 20, 9, 0), LocalDateTime.of(2026, 7, 20, 12, 0), null);
+        assertThatThrownBy(() -> service().apply(TENANT, USER, req))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("leave.request.hourly-not-allowed");
     }
 
     // ===== 결재 =====

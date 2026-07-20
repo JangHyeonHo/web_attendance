@@ -21,17 +21,17 @@ class DefaultAttendanceExcelExporterTest {
 
     private static DailyAttendance work(int day, String in, String out, int sched, int brk, int workM, boolean manual) {
         return new DailyAttendance(LocalDate.of(2026, 7, day), false, false, "09:00", "18:00",
-                in, out, null, sched, brk, 60, brk, workM, manual, manual ? "미기록" : null);
+                in, out, null, sched, brk, 60, brk, workM, manual, manual ? "미기록" : null, null);
     }
 
     private static DailyAttendance holiday(int day, String name) {
         return new DailyAttendance(LocalDate.of(2026, 7, day), true, false, null, null,
-                null, null, name, null, null, null, null, null, false, null);
+                null, null, name, null, null, null, null, null, false, null, null);
     }
 
     private static DailyAttendance dayOff(int day) {
         return new DailyAttendance(LocalDate.of(2026, 7, day), false, true, null, null,
-                null, null, null, null, null, null, null, null, false, null);
+                null, null, null, null, null, null, null, null, false, null, null);
     }
 
     private static MonthlyResponse sample() {

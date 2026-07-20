@@ -41,6 +41,11 @@ import type {
   MemberStatusUpdateRequest,
   MemberSummary,
   MonthlyResponse,
+  RotaCell,
+  RotaSaveRequest,
+  PatternResponse,
+  PatternSaveRequest,
+  EffectiveDay,
   NavigateRequest,
   NavigateResponse,
   InvoiceEntry,
@@ -193,6 +198,22 @@ export const tenantMemberApi = {
     put<MemberSummary>(`/api/v1/tenant/members/${userId}/schedule`, request),
 }
 
+/** TENANT_ADMIN+HR_ADMIN — 월 로타(일자 오버라이드: 야간교대·휴무). #13 */
+export const tenantScheduleApi = {
+  /** 실효 스케줄(오버라이드>패턴>기본 적용) — 통합 화면 달력 표시용 */
+  effective: (userId: number, year: number, month: number) =>
+    get<EffectiveDay[]>(`/api/v1/tenant/schedule/${userId}/effective?year=${year}&month=${month}`),
+  rota: (userId: number, year: number, month: number) =>
+    get<RotaCell[]>(`/api/v1/tenant/schedule/${userId}/rota?year=${year}&month=${month}`),
+  saveRota: (userId: number, request: RotaSaveRequest) =>
+    put<void>(`/api/v1/tenant/schedule/${userId}/rota`, request),
+  /** 반복 패턴(요일별 시간·N주 주기) — 없으면 null */
+  pattern: (userId: number) =>
+    get<PatternResponse | null>(`/api/v1/tenant/schedule/${userId}/pattern`),
+  savePattern: (userId: number, request: PatternSaveRequest) =>
+    put<void>(`/api/v1/tenant/schedule/${userId}/pattern`, request),
+}
+
 /** TENANT_ADMIN 전용 — 공휴일(W013). 읽기전용 목록 + 회사 공휴일 등록 + 국가 공휴일 동기화(#7) */
 export const tenantHolidayApi = {
   list: (year: number) => get<HolidayEntry[]>(`/api/v1/tenant/holidays?year=${year}`),
@@ -254,6 +275,9 @@ export const tenantLeaveApi = {
     post<void>(`/api/v1/tenant/leave/requests/${requestId}/decision`, request),
   cancelRequests: () =>
     get<LeaveRequestItem[]>('/api/v1/tenant/leave/requests/cancel-requests'),
+  /** 현재/예정 휴가자(APPROVED) — 관리자 직접 취소용(#11) */
+  approved: () =>
+    get<LeaveRequestItem[]>('/api/v1/tenant/leave/requests/approved'),
   cancel: (requestId: number, reason: string) =>
     post<void>(`/api/v1/tenant/leave/requests/${requestId}/cancel`, { reason }),
   rejectCancel: (requestId: number, note: string) =>

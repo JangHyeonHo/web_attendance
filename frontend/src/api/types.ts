@@ -458,6 +458,8 @@ export interface DailyAttendance {
   manual: boolean
   /** 정정 사유(비고) — 없으면 null */
   note: string | null
+  /** 승인된 휴가 명칭(#9) — 그 날 유효 휴가(반차/시간은 접미 표기). 없으면 null */
+  leaveName: string | null
 }
 
 // ---- 수동 정정 + 일자 이력 (Phase 5) ----
@@ -593,6 +595,62 @@ export interface HolidayUpdateRequest {
   recurring: boolean
 }
 
+// ---- 근무 스케줄 월 로타 (#13) ----
+
+/** 로타 셀(일자 오버라이드) — off=휴무, 아니면 start/end(+crossesMidnight 야간교대). 시각은 HH:mm(:ss) */
+export interface RotaCell {
+  date: string
+  off: boolean
+  start: string | null
+  end: string | null
+  crossesMidnight: boolean
+  holiday: boolean
+}
+
+export interface RotaSaveCell {
+  date: string
+  off: boolean
+  start: string | null
+  end: string | null
+  crossesMidnight: boolean
+}
+
+export interface RotaSaveRequest {
+  year: number
+  month: number
+  cells: RotaSaveCell[]
+}
+
+/** 반복 패턴 슬롯 — (주차 0.., 요일 1..7) → 휴무(off) 또는 근무(start/end + 야간). */
+export interface PatternSlot {
+  weekIndex: number
+  dayOfWeek: number
+  off: boolean
+  start: string | null
+  end: string | null
+  crossesMidnight: boolean
+}
+
+export interface PatternResponse {
+  cycleWeeks: number
+  slots: PatternSlot[]
+}
+
+export interface PatternSaveRequest {
+  cycleWeeks: number
+  slots: PatternSlot[]
+}
+
+/** 실효 스케줄 한 날 — 우선순위(오버라이드>패턴>기본) 적용 결과 + 출처. */
+export interface EffectiveDay {
+  date: string
+  source: 'OVERRIDE' | 'PATTERN' | 'DEFAULT'
+  off: boolean
+  start: string | null
+  end: string | null
+  crossesMidnight: boolean
+}
+
 // ---- i18n (언어 마스터) ----
 
 export interface LanguageEntry {
@@ -620,6 +678,8 @@ export interface LeaveType {
   name: string
   paid: boolean
   unit: LeaveUnit
+  /** 시간 단위 휴가 신청 허용(#12) — 켜진 종류만 신청 시 날짜/시간 토글 노출 */
+  hourlyEnabled: boolean
   requiresApproval: boolean
   isAnnual: boolean
   active: boolean
@@ -631,6 +691,7 @@ export interface LeaveTypeCreateRequest {
   name: string
   paid: boolean
   unit: LeaveUnit
+  hourlyEnabled: boolean
   requiresApproval: boolean
   sortOrder: number
 }
@@ -639,6 +700,7 @@ export interface LeaveTypeUpdateRequest {
   name: string
   paid: boolean
   unit: LeaveUnit
+  hourlyEnabled: boolean
   requiresApproval: boolean
   active: boolean
   sortOrder: number

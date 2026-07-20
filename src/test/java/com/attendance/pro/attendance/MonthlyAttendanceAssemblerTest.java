@@ -132,7 +132,7 @@ class MonthlyAttendanceAssemblerTest {
         @Test
         @DisplayName("휴일: 공휴일/개인휴일은 스케쥴과 스탬프 모두 공란(신규 3필드도 null)")
         void holidays() {
-            WorkSchedule personalHoliday = new WorkSchedule(1L, 1L, D2, null, null, true);
+            WorkSchedule personalHoliday = new WorkSchedule(1L, 1L, D2, null, null, false, false, true);
             List<DailyAttendance> days = assembler.assemble(
                     List.of(D1, D2, D3),
                     Map.of(D2, personalHoliday),
@@ -153,7 +153,7 @@ class MonthlyAttendanceAssemblerTest {
         @Test
         @DisplayName("스케쥴 오버라이드: 등록된 일자는 해당 시업/종업 시각이 표시된다")
         void scheduleOverride() {
-            WorkSchedule override = new WorkSchedule(1L, 1L, D1, LocalTime.of(10, 30), LocalTime.of(19, 30), false);
+            WorkSchedule override = new WorkSchedule(1L, 1L, D1, LocalTime.of(10, 30), LocalTime.of(19, 30), false, false, false);
             List<DailyAttendance> days = assembler.assemble(
                     List.of(D1, D2), Map.of(D1, override), Map.of(), List.of(),
                     null, null, null, BreakPolicy.KR);
@@ -222,7 +222,7 @@ class MonthlyAttendanceAssemblerTest {
         @Test
         @DisplayName("CALC-04(E4): JP 6h 정각 스케줄은 법정휴게 0 — 실휴식 20분만 차감(340분)")
         void jp6hBoundary() {
-            WorkSchedule schedule = new WorkSchedule(1L, 1L, D1, LocalTime.of(9, 0), LocalTime.of(15, 0), false);
+            WorkSchedule schedule = new WorkSchedule(1L, 1L, D1, LocalTime.of(9, 0), LocalTime.of(15, 0), false, false, false);
             List<DailyAttendance> days = assembler.assemble(
                     List.of(D1), Map.of(D1, schedule), Map.of(),
                     List.of(
@@ -235,6 +235,22 @@ class MonthlyAttendanceAssemblerTest {
             assertThat(days.get(0).statutoryBreakMinutes()).isEqualTo(0);
             assertThat(days.get(0).breakMinutes()).isEqualTo(20);
             assertThat(days.get(0).workMinutes()).isEqualTo(340);
+        }
+
+        @Test
+        @DisplayName("CALC-04b(#13): 야간 교대(22:00~익일 06:00) — 구간 480분, 예정근무 420·표기 30:00")
+        void overnightSchedule() {
+            //crossesMidnight=true 오버라이드 — 스탬프 없이 예정근무/법정휴게/종업표기 검증
+            WorkSchedule night = new WorkSchedule(1L, 1L, D1, LocalTime.of(22, 0), LocalTime.of(6, 0), true, false, false);
+            List<DailyAttendance> days = assembler.assemble(
+                    List.of(D1), Map.of(D1, night), Map.of(), List.of(),
+                    null, null, null, BreakPolicy.KR);
+
+            assertThat(days.get(0).scheduleStart()).isEqualTo("22:00");
+            assertThat(days.get(0).scheduleEnd()).isEqualTo("30:00"); //익일 06:00
+            assertThat(days.get(0).statutoryBreakMinutes()).isEqualTo(60);
+            assertThat(days.get(0).scheduledMinutes()).isEqualTo(420); //480 − 60
+            assertThat(days.get(0).workMinutes()).isNull();
         }
 
         @Test
@@ -257,7 +273,7 @@ class MonthlyAttendanceAssemblerTest {
         @Test
         @DisplayName("CALC-06(E7): 반차 오버라이드(09~13) — KR 30분 차감(210분)")
         void halfDayOverride() {
-            WorkSchedule halfDay = new WorkSchedule(1L, 1L, D1, LocalTime.of(9, 0), LocalTime.of(13, 0), false);
+            WorkSchedule halfDay = new WorkSchedule(1L, 1L, D1, LocalTime.of(9, 0), LocalTime.of(13, 0), false, false, false);
             List<DailyAttendance> days = assembleKr(Map.of(D1, halfDay), List.of(
                     stamp(AttendanceType.GO_TO_WORK, D1.atTime(9, 0)),
                     stamp(AttendanceType.OFF_WORK, D1.atTime(13, 0))));
@@ -270,7 +286,7 @@ class MonthlyAttendanceAssemblerTest {
         @DisplayName("REC-01: 인정 휴게 = max(법정, 실휴식) — 휴식 미기록/부족/초과 3케이스(KR 8h 근무)")
         void recognizedBreak() {
             //09~18 스케줄(KR 법정 60분). 실체류 540분.
-            WorkSchedule day = new WorkSchedule(1L, 1L, D1, LocalTime.of(9, 0), LocalTime.of(18, 0), false);
+            WorkSchedule day = new WorkSchedule(1L, 1L, D1, LocalTime.of(9, 0), LocalTime.of(18, 0), false, false, false);
 
             //휴식 미기록 → 법정 60 자동 인정, 근무 480
             List<DailyAttendance> none = assembler.assemble(List.of(D1), Map.of(D1, day), Map.of(),
@@ -426,7 +442,7 @@ class MonthlyAttendanceAssemblerTest {
         @Test
         @DisplayName("HOL-01: 공휴일은 holidayName 동봉, 개인 휴일(schedule.holiday)은 null")
         void holidayNameSupplied() {
-            WorkSchedule personalHoliday = new WorkSchedule(1L, 1L, D2, null, null, true);
+            WorkSchedule personalHoliday = new WorkSchedule(1L, 1L, D2, null, null, false, false, true);
             List<DailyAttendance> days = assembler.assemble(
                     List.of(D1, D2, D3),
                     Map.of(D2, personalHoliday),

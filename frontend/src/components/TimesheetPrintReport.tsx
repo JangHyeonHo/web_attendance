@@ -31,6 +31,7 @@ export function TimesheetPrintReport({
 
   const category = (d: DailyAttendance): string => {
     if (d.holiday) return d.holidayName ?? L('공휴일', 'Holiday', '祝日')
+    if (d.leaveName) return d.leaveName //승인 휴가(#9)
     return d.dayOff ? L('휴무', 'Off', '休務') : L('근무', 'Work', '勤務')
   }
   const rowClass = (d: DailyAttendance): string => {

@@ -91,6 +91,13 @@ public class TenantLeaveController {
         return leaveService.cancelRequests(user.tenantId());
     }
 
+    @Operation(summary = "api.leave.admin.approved")
+    @GetMapping("/requests/approved")
+    public List<LeaveRequestResponse> approved(@LoginUser SessionUser user) {
+        //현재/예정 휴가자 — 관리자 직접 취소용(#11)
+        return leaveService.approvedLeaves(user.tenantId());
+    }
+
     @Operation(summary = "api.leave.admin.cancel")
     @PostMapping("/requests/{requestId}/cancel")
     public void cancel(@LoginUser SessionUser user, @PathVariable("requestId") long requestId,

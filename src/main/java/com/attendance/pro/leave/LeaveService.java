@@ -133,7 +133,7 @@ public class LeaveService {
         //코드는 서버 자동생성(#10) — 사용자는 명칭만 입력. 클라이언트가 코드를 보내도 무시하고 유일 코드를 만든다.
         for (int attempt = 0; attempt < 5; attempt++) {
             LeaveTypeCreate create = new LeaveTypeCreate(tenantId, generateTypeCode(), req.name().trim(),
-                    req.paid(), req.unit(), req.requiresApproval(), req.sortOrder());
+                    req.paid(), req.unit(), req.hourlyEnabledFlag(), req.requiresApproval(), req.sortOrder());
             try {
                 typeMapper.insert(create);
                 return LeaveTypeResponse.of(typeMapper.findById(tenantId, create.getLeaveTypeId()));
@@ -156,7 +156,7 @@ public class LeaveService {
         LeaveUnit unit = existing.isAnnual() ? existing.unit() : req.unit();
         boolean active = existing.isAnnual() ? true : req.active();
         typeMapper.update(tenantId, existing.leaveTypeId(), req.name().trim(), req.paid(),
-                unit, req.requiresApproval(), active, req.sortOrder());
+                unit, req.hourlyEnabledFlag(), req.requiresApproval(), active, req.sortOrder());
         return LeaveTypeResponse.of(typeMapper.findById(tenantId, leaveTypeId));
     }
 
@@ -295,6 +295,10 @@ public class LeaveService {
             startAt = start.atStartOfDay();
             endAt = end.plusDays(1).atStartOfDay();
         } else {
+            //시간 단위 신청은 그 종류가 시간 휴가를 허용할 때만(#12)
+            if (!type.hourlyEnabled()) {
+                throw ApiException.badRequest("LEAVE_HOURLY_NOT_ALLOWED", "leave.request.hourly-not-allowed");
+            }
             LocalDateTime s = req.startTime();
             LocalDateTime e = req.endTime();
             if (s == null || e == null || !e.isAfter(s) || !s.toLocalDate().equals(e.toLocalDate())) {
@@ -381,6 +385,15 @@ public class LeaveService {
     /** 취소 신청 목록(관리자). */
     public List<LeaveRequestResponse> cancelRequests(long tenantId) {
         return requestMapper.findCancelRequestedViewByTenant(tenantId).stream()
+                .map(LeaveRequestResponse::of).toList();
+    }
+
+    /**
+     * 현재/예정 휴가자 목록(관리자, #11) — 아직 끝나지 않은 APPROVED. 당일이라 멤버가 취소 신청을
+     * 못 만든 경우에도 관리자가 직접 취소(cancelByAdmin)할 수 있게 노출한다.
+     */
+    public List<LeaveRequestResponse> approvedLeaves(long tenantId) {
+        return requestMapper.findApprovedActiveByTenant(tenantId, java.time.LocalDateTime.now(clock)).stream()
                 .map(LeaveRequestResponse::of).toList();
     }
 

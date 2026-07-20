@@ -379,14 +379,26 @@ export function DetailsScreen() {
               const offDuty = day.holiday || day.dayOff
               //휴일·휴무여도 스탬프가 있으면 통상 열로 표시(휴일 근무 — manual-attendance §4)
               const hasStamps = day.stampIn !== null || day.stampOut !== null
+              //승인 휴가(#9) — 공휴일 아닌 날의 유효 휴가. 스탬프 없으면 휴가명을 열 가로로(공휴일처럼)
+              const onLeave = day.leaveName !== null
               //인정 휴게가 법정보다 큰 날 = 실휴식이 법정 초과 → 총계 감소 사유 강조(work-schedule §7-2)
               const breakOver =
                 day.recognizedBreakMinutes !== null &&
                 day.statutoryBreakMinutes !== null &&
                 day.recognizedBreakMinutes > day.statutoryBreakMinutes
               const offDutyLabel = day.holidayName ?? (day.holiday ? t('HOLIDAY') : t('DAY_OFF'))
-              //엑셀 보고서와 동일한 행 배경: 토=옅은 파랑, 일·공휴일=옅은 빨강(그 외 없음)
-              const rowBg = day.holiday || weekday === 0 ? 'row-sun' : weekday === 6 ? 'row-sat' : ''
+              //휴가일 라벨(스탬프 없는 종일 휴가) — 공휴일/휴무보다 휴가명 우선
+              const spanLabel = offDuty ? offDutyLabel : day.leaveName
+              const spanOff = (offDuty || onLeave) && !hasStamps
+              //엑셀 보고서와 동일한 행 배경: 토=옅은 파랑, 일·공휴일=옅은 빨강. 휴가일은 옅은 초록
+              const rowBg =
+                day.holiday || weekday === 0
+                  ? 'row-sun'
+                  : weekday === 6
+                    ? 'row-sat'
+                    : onLeave
+                      ? 'row-leave'
+                      : ''
               const isToday = day.date === todayStr //오늘 행 강조(#9)
               return (
                 <tr key={day.date} className={`${rowBg}${isToday ? ' today' : ''}`}>
@@ -400,11 +412,13 @@ export function DetailsScreen() {
                       {date.getDate()}({weekdayOf(date)})
                     </button>
                     {day.manual && <span className="mini-badge">{t('SOURCE_MANUAL')}</span>}
+                    {/* 부분 휴가(반차/시간 — 스탬프 있는 날)는 근무 행 유지 + 휴가 뱃지 */}
+                    {onLeave && hasStamps && <span className="mini-badge leave">{day.leaveName}</span>}
                   </td>
-                  {offDuty && !hasStamps ? (
+                  {spanOff ? (
                     <>
-                      <td colSpan={6} className="center muted">
-                        {offDutyLabel}
+                      <td colSpan={6} className={`center ${onLeave && !offDuty ? 'leave-label' : 'muted'}`}>
+                        {spanLabel}
                       </td>
                       <td>{day.note ?? ''}</td>
                     </>
@@ -428,13 +442,14 @@ export function DetailsScreen() {
           <tfoot>
             <tr className="month-total">
               <td>{t('MONTH_TOTAL')}</td>
-              {/* 예정근무는 스케줄 열(4칸) 아래, 인정휴게·실근무는 각 열 아래에 정렬 */}
-              <td colSpan={4} className="num">
-                {t('EXPECTED_WORK')} {formatHours(monthly.totalScheduledMinutes)}
+              {/* 세 합계를 라벨과 함께 한 줄로 — 예정근무만 라벨 있고 나머지 숫자만이던 비대칭·빈 공간 제거(#4) */}
+              <td colSpan={7}>
+                <div className="month-total-sums">
+                  <span><em>{t('EXPECTED_WORK')}</em> {formatHours(monthly.totalScheduledMinutes)}</span>
+                  <span><em>{t('TOTAL_WORK')}</em> {formatHours(monthly.totalWorkMinutes)}</span>
+                  <span><em>{t('BREAK_RECOGNIZED')}</em> {formatHours(monthly.totalBreakMinutes)}</span>
+                </div>
               </td>
-              <td>{formatHours(monthly.totalBreakMinutes)}</td>
-              <td>{formatHours(monthly.totalWorkMinutes)}</td>
-              <td></td>
             </tr>
           </tfoot>
         </table>
@@ -666,13 +681,16 @@ function MonthlyCards({
         const weekday = date.getDay()
         const offDuty = day.holiday || day.dayOff
         const hasStamps = day.stampIn !== null || day.stampOut !== null
+        const onLeave = day.leaveName !== null //승인 휴가(#9)
         const offDutyLabel = day.holidayName ?? (day.holiday ? t('HOLIDAY') : t('DAY_OFF'))
+        const spanLabel = offDuty ? offDutyLabel : day.leaveName
+        const spanOff = (offDuty || onLeave) && !hasStamps
         const dowClass = weekday === 0 ? 'sun' : weekday === 6 ? 'sat' : ''
         return (
           <button
             key={day.date}
             type="button"
-            className={`att-card${offDuty ? ' off' : ''}${day.date === todayStr ? ' today' : ''}`}
+            className={`att-card${offDuty ? ' off' : ''}${onLeave && !offDuty ? ' leave' : ''}${day.date === todayStr ? ' today' : ''}`}
             onClick={() => void onOpen(day.date)}
           >
             <div className="att-card-head">
@@ -680,10 +698,11 @@ function MonthlyCards({
                 {date.getDate()}({weekdayOf(date)})
               </span>
               {day.manual && <span className="mini-badge">{t('SOURCE_MANUAL')}</span>}
+              {onLeave && hasStamps && <span className="mini-badge leave">{day.leaveName}</span>}
               <span className="att-card-work">{formatHours(day.workMinutes)}</span>
             </div>
-            {offDuty && !hasStamps ? (
-              <div className="att-card-off muted">{offDutyLabel}</div>
+            {spanOff ? (
+              <div className={`att-card-off ${onLeave && !offDuty ? 'leave-label' : 'muted'}`}>{spanLabel}</div>
             ) : (
               <dl className="att-card-body">
                 <div>

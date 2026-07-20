@@ -102,7 +102,7 @@ class Phase5AssemblerTest {
     @Test
     @DisplayName("요일 휴무보다 일자 오버라이드가 우선 — 토요일에 스케줄이 등록되면 근무일")
     void overrideBeatsDayOff() {
-        WorkSchedule override = new WorkSchedule(1L, 1L, SAT, LocalTime.of(10, 0), LocalTime.of(14, 0), false);
+        WorkSchedule override = new WorkSchedule(1L, 1L, SAT, LocalTime.of(10, 0), LocalTime.of(14, 0), false, false, false);
         List<DailyAttendance> days = assembler.assemble(WEEK, Map.of(SAT, override), Map.of(),
                 List.of(), null, null, "1111100", BreakPolicy.KR);
 
