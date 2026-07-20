@@ -19,9 +19,9 @@ const iso = (y: number, m: number, d: number) => `${y}-${pad(m)}-${pad(d)}`
 const hhmm = (t: string | null) => (t ? t.slice(0, 5) : '09:00')
 
 /**
- * 근무 스케줄 화면(#13) — 한 화면에서:
- *  ① 정기 스케줄(요일별, 매주 반복)  ② 상세 스케줄(일별 예외)  ③ 같은 정기 스케줄을 다른 멤버에 일괄 적용.
- * 전체 화면(서브스크린).
+ * 근무 스케줄 화면(#13) — 정기 스케줄(요일별, 매주 반복) + 상세 스케줄(일별 예외)을 한 화면에서 편집하고,
+ * '함께 적용할 멤버'를 골라 **저장 한 번(일괄저장)**으로 현재 멤버 + 선택 멤버 전부에게 같은 스케줄을 저장한다.
+ * 전체 화면(서브스크린). 저장 값은 항상 현재 편집 중인 화면 값.
  */
 export function ScheduleEditor({
   userId,
@@ -40,21 +40,20 @@ export function ScheduleEditor({
   const [month, setMonth] = useState(now.getMonth() + 1)
 
   const [pat, setPat] = useState<Record<number, PatCell>>({})
-  const [patSaved, setPatSaved] = useState(false)
   const [days, setDays] = useState<Record<string, DayCell>>({})
   const [baseline, setBaseline] = useState<Record<string, EffectiveDay>>({})
-  const [rotaSaved, setRotaSaved] = useState(false)
 
   const [loading, setLoading] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  //멤버 공통 적용
+  //함께 적용할 멤버(선택만 — 실제 저장은 아래 '저장' 시 함께)
+  const [included, setIncluded] = useState<{ userId: number; name: string }[]>([])
   const [pickOpen, setPickOpen] = useState(false)
   const [memberList, setMemberList] = useState<MemberSummary[]>([])
   const [picked, setPicked] = useState<Set<number>>(new Set())
   const [query, setQuery] = useState('')
-  const [applyMsg, setApplyMsg] = useState<string | null>(null)
 
   const daysInMonth = useMemo(() => new Date(year, month, 0).getDate(), [year, month])
   const weekdayFmt = useMemo(() => new Intl.DateTimeFormat(localeOf(lang), { weekday: 'short' }), [lang])
@@ -96,8 +95,7 @@ export function ScheduleEditor({
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
-    setPatSaved(false)
-    setRotaSaved(false)
+    setSaved(false)
     try {
       await Promise.all([loadPattern(), loadMonth()])
     } catch (e) {
@@ -113,11 +111,11 @@ export function ScheduleEditor({
 
   const setPatCell = (dow: number, patch: Partial<PatCell>) => {
     setPat((p) => ({ ...p, [dow]: { ...(p[dow] ?? { type: 'none', ...DEF }), ...patch } }))
-    setPatSaved(false)
+    setSaved(false)
   }
   const setDay = (date: string, patch: Partial<DayCell>) => {
     setDays((p) => ({ ...p, [date]: { ...(p[date] ?? { mode: 'follow', ...DEF }), ...patch } }))
-    setRotaSaved(false)
+    setSaved(false)
   }
 
   function baseLabel(date: string): string {
@@ -143,31 +141,6 @@ export function ScheduleEditor({
     return out
   }
 
-  function invalid(): boolean {
-    for (let d = 1; d <= 7; d++) {
-      const c = pat[d]
-      if (c?.type === 'work' && !c.night && c.end <= c.start) return true
-    }
-    for (const c of Object.values(days)) if (c.mode === 'work' && !c.night && c.end <= c.start) return true
-    return false
-  }
-
-  async function saveRegular(clear = false) {
-    setBusy(true)
-    setError(null)
-    try {
-      await tenantScheduleApi.savePattern(userId, { cycleWeeks: 1, slots: clear ? [] : slots() })
-      if (clear) setPat({})
-      setPatSaved(true)
-      await loadMonth()
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : String(e))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  //현재 월의 상세(예외) 셀 — 저장·타 멤버 적용 공용
   function detailCells() {
     const cells = []
     for (let d = 1; d <= daysInMonth; d++) {
@@ -183,12 +156,28 @@ export function ScheduleEditor({
     return cells
   }
 
-  async function saveDetail() {
+  function invalid(): boolean {
+    for (let d = 1; d <= 7; d++) {
+      const c = pat[d]
+      if (c?.type === 'work' && !c.night && c.end <= c.start) return true
+    }
+    for (const c of Object.values(days)) if (c.mode === 'work' && !c.night && c.end <= c.start) return true
+    return false
+  }
+
+  //일괄저장 — 정기 + 상세(현재 값)를 현재 멤버 + 함께 적용 멤버 전부에게 저장
+  async function saveAll() {
     setBusy(true)
     setError(null)
     try {
-      await tenantScheduleApi.saveRota(userId, { year, month, cells: detailCells() })
-      setRotaSaved(true)
+      const pattern = { cycleWeeks: 1, slots: slots() }
+      const cells = detailCells()
+      const ids = [userId, ...included.map((m) => m.userId)]
+      for (const id of ids) {
+        await tenantScheduleApi.savePattern(id, pattern)
+        await tenantScheduleApi.saveRota(id, { year, month, cells })
+      }
+      setSaved(true)
       await loadMonth()
     } catch (e) {
       setError(e instanceof ApiError ? e.message : String(e))
@@ -198,8 +187,7 @@ export function ScheduleEditor({
   }
 
   async function openPicker() {
-    setApplyMsg(null)
-    setPicked(new Set())
+    setPicked(new Set(included.map((m) => m.userId)))
     setQuery('')
     setPickOpen(true)
     try {
@@ -209,25 +197,14 @@ export function ScheduleEditor({
     }
   }
 
-  async function applyToSelected() {
-    const targets = [...picked]
-    setBusy(true)
-    setError(null)
-    try {
-      //이 스케줄 전체(정기 + 현재 월 상세)를 대상 멤버에 그대로 복사
-      const pattern = { cycleWeeks: 1, slots: slots() }
-      const cells = detailCells()
-      for (const id of targets) {
-        await tenantScheduleApi.savePattern(id, pattern)
-        await tenantScheduleApi.saveRota(id, { year, month, cells })
-      }
-      setPickOpen(false)
-      setApplyMsg(t('APPLIED_N').replace('{n}', String(targets.length)))
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : String(e))
-    } finally {
-      setBusy(false)
-    }
+  function confirmPick() {
+    const next = [...picked].map((id) => {
+      const m = memberList.find((x) => x.userId === id)
+      return { userId: id, name: m?.name ?? String(id) }
+    })
+    setIncluded(next)
+    setPickOpen(false)
+    setSaved(false)
   }
 
   function shiftMonth(delta: number) {
@@ -290,13 +267,6 @@ export function ScheduleEditor({
             )
           })}
         </div>
-        <div className="btn-row rota-actions">
-          <button className="primary" onClick={() => void saveRegular(false)} disabled={busy || loading || invalid()}>
-            {t('SAVE_REGULAR')}
-          </button>
-          {patSaved && <span className="success" role="status">{t('SAVED')}</span>}
-          <button onClick={() => void saveRegular(true)} disabled={busy || loading}>{t('REGULAR_CLEAR')}</button>
-        </div>
       </section>
 
       {/* ② 상세 스케줄(일별) */}
@@ -339,23 +309,48 @@ export function ScheduleEditor({
             })}
           </div>
         )}
-        <div className="btn-row rota-actions">
-          <button className="primary" onClick={() => void saveDetail()} disabled={busy || loading || invalid()}>
-            {t('SAVE_DETAIL')}
-          </button>
-          {rotaSaved && <span className="success" role="status">{t('SAVED')}</span>}
-        </div>
       </section>
 
-      {/* ③ 다른 멤버에 정기 스케줄 일괄 적용 */}
+      {/* ③ 함께 적용할 멤버 */}
       <section className="sched-section">
         <h3 className="section-head">{t('APPLY_TITLE')}</h3>
         <p className="hint">{t('APPLY_HINT')}</p>
         <div className="btn-row rota-actions">
           <button onClick={() => void openPicker()} disabled={busy || loading}>{t('SELECT_MEMBERS')}</button>
-          {applyMsg && <span className="success" role="status">{applyMsg}</span>}
+          {included.length > 0 && (
+            <span className="muted">{t('SELECTED_N').replace('{n}', String(included.length))}</span>
+          )}
         </div>
+        {included.length > 0 && (
+          <div className="member-chips">
+            {included.map((m) => (
+              <span key={m.userId} className="member-chip">
+                {m.name}
+                <button
+                  type="button"
+                  aria-label="remove"
+                  onClick={() => { setIncluded(included.filter((x) => x.userId !== m.userId)); setSaved(false) }}
+                >
+                  ✕
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
       </section>
+
+      {/* 일괄저장 — 정기+상세 전체를 현재 멤버 + 함께 적용 멤버에 한 번에 */}
+      <div className="btn-row sched-save">
+        <button className="primary" onClick={() => void saveAll()} disabled={busy || loading || invalid()}>
+          {t('SAVE')}
+        </button>
+        {saved && (
+          <span className="success" role="status">
+            {included.length > 0 ? t('SAVED_WITH_N').replace('{n}', String(included.length + 1)) : t('SAVED')}
+          </span>
+        )}
+        <button onClick={onClose} disabled={busy}>{t('BACK')}</button>
+      </div>
 
       {pickOpen && (
         <Modal title={t('SELECT_MEMBERS')} onClose={() => setPickOpen(false)}>
@@ -388,8 +383,8 @@ export function ScheduleEditor({
             {filtered.length === 0 && <p className="muted center">{t('EMPTY')}</p>}
           </div>
           <div className="btn-row">
-            <button className="primary" disabled={busy || picked.size === 0} onClick={() => void applyToSelected()}>
-              {t('APPLY_TO_SELECTED')} {picked.size > 0 ? `(${t('SELECTED_N').replace('{n}', String(picked.size))})` : ''}
+            <button className="primary" onClick={confirmPick}>
+              {t('CONFIRM')} {picked.size > 0 ? `(${t('SELECTED_N').replace('{n}', String(picked.size))})` : ''}
             </button>
             <button onClick={() => setPickOpen(false)}>{t('CANCEL')}</button>
           </div>

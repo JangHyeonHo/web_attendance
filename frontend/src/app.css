@@ -781,6 +781,38 @@ form button.primary {
 .member-pick:last-child {
   border-bottom: none;
 }
+.member-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.member-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 13px;
+  font-weight: 600;
+}
+.member-chip button {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  padding: 0 4px;
+  min-height: 0;
+  cursor: pointer;
+}
+.sched-save {
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 2px solid var(--border-strong);
+}
 
 /* 통합 근무 스케줄 화면 섹션(#13) */
 .sched-section {
