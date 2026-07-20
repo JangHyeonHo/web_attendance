@@ -621,6 +621,26 @@ export interface RotaSaveRequest {
   cells: RotaSaveCell[]
 }
 
+/** 반복 패턴 슬롯 — (주차 0.., 요일 1..7) → 휴무(off) 또는 근무(start/end + 야간). */
+export interface PatternSlot {
+  weekIndex: number
+  dayOfWeek: number
+  off: boolean
+  start: string | null
+  end: string | null
+  crossesMidnight: boolean
+}
+
+export interface PatternResponse {
+  cycleWeeks: number
+  slots: PatternSlot[]
+}
+
+export interface PatternSaveRequest {
+  cycleWeeks: number
+  slots: PatternSlot[]
+}
+
 // ---- i18n (언어 마스터) ----
 
 export interface LanguageEntry {

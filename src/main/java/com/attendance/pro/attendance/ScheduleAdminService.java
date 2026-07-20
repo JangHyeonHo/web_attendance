@@ -21,11 +21,17 @@ import com.attendance.pro.user.UserMapper;
 @Service
 public class ScheduleAdminService {
 
+    /** 반복 패턴 주기 상한(격주·3교대 순환 등 실무 범위 방어) */
+    private static final int MAX_CYCLE_WEEKS = 8;
+
     private final ScheduleMapper scheduleMapper;
+    private final SchedulePatternMapper patternMapper;
     private final UserMapper userMapper;
 
-    public ScheduleAdminService(ScheduleMapper scheduleMapper, UserMapper userMapper) {
+    public ScheduleAdminService(ScheduleMapper scheduleMapper, SchedulePatternMapper patternMapper,
+            UserMapper userMapper) {
         this.scheduleMapper = scheduleMapper;
+        this.patternMapper = patternMapper;
         this.userMapper = userMapper;
     }
 
@@ -78,6 +84,81 @@ public class ScheduleAdminService {
         return new RotaCell(c.date(), start, end, crosses, false, false);
     }
 
+    // ===== 반복 패턴(#13) =====
+
+    /** 사람의 활성 반복 패턴 조회 — 없으면 null(기본 스케줄 사용). */
+    @Transactional(readOnly = true)
+    public PatternResponse pattern(long tenantId, long userId) {
+        requireMember(tenantId, userId);
+        SchedulePattern p = patternMapper.findByUser(tenantId, userId);
+        if (p == null) {
+            return null;
+        }
+        List<PatternSlotDto> slots = patternMapper.findSlots(p.patternId()).stream()
+                .map(s -> new PatternSlotDto(s.weekIndex(), s.dayOfWeek(), s.off(),
+                        s.startTime(), s.endTime(), s.crossesMidnight()))
+                .toList();
+        return new PatternResponse(p.cycleWeeks(), slots);
+    }
+
+    /** 반복 패턴 저장(교체) — 사람당 1개. 슬롯 검증 후 기존 삭제→삽입. anchor는 이번 주 월요일. */
+    @Transactional
+    public void savePattern(long tenantId, long userId, PatternSaveRequest req) {
+        requireMember(tenantId, userId);
+        int cycle = req.cycleWeeks();
+        if (cycle < 1 || cycle > MAX_CYCLE_WEEKS) {
+            throw ApiException.badRequest("SCHEDULE_CYCLE_RANGE", "schedule.cycle.range");
+        }
+        List<PatternSlotDto> in = req.slots() == null ? List.of() : req.slots();
+        //유효 슬롯만 저장(휴무 or 근무). 잘못된 시각/범위는 거부.
+        LocalDate anchor = mondayOf(LocalDate.now());
+        patternMapper.deleteByUser(tenantId, userId);
+        if (in.isEmpty()) {
+            return; //빈 저장 = 패턴 제거
+        }
+        var insert = new SchedulePatternMapper.PatternInsert(tenantId, userId, cycle, anchor);
+        patternMapper.insertPattern(insert);
+        long patternId = insert.getPatternId();
+        List<SchedulePatternSlot> slots = in.stream()
+                .map(s -> toSlot(patternId, s, cycle))
+                .toList();
+        if (!slots.isEmpty()) {
+            patternMapper.insertSlots(patternId, slots);
+        }
+    }
+
+    /** 반복 패턴 삭제. */
+    @Transactional
+    public void clearPattern(long tenantId, long userId) {
+        requireMember(tenantId, userId);
+        patternMapper.deleteByUser(tenantId, userId);
+    }
+
+    private SchedulePatternSlot toSlot(long patternId, PatternSlotDto s, int cycle) {
+        if (s.weekIndex() < 0 || s.weekIndex() >= cycle || s.dayOfWeek() < 1 || s.dayOfWeek() > 7) {
+            throw ApiException.badRequest("SCHEDULE_SLOT_RANGE", "schedule.cell.range");
+        }
+        if (s.off()) {
+            return new SchedulePatternSlot(patternId, s.weekIndex(), s.dayOfWeek(), true, null, null, false);
+        }
+        if (s.start() == null || s.end() == null) {
+            throw ApiException.badRequest("SCHEDULE_CELL_TIME", "schedule.cell.time");
+        }
+        boolean crosses = s.crossesMidnight();
+        if (!crosses && !s.end().isAfter(s.start())) {
+            throw ApiException.badRequest("SCHEDULE_CELL_ORDER", "schedule.cell.order");
+        }
+        if (crosses && s.end().isAfter(s.start())) {
+            throw ApiException.badRequest("SCHEDULE_CELL_ORDER", "schedule.cell.order");
+        }
+        return new SchedulePatternSlot(patternId, s.weekIndex(), s.dayOfWeek(), false,
+                s.start(), s.end(), crosses);
+    }
+
+    private static LocalDate mondayOf(LocalDate d) {
+        return d.minusDays(d.getDayOfWeek().getValue() - 1L);
+    }
+
     private User requireMember(long tenantId, long userId) {
         User user = userMapper.findById(tenantId, userId);
         if (user == null) {
@@ -100,5 +181,18 @@ public class ScheduleAdminService {
     /** 로타 셀 한 칸 — off면 휴무(시각 무시), 아니면 start/end(+crossesMidnight 야간교대). */
     public record RotaCellRequest(LocalDate date, boolean off, LocalTime start, LocalTime end,
             boolean crossesMidnight) {
+    }
+
+    /** 반복 패턴 응답 — 주기 + 슬롯. */
+    public record PatternResponse(int cycleWeeks, List<PatternSlotDto> slots) {
+    }
+
+    /** 반복 패턴 저장 요청 — 주기 + 슬롯(빈 목록이면 패턴 제거). */
+    public record PatternSaveRequest(int cycleWeeks, List<PatternSlotDto> slots) {
+    }
+
+    /** 패턴 슬롯 DTO — (주차, 요일1..7) → 휴무/근무(시각·야간). */
+    public record PatternSlotDto(int weekIndex, int dayOfWeek, boolean off,
+            LocalTime start, LocalTime end, boolean crossesMidnight) {
     }
 }

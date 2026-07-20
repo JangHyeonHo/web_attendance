@@ -5,6 +5,7 @@ import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { Modal } from '../components/Modal'
 import { RotaEditor } from '../components/RotaEditor'
+import { PatternEditor } from '../components/PatternEditor'
 import { SelectField, TimeField } from '../components/fields'
 import { DateField } from '../components/DateField'
 import { localeOf } from '../i18n/lang'
@@ -95,6 +96,8 @@ export function MembersScreen() {
   const [scheduleEdit, setScheduleEdit] = useState<ScheduleEdit | null>(null)
   //월 로타 편집기 대상(#13) — 열면 기본 스케줄 모달은 닫고 로타 편집기로 전환
   const [rotaMember, setRotaMember] = useState<{ userId: number; name: string } | null>(null)
+  //반복 패턴 편집기 대상(#13)
+  const [patternMember, setPatternMember] = useState<{ userId: number; name: string } | null>(null)
   const [rowError, setRowError] = useState<{ userId: number; message: string } | null>(null)
 
   const reload = useCallback(async () => {
@@ -430,6 +433,15 @@ export function MembersScreen() {
             </button>
             <button
               onClick={() => {
+                //중첩 모달 회피 — 기본 스케줄 모달을 닫고 반복 패턴 편집기로 전환
+                setPatternMember({ userId: scheduleEdit.userId, name: scheduleEdit.name })
+                setScheduleEdit(null)
+              }}
+            >
+              {t('PATTERN_EDIT')}
+            </button>
+            <button
+              onClick={() => {
                 //중첩 모달 회피 — 기본 스케줄 모달을 닫고 로타 편집기로 전환
                 setRotaMember({ userId: scheduleEdit.userId, name: scheduleEdit.name })
                 setScheduleEdit(null)
@@ -447,6 +459,14 @@ export function MembersScreen() {
           userId={rotaMember.userId}
           userName={rotaMember.name}
           onClose={() => setRotaMember(null)}
+        />
+      )}
+
+      {patternMember && (
+        <PatternEditor
+          userId={patternMember.userId}
+          userName={patternMember.name}
+          onClose={() => setPatternMember(null)}
         />
       )}
 

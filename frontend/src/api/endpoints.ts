@@ -43,6 +43,8 @@ import type {
   MonthlyResponse,
   RotaCell,
   RotaSaveRequest,
+  PatternResponse,
+  PatternSaveRequest,
   NavigateRequest,
   NavigateResponse,
   InvoiceEntry,
@@ -201,6 +203,11 @@ export const tenantScheduleApi = {
     get<RotaCell[]>(`/api/v1/tenant/schedule/${userId}/rota?year=${year}&month=${month}`),
   saveRota: (userId: number, request: RotaSaveRequest) =>
     put<void>(`/api/v1/tenant/schedule/${userId}/rota`, request),
+  /** 반복 패턴(요일별 시간·N주 주기) — 없으면 null */
+  pattern: (userId: number) =>
+    get<PatternResponse | null>(`/api/v1/tenant/schedule/${userId}/pattern`),
+  savePattern: (userId: number, request: PatternSaveRequest) =>
+    put<void>(`/api/v1/tenant/schedule/${userId}/pattern`, request),
 }
 
 /** TENANT_ADMIN 전용 — 공휴일(W013). 읽기전용 목록 + 회사 공휴일 등록 + 국가 공휴일 동기화(#7) */

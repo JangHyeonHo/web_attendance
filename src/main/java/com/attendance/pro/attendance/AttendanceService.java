@@ -62,17 +62,20 @@ public class AttendanceService {
     private final HolidayMapper holidayMapper;
     private final TenantMapper tenantMapper;
     private final com.attendance.pro.leave.LeaveRequestMapper leaveRequestMapper;
+    private final SchedulePatternMapper patternMapper;
     private final Messages messages;
     private final MonthlyAttendanceAssembler assembler = new MonthlyAttendanceAssembler();
 
     public AttendanceService(AttendanceMapper attendanceMapper, ScheduleMapper scheduleMapper,
             HolidayMapper holidayMapper, TenantMapper tenantMapper,
-            com.attendance.pro.leave.LeaveRequestMapper leaveRequestMapper, Messages messages) {
+            com.attendance.pro.leave.LeaveRequestMapper leaveRequestMapper,
+            SchedulePatternMapper patternMapper, Messages messages) {
         this.attendanceMapper = attendanceMapper;
         this.scheduleMapper = scheduleMapper;
         this.holidayMapper = holidayMapper;
         this.tenantMapper = tenantMapper;
         this.leaveRequestMapper = leaveRequestMapper;
+        this.patternMapper = patternMapper;
         this.messages = messages;
     }
 
@@ -441,8 +444,24 @@ public class AttendanceService {
         LocalDate to = yearMonth.plusMonths(1).atDay(1);
 
         List<LocalDate> monthDays = from.datesUntil(to).toList();
-        Map<LocalDate, WorkSchedule> schedules = scheduleMapper.findBetween(tenantId, userId, from, to).stream()
-                .collect(Collectors.toMap(WorkSchedule::workDate, Function.identity()));
+        Map<LocalDate, WorkSchedule> schedules = new java.util.HashMap<>();
+        for (WorkSchedule s : scheduleMapper.findBetween(tenantId, userId, from, to)) {
+            schedules.put(s.workDate(), s); //일자 오버라이드(로타)가 최우선
+        }
+        //반복 패턴(#13) — 오버라이드가 없는 날만 패턴 투영으로 채운다(패턴 > 개인 기본값)
+        SchedulePattern pattern = patternMapper.findByUser(tenantId, userId);
+        if (pattern != null) {
+            SchedulePatternResolver resolver =
+                    new SchedulePatternResolver(pattern, patternMapper.findSlots(pattern.patternId()));
+            for (LocalDate day : monthDays) {
+                if (!schedules.containsKey(day)) {
+                    WorkSchedule projected = resolver.resolve(day);
+                    if (projected != null) {
+                        schedules.put(day, projected);
+                    }
+                }
+            }
+        }
         //공휴일은 명칭 포함 Map(판정은 containsKey — 정본: holiday-plan §6, CR3-2)
         Map<LocalDate, String> holidays = holidayMapper.findHolidaysBetween(tenantId, from, to).stream()
                 .collect(Collectors.toMap(Holiday::holidayDate, Holiday::holidayName));

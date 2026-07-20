@@ -801,6 +801,25 @@ form button.primary {
   margin-top: 12px;
   align-items: center;
 }
+.pattern-cycle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+.pattern-cycle select {
+  width: auto;
+}
+.pattern-week + .pattern-week {
+  border-top: 2px solid var(--border-strong);
+}
+.pattern-week-head {
+  padding: 6px 10px;
+  font-weight: 700;
+  background: var(--surface-alt);
+  color: var(--muted);
+}
 
 /* 날짜/시간 세그먼트 토글(#12 휴가 신청) */
 .seg-toggle {

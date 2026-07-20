@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.attendance.pro.attendance.ScheduleAdminService.PatternResponse;
+import com.attendance.pro.attendance.ScheduleAdminService.PatternSaveRequest;
 import com.attendance.pro.attendance.ScheduleAdminService.RotaSaveRequest;
 import com.attendance.pro.auth.LoginUser;
 import com.attendance.pro.auth.SessionUser;
@@ -51,6 +53,20 @@ public class TenantScheduleController {
     public void saveRota(@LoginUser SessionUser user, @PathVariable("userId") long userId,
             @Valid @RequestBody RotaSaveRequest request) {
         scheduleAdminService.saveMonthRota(user.tenantId(), userId, request);
+    }
+
+    @Operation(summary = "api.schedule.pattern.get")
+    @GetMapping("/{userId}/pattern")
+    public PatternResponse pattern(@LoginUser SessionUser user, @PathVariable("userId") long userId) {
+        return scheduleAdminService.pattern(user.tenantId(), userId);
+    }
+
+    @Operation(summary = "api.schedule.pattern.save")
+    @PutMapping("/{userId}/pattern")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void savePattern(@LoginUser SessionUser user, @PathVariable("userId") long userId,
+            @Valid @RequestBody PatternSaveRequest request) {
+        scheduleAdminService.savePattern(user.tenantId(), userId, request);
     }
 
     /** 로타 셀 응답 — off면 휴무, 아니면 start/end(+crossesMidnight). */
