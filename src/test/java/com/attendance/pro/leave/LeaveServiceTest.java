@@ -3,8 +3,10 @@ package com.attendance.pro.leave;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -52,13 +54,19 @@ class LeaveServiceTest {
     @Mock private UserMapper userMapper;
     @Mock private TenantMapper tenantMapper;
     @Mock private HolidayMapper holidayMapper;
+    @Mock private com.attendance.pro.attendance.ScheduleAdminService scheduleAdminService;
 
     //2026-07-13(월)
     private final Clock clock = Clock.fixed(Instant.parse("2026-07-13T00:00:00Z"), ZoneOffset.UTC);
 
     private LeaveService service() {
+        //스케줄 단일화: 소정근로 1일=480분, 근무일=월~금(테스트 멤버는 표준 09~18 Mon-Fri) — 스케줄 서비스 위임분 스텁
+        lenient().when(scheduleAdminService.standardDayMinutes(anyLong(), anyLong(), any(), anyInt()))
+                .thenReturn(480);
+        lenient().when(scheduleAdminService.isWorkday(anyLong(), anyLong(), any()))
+                .thenAnswer(inv -> ((LocalDate) inv.getArgument(2)).getDayOfWeek().getValue() <= 5);
         return new LeaveService(typeMapper, grantMapper, requestMapper, userMapper, tenantMapper,
-                holidayMapper, clock);
+                holidayMapper, scheduleAdminService, clock);
     }
 
     private static User member(LocalTime start, LocalTime end, String workDays, LocalDate hire) {
@@ -80,8 +88,8 @@ class LeaveServiceTest {
     // ===== 환산 헬퍼 =====
 
     @Test
-    @DisplayName("DAY-MIN-01: 1일 = 근무구간 − 법정휴게(09~18 KR = 480분)")
-    void standardDayMinutesKr() {
+    @DisplayName("DAY-MIN-01: 소정근로 1일 분은 스케줄 서비스(정기 스케줄)에서 산출 — 표준 멤버 480분")
+    void standardDayMinutesFromSchedule() {
         int min = service().standardDayMinutes(
                 member(LocalTime.of(9, 0), LocalTime.of(18, 0), "1111100", null),
                 com.attendance.pro.tenant.ProfileCountry.KR);
@@ -89,19 +97,10 @@ class LeaveServiceTest {
     }
 
     @Test
-    @DisplayName("DAY-MIN-02: 비정상 스케줄(end<=start)은 480 폴백")
-    void standardDayMinutesFallback() {
-        int min = service().standardDayMinutes(
-                member(LocalTime.of(18, 0), LocalTime.of(9, 0), "1111100", null),
-                com.attendance.pro.tenant.ProfileCountry.KR);
-        assertThat(min).isEqualTo(480);
-    }
-
-    @Test
-    @DisplayName("WD-01: 근무 요일 & 공휴일 제외 카운트(월~일 중 평일 5, 토·일 제외)")
+    @DisplayName("WD-01: 근무일 & 공휴일 제외 카운트 — 실효 스케줄 기준(월~금 근무, 수 공휴일 → 4)")
     void countWorkingDays() {
         User u = member(LocalTime.of(9, 0), LocalTime.of(18, 0), "1111100", null);
-        //2026-07-13(월)~07-19(일): 평일 5일. 07-15(수)를 공휴일로 제외 → 4
+        //2026-07-13(월)~07-19(일): 근무일 5일. 07-15(수)를 공휴일로 제외 → 4
         int days = service().countWorkingDays(u, LocalDate.of(2026, 7, 13), LocalDate.of(2026, 7, 19),
                 Set.of(LocalDate.of(2026, 7, 15)));
         assertThat(days).isEqualTo(4);

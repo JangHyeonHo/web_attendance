@@ -46,6 +46,7 @@ import type {
   PatternResponse,
   PatternSaveRequest,
   EffectiveDay,
+  DefaultScheduleDay,
   NavigateRequest,
   NavigateResponse,
   InvoiceEntry,
@@ -262,6 +263,13 @@ export const tenantScheduleApi = {
     get<PatternResponse | null>(`/api/v1/tenant/schedule/${userId}/pattern`),
   savePattern: (userId: number, request: PatternSaveRequest) =>
     put<void>(`/api/v1/tenant/schedule/${userId}/pattern`, request),
+}
+
+/** TENANT_ADMIN+HR_ADMIN — 회사 신규 멤버 기본 스케줄(W020). 등록 시 정기 스케줄로 복제됨 */
+export const tenantDefaultScheduleApi = {
+  get: () => get<DefaultScheduleDay[]>('/api/v1/tenant/default-schedule'),
+  save: (days: DefaultScheduleDay[]) =>
+    put<DefaultScheduleDay[]>('/api/v1/tenant/default-schedule', days),
 }
 
 /** TENANT_ADMIN 전용 — 공휴일(W013). 읽기전용 목록 + 회사 공휴일 등록 + 국가 공휴일 동기화(#7) */

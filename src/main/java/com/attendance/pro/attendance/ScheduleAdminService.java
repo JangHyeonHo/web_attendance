@@ -178,6 +178,59 @@ public class ScheduleAdminService {
         return within(dStart, dEnd, false, time);
     }
 
+    /**
+     * 멤버가 그 날짜에 근무 예정인가(연차 소정일 산정용) — 실효 스케줄(상세 오버라이드 &gt; 정기 패턴).
+     * 휴무면 false. 패턴·오버라이드가 모두 없으면 스케줄 미설정으로 보고 false.
+     */
+    @Transactional(readOnly = true)
+    public boolean isWorkday(long tenantId, long userId, LocalDate date) {
+        List<WorkSchedule> overrides = scheduleMapper.findBetween(tenantId, userId, date, date.plusDays(1));
+        if (!overrides.isEmpty()) {
+            return !overrides.get(0).off();
+        }
+        SchedulePattern pattern = patternMapper.findByUser(tenantId, userId);
+        if (pattern != null) {
+            SchedulePatternResolver resolver =
+                    new SchedulePatternResolver(pattern, patternMapper.findSlots(pattern.patternId()));
+            WorkSchedule pj = resolver.resolve(date);
+            if (pj != null) {
+                return !pj.off();
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 멤버의 소정근로 1일 분(연차 1일 = 몇 분) — 정기 스케줄 근무일의 평균 근무분(근무구간 − 법정휴게).
+     * 스케줄(정기 패턴)이 없거나 근무 슬롯이 없으면 fallback. 균일 근무면 정확, 변동 근무면 평균.
+     */
+    @Transactional(readOnly = true)
+    public int standardDayMinutes(long tenantId, long userId, BreakPolicy breakPolicy, int fallback) {
+        SchedulePattern pattern = patternMapper.findByUser(tenantId, userId);
+        if (pattern == null) {
+            return fallback;
+        }
+        long total = 0;
+        int n = 0;
+        for (SchedulePatternSlot s : patternMapper.findSlots(pattern.patternId())) {
+            if (s.off() || s.startTime() == null || s.endTime() == null) {
+                continue;
+            }
+            long span = spanMinutes(s.startTime(), s.endTime(), s.crossesMidnight());
+            long brk = breakPolicy.requiredBreak(java.time.Duration.ofMinutes(span)).toMinutes();
+            total += Math.max(1, span - brk);
+            n++;
+        }
+        return n == 0 ? fallback : (int) (total / n);
+    }
+
+    /** 근무 구간 분 — 야간 교대(자정 넘김)면 24시간에서 되돌린다. */
+    private long spanMinutes(LocalTime start, LocalTime end, boolean crossesMidnight) {
+        int s = start.getHour() * 60 + start.getMinute();
+        int e = end.getHour() * 60 + end.getMinute();
+        return crossesMidnight ? (1440 - s) + e : e - s;
+    }
+
     /** 그 시각이 근무창 [start,end) 안인가. 야간 교대(자정 넘김)는 start 이후이거나 end 이전이면 근무 중. */
     private boolean within(LocalTime start, LocalTime end, boolean crossesMidnight, LocalTime time) {
         if (start == null || end == null) {

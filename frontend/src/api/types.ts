@@ -656,6 +656,15 @@ export interface EffectiveDay {
   crossesMidnight: boolean
 }
 
+/** 회사 신규 멤버 기본 스케줄 한 요일(월~일). 등록 시 정기 스케줄로 복제된다. */
+export interface DefaultScheduleDay {
+  dayOfWeek: number
+  off: boolean
+  start: string | null
+  end: string | null
+  crossesMidnight: boolean
+}
+
 // ---- i18n (언어 마스터) ----
 
 export interface LanguageEntry {

@@ -60,25 +60,29 @@ public class LeaveService {
     private final UserMapper userMapper;
     private final TenantMapper tenantMapper;
     private final HolidayMapper holidayMapper;
+    private final com.attendance.pro.attendance.ScheduleAdminService scheduleAdminService;
     private final Clock clock;
 
     @Autowired
     public LeaveService(LeaveTypeMapper typeMapper, LeaveGrantMapper grantMapper,
             LeaveRequestMapper requestMapper, UserMapper userMapper, TenantMapper tenantMapper,
-            HolidayMapper holidayMapper) {
+            HolidayMapper holidayMapper,
+            com.attendance.pro.attendance.ScheduleAdminService scheduleAdminService) {
         this(typeMapper, grantMapper, requestMapper, userMapper, tenantMapper, holidayMapper,
-                Clock.systemDefaultZone());
+                scheduleAdminService, Clock.systemDefaultZone());
     }
 
     LeaveService(LeaveTypeMapper typeMapper, LeaveGrantMapper grantMapper,
             LeaveRequestMapper requestMapper, UserMapper userMapper, TenantMapper tenantMapper,
-            HolidayMapper holidayMapper, Clock clock) {
+            HolidayMapper holidayMapper,
+            com.attendance.pro.attendance.ScheduleAdminService scheduleAdminService, Clock clock) {
         this.typeMapper = typeMapper;
         this.grantMapper = grantMapper;
         this.requestMapper = requestMapper;
         this.userMapper = userMapper;
         this.tenantMapper = tenantMapper;
         this.holidayMapper = holidayMapper;
+        this.scheduleAdminService = scheduleAdminService;
         this.clock = clock;
     }
 
@@ -609,27 +613,26 @@ public class LeaveService {
                         "leave.request.not-found"));
     }
 
-    /** 1일 = 근무구간(종업−시업) − 법정휴게. 스케줄이 비정상이면 480분 폴백. */
+    /**
+     * 1일 = 개인 소정근로시간 — 멤버의 실효 스케줄(정기 패턴) 근무일 평균 근무분(근무구간 − 법정휴게).
+     * 스케줄 단일화: users 개인 기본값 대신 정기 스케줄에서 산출한다. 스케줄이 없으면 480분 폴백.
+     */
     int standardDayMinutes(User user, ProfileCountry country) {
-        LocalTime start = user.defaultWorkStart();
-        LocalTime end = user.defaultWorkEnd();
-        if (start == null || end == null || !end.isAfter(start)) {
-            return DEFAULT_DAY_MINUTES;
-        }
-        Duration span = Duration.between(start, end);
-        long brk = BreakPolicy.of(country).requiredBreak(span).toMinutes();
-        long work = span.toMinutes() - brk;
-        return (int) Math.max(1, work);
+        return scheduleAdminService.standardDayMinutes(user.tenantId(), user.userId(),
+                BreakPolicy.of(country), DEFAULT_DAY_MINUTES);
     }
 
-    /** [start,end] 중 개인 근무 요일이면서 공휴일이 아닌 날 수. */
+    /**
+     * [start,end] 중 근무 예정일(공휴일 제외) 수 — 실효 스케줄(상세 오버라이드 &gt; 정기 패턴)로 판정.
+     * 스케줄 단일화: 개인 근무요일(users.work_days) 대신 정기+상세 스케줄을 기준으로 한다.
+     */
     int countWorkingDays(User user, LocalDate start, LocalDate end, Set<LocalDate> holidays) {
-        String workDays = user.workDays() != null ? user.workDays() : "1111100";
         int count = 0;
         for (LocalDate d = start; !d.isAfter(end); d = d.plusDays(1)) {
-            int idx = d.getDayOfWeek().getValue() - 1; //1=Mon..7=Sun → 0..6
-            boolean works = idx < workDays.length() && workDays.charAt(idx) == '1';
-            if (works && !holidays.contains(d)) {
+            if (holidays.contains(d)) {
+                continue;
+            }
+            if (scheduleAdminService.isWorkday(user.tenantId(), user.userId(), d)) {
                 count++;
             }
         }
