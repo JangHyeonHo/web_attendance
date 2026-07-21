@@ -35,9 +35,11 @@ public final class AttendanceCloseDtos {
             LocalDateTime requestedAt, LocalDateTime decidedAt, String decisionNote) {
     }
 
-    /** 결재 대기 1건(관리자 목록). */
+    /**
+     * 관리자 마감 목록 1건. status=REQUESTED는 승인/반려 대상, APPROVED는 '마감 취소'(잠금 해제) 대상.
+     */
     public record PendingCloseResponse(
             long closeId, long userId, String userName,
-            int year, int month, LocalDateTime requestedAt) {
+            int year, int month, String status, LocalDateTime requestedAt) {
     }
 }

@@ -52,6 +52,13 @@ public class TenantAttendanceCloseController {
         service.decide(user.tenantId(), user.userId(), closeId, request.approve(), request.note());
     }
 
+    /** 마감 취소(관리자) — 승인된 마감을 열린(REQUESTED) 상태로 되돌려 정정 잠금을 해제한다. */
+    @Operation(summary = "api.tenant-attendance-close.reopen")
+    @PostMapping("/{closeId}/reopen")
+    public void reopen(@LoginUser SessionUser user, @PathVariable("closeId") long closeId) {
+        service.reopen(user.tenantId(), closeId);
+    }
+
     /** 멤버 급여 정산(참고) — 관리자 전용. 마감 검토 시 해당 멤버·월의 가감 명세를 확인한다. */
     @Operation(summary = "api.tenant-attendance-close.payroll")
     @GetMapping("/{userId}/payroll")

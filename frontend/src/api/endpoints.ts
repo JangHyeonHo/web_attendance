@@ -225,6 +225,9 @@ export const tenantCloseApi = {
   pending: () => get<PendingCloseResponse[]>('/api/v1/tenant/attendance-close/pending'),
   decide: (closeId: number, approve: boolean, note?: string) =>
     post<void>(`/api/v1/tenant/attendance-close/${closeId}/decision`, { approve, note }),
+  /** 마감 취소 — 승인된 마감을 열린(REQUESTED) 상태로 되돌려 잠금 해제 */
+  reopen: (closeId: number) =>
+    post<void>(`/api/v1/tenant/attendance-close/${closeId}/reopen`, {}),
   /** 멤버 급여 정산(참고) — 관리자 전용. 마감 검토 시 확인 */
   payroll: (userId: number, year: number, month: number) =>
     get<PayrollResponse>(`/api/v1/tenant/attendance-close/${userId}/payroll?year=${year}&month=${month}`),

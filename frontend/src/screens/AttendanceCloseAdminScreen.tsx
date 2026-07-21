@@ -76,6 +76,21 @@ export function AttendanceCloseAdminScreen() {
     }
   }
 
+  //마감 취소 — 승인된 마감을 열린 상태로 되돌린다(#11). 확인 후 실행.
+  async function reopen(r: PendingCloseResponse) {
+    if (!window.confirm(t('CLOSE_REOPEN_CONFIRM'))) return
+    setBusy(true)
+    setError(null)
+    try {
+      await tenantCloseApi.reopen(r.closeId)
+      await reload()
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <div className="panel">
       <h2>{t('CLOSE_ADMIN_TITLE')}</h2>
@@ -91,6 +106,7 @@ export function AttendanceCloseAdminScreen() {
               <tr>
                 <th>{t('CLOSE_MEMBER')}</th>
                 <th>{t('CLOSE_TARGET')}</th>
+                <th>{t('CLOSE_STATUS')}</th>
                 <th>{t('CLOSE_REQUESTED_AT')}</th>
                 <th />
               </tr>
@@ -100,19 +116,32 @@ export function AttendanceCloseAdminScreen() {
                 <tr key={r.closeId}>
                   <td>{r.userName}</td>
                   <td>{r.year}. {String(r.month).padStart(2, '0')}</td>
+                  <td>
+                    <span className={`close-badge ${r.status === 'APPROVED' ? 'done' : 'pending'}`}>
+                      {r.status === 'APPROVED' ? t('CLOSE_ST_APPROVED') : t('CLOSE_ST_REQUESTED')}
+                    </span>
+                  </td>
                   <td>{r.requestedAt.slice(0, 10)}</td>
                   <td>
                     <div className="row-actions">
-                      <button
-                        className="primary"
-                        disabled={busy}
-                        onClick={() => void decide(r.closeId, true)}
-                      >
-                        {t('CLOSE_APPROVE')}
-                      </button>
-                      <button disabled={busy} onClick={() => setRejecting(r)}>
-                        {t('CLOSE_REJECT')}
-                      </button>
+                      {r.status === 'REQUESTED' ? (
+                        <>
+                          <button
+                            className="primary"
+                            disabled={busy}
+                            onClick={() => void decide(r.closeId, true)}
+                          >
+                            {t('CLOSE_APPROVE')}
+                          </button>
+                          <button disabled={busy} onClick={() => setRejecting(r)}>
+                            {t('CLOSE_REJECT')}
+                          </button>
+                        </>
+                      ) : (
+                        <button className="danger" disabled={busy} onClick={() => void reopen(r)}>
+                          {t('CLOSE_REOPEN')}
+                        </button>
+                      )}
                       <button onClick={() => void togglePayroll(r)}>
                         {t('PAYROLL_TITLE')}
                       </button>
@@ -121,7 +150,7 @@ export function AttendanceCloseAdminScreen() {
                 </tr>,
                 payrollOpen === r.closeId && (
                   <tr key={`${r.closeId}-pay`} className="payroll-expand">
-                    <td colSpan={4}>
+                    <td colSpan={5}>
                       <PayrollView data={payroll} lang={lang} t={t} />
                     </td>
                   </tr>

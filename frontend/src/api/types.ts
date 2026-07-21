@@ -910,5 +910,7 @@ export interface PendingCloseResponse {
   userName: string
   year: number
   month: number
+  /** REQUESTED=승인/반려 대상, APPROVED=마감 취소(잠금 해제) 대상 */
+  status: 'REQUESTED' | 'APPROVED'
   requestedAt: string
 }
