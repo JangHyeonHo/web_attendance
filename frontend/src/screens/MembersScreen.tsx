@@ -56,9 +56,10 @@ export function MembersScreen() {
 
   const [members, setMembers] = useState<MemberSummary[]>([])
   const [query, setQuery] = useState('') //이름·이메일·부서 검색(대규모 인원 대비, #9와 동일 패턴)
-  //근무 시간대 검색(#6) — 개인 기본 스케줄이 이 구간과 겹치는 멤버만. 백엔드 필터
-  const [workFrom, setWorkFrom] = useState('')
-  const [workTo, setWorkTo] = useState('')
+  //근무 현황 검색(#6) — 특정 날짜·시각에 실제로 근무 중인 멤버(실효 스케줄 기준, 백엔드 판정).
+  //시각은 항상 유효한 HH:mm(선택 화면 폴백), 검색은 날짜를 지정해야 활성화된다.
+  const [searchDate, setSearchDate] = useState('')
+  const [searchTime, setSearchTime] = useState('09:00')
   const [listError, setListError] = useState<string | null>(null)
   /** 자기 자신 행의 강등/비활성/삭제 버튼은 렌더하지 않는다(세션 파괴 사고 방지) */
   const [myUserId, setMyUserId] = useState<number | null>(null)
@@ -81,9 +82,11 @@ export function MembersScreen() {
 
   //행 조작
   const [pending, setPending] = useState<PendingAction | null>(null)
-  //멤버 관리 패널 — 목록은 표시만 하고, 역할·상태·급여·스케줄·삭제는 이 패널에서 처리
+  //멤버 관리 패널 — 목록은 표시만 하고, 역할·상태·급여를 한 번에(일괄 저장) 편집. 스케줄/삭제는 별도 조작
   const [manageMember, setManageMember] = useState<MemberSummary | null>(null)
-  const [manageSalary, setManageSalary] = useState('')
+  const [draftRole, setDraftRole] = useState<Role>('MEMBER')
+  const [draftStatus, setDraftStatus] = useState<UserStatus>('ACTIVE')
+  const [draftSalary, setDraftSalary] = useState('')
   const [manageBusy, setManageBusy] = useState(false)
   const [manageError, setManageError] = useState<string | null>(null)
   //통합 근무 스케줄 화면 대상(#1,#13) — 개인 기본 + 반복 패턴 + 월 달력(예외)을 한 화면에서
@@ -94,12 +97,17 @@ export function MembersScreen() {
 
   const reload = useCallback(async () => {
     try {
-      setMembers(await tenantMemberApi.list({ q: query, workFrom, workTo }))
+      //날짜를 지정하면 그 날짜·시각의 근무자만(실효 스케줄), 아니면 전체 목록에 텍스트 필터
+      const data =
+        searchDate && searchTime
+          ? await tenantMemberApi.working(searchDate, searchTime, query)
+          : await tenantMemberApi.list({ q: query })
+      setMembers(data)
       setListError(null)
     } catch (e) {
       setListError(e instanceof ApiError ? e.message : String(e))
     }
-  }, [query, workFrom, workTo])
+  }, [query, searchDate, searchTime])
 
   //검색은 백엔드 필터(#6) — 입력 변화마다 디바운스로 재조회(대규모 인원 대비)
   useEffect(() => {
@@ -199,27 +207,38 @@ export function MembersScreen() {
     }
   }
 
-  //관리 패널에서 편집 대상이 바뀌면 급여 입력값·오류를 그 멤버 기준으로 초기화
+  //관리 패널을 열 때 편집 초안(역할·상태·급여)을 그 멤버 기준으로 초기화
   useEffect(() => {
     if (manageMember) {
-      setManageSalary(manageMember.baseMonthlySalary == null ? '' : String(manageMember.baseMonthlySalary))
+      setDraftRole(manageMember.role)
+      setDraftStatus(manageMember.status)
+      setDraftSalary(manageMember.baseMonthlySalary == null ? '' : String(manageMember.baseMonthlySalary))
       setManageError(null)
     }
   }, [manageMember])
 
   /**
-   * 관리 패널 내 즉시 반영 조작(역할·급여·활성화·재발송). 성공 후 목록을 새로고침하고,
-   * 패널이 열린 채로 최신 멤버 값으로 갱신한다(모달은 유지). 실패는 패널 안에 표시.
+   * 관리 패널 일괄 저장 — 바뀐 항목(역할·상태·월 기본급)만 순서대로 반영한다.
+   * 하나라도 실패하면 패널 안에 오류를 남기고 유지, 전부 성공하면 목록 새로고침 후 닫는다.
    */
-  async function manageAction(userId: number, fn: () => Promise<unknown>) {
+  async function saveManage() {
+    const m = manageMember
+    if (!m) return
     setManageBusy(true)
     setManageError(null)
     try {
-      await fn()
-      const list = await tenantMemberApi.list({ q: query, workFrom, workTo })
-      setMembers(list)
-      const fresh = list.find((m) => m.userId === userId)
-      setManageMember(fresh ?? null)
+      if (draftRole !== m.role) {
+        await tenantMemberApi.updateRole(m.userId, { role: draftRole })
+      }
+      if (draftStatus !== m.status) {
+        await tenantMemberApi.updateStatus(m.userId, { status: draftStatus })
+      }
+      const salaryVal = draftSalary.trim() === '' ? null : Number(draftSalary)
+      if (salaryVal !== m.baseMonthlySalary) {
+        await tenantMemberApi.updateSalary(m.userId, salaryVal)
+      }
+      await reload()
+      setManageMember(null)
     } catch (e) {
       setManageError(e instanceof ApiError ? e.message : String(e))
     } finally {
@@ -233,7 +252,7 @@ export function MembersScreen() {
     setManageError(null)
     try {
       const response = await tenantMemberApi.invite(userId)
-      const list = await tenantMemberApi.list({ q: query, workFrom, workTo })
+      const list = await tenantMemberApi.list({ q: query })
       setMembers(list)
       setManageMember(list.find((m) => m.userId === userId) ?? null)
       if (!response.mailSent) setManageError(t('MAIL_FAILED'))
@@ -396,90 +415,77 @@ export function MembersScreen() {
         const self = myUserId !== null && m.userId === myUserId
         const isPending = m.status === 'PENDING'
         const canRole = viewerRole === 'TENANT_ADMIN' && !self && !isPending
+        const canStatus = !self && !isPending //ACTIVE↔DISABLED (초대 대기는 재발송으로만)
         return (
           <Modal title={t('MEMBER_MANAGE')} onClose={() => setManageMember(null)}>
             <ModalSubject primary={m.name} secondary={m.email} />
             {manageError && <p className="error" role="alert">{manageError}</p>}
 
-            {/* 역할 — 총관리자만 변경(직권 분산). 그 외/자기 자신/초대 대기는 표시만 */}
+            {/* 역할·상태·월 기본급을 초안으로 편집하고 하단 '저장'으로 일괄 반영 */}
             <div className="manage-field">
               <span className="form-field-label">{t('ROLE')}</span>
               {canRole ? (
                 <SelectField
-                  value={m.role}
+                  value={draftRole}
                   options={ROLE_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) }))}
                   ariaLabel={t('ROLE')}
-                  onChange={(v) =>
-                    void manageAction(m.userId, () => tenantMemberApi.updateRole(m.userId, { role: v as Role }))
-                  }
+                  onChange={(v) => setDraftRole(v as Role)}
                 />
               ) : (
                 <span className="manage-value">{t(ROLE_LABEL_KEYS[m.role] ?? m.role)}</span>
               )}
             </div>
 
-            {/* 상태 — 활성/비활성 전환·초대 재발송 */}
             <div className="manage-field">
               <span className="form-field-label">{t('STATUS')}</span>
-              <div className="manage-value-row">
-                <span className={`member-status member-status-${m.status.toLowerCase()}`}>
-                  {t(STATUS_LABEL_KEYS[m.status])}
-                </span>
-                {!self && !isPending && m.status === 'ACTIVE' && (
-                  <button
-                    disabled={manageBusy}
-                    onClick={() => { setManageMember(null); setPending({ userId: m.userId, name: m.name, action: 'DISABLE' }) }}
-                  >
-                    {t('DISABLE')}
-                  </button>
-                )}
-                {m.status === 'DISABLED' && (
-                  <button
-                    disabled={manageBusy}
-                    onClick={() =>
-                      void manageAction(m.userId, () => tenantMemberApi.updateStatus(m.userId, { status: 'ACTIVE' }))
-                    }
-                  >
-                    {t('ENABLE')}
-                  </button>
-                )}
-                {isPending && (
-                  <button disabled={manageBusy} onClick={() => void manageResend(m.userId)}>
-                    {t('RESEND')}
-                  </button>
-                )}
-              </div>
+              {canStatus ? (
+                <SelectField
+                  value={draftStatus}
+                  options={[
+                    { value: 'ACTIVE', label: t(STATUS_LABEL_KEYS.ACTIVE) },
+                    { value: 'DISABLED', label: t(STATUS_LABEL_KEYS.DISABLED) },
+                  ]}
+                  ariaLabel={t('STATUS')}
+                  onChange={(v) => setDraftStatus(v as UserStatus)}
+                />
+              ) : (
+                <div className="manage-value-row">
+                  <span className={`member-status member-status-${m.status.toLowerCase()}`}>
+                    {t(STATUS_LABEL_KEYS[m.status])}
+                  </span>
+                  {isPending && (
+                    <button disabled={manageBusy} onClick={() => void manageResend(m.userId)}>
+                      {t('RESEND')}
+                    </button>
+                  )}
+                </div>
+              )}
               {isPending && <span className="hint">{inviteExpiryLabel(m)}</span>}
             </div>
 
-            {/* 월 기본급 — 급여 정산 기준값 */}
             <TextField
               label={t('SALARY')}
               type="number"
               min={0}
               numeric
-              value={manageSalary}
+              value={draftSalary}
               placeholder={t('SALARY_HINT')}
-              onChange={setManageSalary}
+              onChange={setDraftSalary}
             />
-            <div className="manage-inline-save">
-              <button
-                className="primary"
-                disabled={manageBusy}
-                onClick={() =>
-                  void manageAction(m.userId, () =>
-                    tenantMemberApi.updateSalary(m.userId, manageSalary.trim() === '' ? null : Number(manageSalary)),
-                  )
-                }
-              >
-                {t('SALARY_SAVE')}
+
+            {/* 일괄 저장 — 바뀐 항목만 반영 */}
+            <div className="btn-row">
+              <button className="primary" disabled={manageBusy} onClick={() => void saveManage()}>
+                {t('SAVE')}
               </button>
+              <button disabled={manageBusy} onClick={() => setManageMember(null)}>{t('CANCEL')}</button>
             </div>
 
-            {/* 근무 스케줄 — 개인 기본+정기+상세 통합 화면으로 이동(#1) */}
-            <div className="manage-field">
-              <span className="form-field-label">{t('SCHEDULE_TITLE')}</span>
+            {/* 근무 스케줄(별도 화면)·삭제(파괴적)는 저장과 분리 */}
+            <div className="manage-links">
               <button
+                type="button"
+                className="link"
                 onClick={() => {
                   setScheduleMember({
                     userId: m.userId, name: m.name, email: m.email,
@@ -488,22 +494,19 @@ export function MembersScreen() {
                   setManageMember(null)
                 }}
               >
-                {t('EDIT_SCHEDULE')}
+                {t('EDIT_SCHEDULE')} →
               </button>
-            </div>
-
-            {/* 삭제 — 확인 모달 경유(자기 자신은 불가) */}
-            {!self && (
-              <div className="manage-danger">
+              {!self && (
                 <button
-                  className="danger-outline"
+                  type="button"
+                  className="link danger-link"
                   disabled={manageBusy}
                   onClick={() => { setManageMember(null); setPending({ userId: m.userId, name: m.name, action: 'DELETE' }) }}
                 >
                   {t('DELETE')}
                 </button>
-              </div>
-            )}
+              )}
+            </div>
           </Modal>
         )
       })()}
@@ -530,7 +533,7 @@ export function MembersScreen() {
         </Modal>
       )}
 
-      {/* 대규모 인원 대비 검색(#6) — 이름·이메일·부서 + 근무 시간대(개인 기본 스케줄). 백엔드 필터 */}
+      {/* 검색 — 이름·이메일·부서(텍스트) + 특정 날짜·시각 근무자(실효 스케줄, 백엔드 판정, #6) */}
       <div className="member-filter">
         <input
           className="member-search"
@@ -539,22 +542,26 @@ export function MembersScreen() {
           onChange={(e) => setQuery(e.target.value)}
           aria-label={t('MEMBER_SEARCH')}
         />
-        <div className="member-filter-time">
-          <span className="field-label">{t('SEARCH_WORK_TIME')}</span>
-          <TimeField value={workFrom} onChange={setWorkFrom} ariaLabel={t('WORK_START')} />
-          <span aria-hidden="true">~</span>
-          <TimeField value={workTo} onChange={setWorkTo} ariaLabel={t('WORK_END')} />
-          {(workFrom || workTo || query) && (
+        <div className="member-filter-working">
+          <span className="field-label">{t('SEARCH_WORKING_AT')}</span>
+          <DateField value={searchDate} onChange={setSearchDate} ariaLabel={t('SEARCH_DATE')} placeholder={t('SEARCH_DATE')} />
+          <TimeField value={searchTime} onChange={setSearchTime} ariaLabel={t('SEARCH_TIME')} />
+          {searchDate && (
             <button
               type="button"
               className="link"
-              onClick={() => { setQuery(''); setWorkFrom(''); setWorkTo('') }}
+              onClick={() => { setSearchDate(''); setSearchTime('09:00') }}
             >
               {t('FILTER_RESET')}
             </button>
           )}
         </div>
       </div>
+      {searchDate && searchTime && (
+        <p className="muted working-hint">
+          {t('WORKING_RESULT').replace('{date}', searchDate).replace('{time}', searchTime)} · {members.length}
+        </p>
+      )}
 
       <div className="table-wrap">
         <table className="detail-table">

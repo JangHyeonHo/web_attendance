@@ -92,6 +92,50 @@ public class ScheduleAdminService {
         return result;
     }
 
+    /**
+     * 특정 날짜·시각에 그 멤버가 근무 중인지(#6) — 실효 스케줄(오버라이드 &gt; 반복 패턴 &gt; 개인 기본)로 판정.
+     * 휴무면 false, 근무면 그 시각이 근무창(야간 교대는 자정 넘김 처리) 안에 드는지로 판정.
+     * "특정 날짜의 특정 시간에 누가 근무 중인가" 검색에 쓰인다.
+     */
+    @Transactional(readOnly = true)
+    public boolean isWorkingAt(long tenantId, long userId, LocalDate date, LocalTime time) {
+        List<WorkSchedule> overrides = scheduleMapper.findBetween(tenantId, userId, date, date.plusDays(1));
+        if (!overrides.isEmpty()) {
+            WorkSchedule ov = overrides.get(0);
+            return !ov.off() && within(ov.startTime(), ov.endTime(), ov.crossesMidnight(), time);
+        }
+        SchedulePattern pattern = patternMapper.findByUser(tenantId, userId);
+        if (pattern != null) {
+            SchedulePatternResolver resolver =
+                    new SchedulePatternResolver(pattern, patternMapper.findSlots(pattern.patternId()));
+            WorkSchedule pj = resolver.resolve(date);
+            if (pj != null) {
+                return !pj.off() && within(pj.startTime(), pj.endTime(), pj.crossesMidnight(), time);
+            }
+        }
+        WorkDefaults defaults = scheduleMapper.findWorkDefaults(tenantId, userId);
+        LocalTime dStart = defaults != null && defaults.start() != null
+                ? defaults.start() : MonthlyAttendanceAssembler.DEFAULT_START;
+        LocalTime dEnd = defaults != null && defaults.end() != null
+                ? defaults.end() : MonthlyAttendanceAssembler.DEFAULT_END;
+        String workDays = defaults == null ? null : defaults.workDays();
+        if (!WorkDefaults.worksOn(workDays, date.getDayOfWeek())) {
+            return false;
+        }
+        return within(dStart, dEnd, false, time);
+    }
+
+    /** 그 시각이 근무창 [start,end) 안인가. 야간 교대(자정 넘김)는 start 이후이거나 end 이전이면 근무 중. */
+    private boolean within(LocalTime start, LocalTime end, boolean crossesMidnight, LocalTime time) {
+        if (start == null || end == null) {
+            return false;
+        }
+        if (crossesMidnight) {
+            return !time.isBefore(start) || time.isBefore(end);
+        }
+        return !time.isBefore(start) && time.isBefore(end);
+    }
+
     /** 월 로타 저장 — 그 달을 통째로 대체. cells는 오버라이드할 날짜만(빈 목록이면 그 달 오버라이드 전부 해제). */
     @Transactional
     public void saveMonthRota(long tenantId, long userId, RotaSaveRequest req) {

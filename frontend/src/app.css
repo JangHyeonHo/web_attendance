@@ -795,6 +795,10 @@ button.ghost:hover {
   display: block;
   margin-bottom: 6px;
 }
+/* 관리 패널은 폼이 아니라서 셀렉트가 기본 폭 — 목록/입력과 맞춰 100%로 */
+.manage-field .field-select {
+  width: 100%;
+}
 .manage-value {
   font-size: 15px;
   color: var(--text);
@@ -805,29 +809,22 @@ button.ghost:hover {
   gap: 12px;
   flex-wrap: wrap;
 }
-.manage-inline-save {
+/* 저장과 분리된 보조 조작(스케줄 이동·삭제) — 하단에 옅은 링크 줄로 */
+.manage-links {
   display: flex;
-  justify-content: flex-end;
-  margin: -8px 0 18px;
-}
-.manage-inline-save button.primary {
-  width: auto;
-  margin: 0;
-  min-width: 96px;
-}
-.manage-danger {
-  margin-top: 8px;
-  padding-top: 16px;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 18px;
+  padding-top: 14px;
   border-top: 1px solid var(--border);
 }
-button.danger-outline {
-  background: transparent;
-  border: 1px solid var(--error);
+.manage-links .danger-link {
   color: var(--error);
 }
-button.danger-outline:hover {
-  background: rgba(179, 55, 42, 0.1);
-  border-color: var(--error);
+.manage-links .danger-link:hover {
+  color: var(--error);
+  text-decoration: underline;
 }
 /* 전체 화면 편집기(모달 대신 목록을 밀어내고 채우는 서브스크린, #13) */
 .subscreen-head {
@@ -3648,14 +3645,18 @@ form label .pw-field input {
 .member-filter .member-search {
   margin-bottom: 4px;
 }
-.member-filter-time {
+.member-filter-working {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-bottom: 12px;
 }
-.member-filter-time .field-label {
+.member-filter-working .field-label {
   margin: 0 4px 0 0;
+}
+.working-hint {
+  margin: -4px 0 12px;
+  font-size: 0.9rem;
 }
 
 .lv-bal-box {

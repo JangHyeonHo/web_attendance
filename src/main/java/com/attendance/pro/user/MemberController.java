@@ -40,9 +40,12 @@ import jakarta.validation.Valid;
 public class MemberController {
 
     private final MemberService memberService;
+    private final com.attendance.pro.attendance.ScheduleAdminService scheduleAdminService;
 
-    public MemberController(MemberService memberService) {
+    public MemberController(MemberService memberService,
+            com.attendance.pro.attendance.ScheduleAdminService scheduleAdminService) {
         this.memberService = memberService;
+        this.scheduleAdminService = scheduleAdminService;
     }
 
     @Operation(summary = "api.member.list.summary")
@@ -52,6 +55,39 @@ public class MemberController {
             @RequestParam(value = "workFrom", required = false) String workFrom,
             @RequestParam(value = "workTo", required = false) String workTo) {
         return memberService.list(user.tenantId(), q, workFrom, workTo);
+    }
+
+    /**
+     * 특정 날짜·시각에 근무 중인 멤버(#6) — 실효 스케줄(오버라이드&gt;패턴&gt;개인 기본)로 판정.
+     * "그 날 그 시간에 누가 근무 중인가"를 서버에서 계산해 활성 멤버만 돌려준다. q는 이름·이메일·부서 추가 필터.
+     */
+    @Operation(summary = "api.member.working")
+    @GetMapping("/working")
+    public List<MemberResponse> working(@LoginUser SessionUser user,
+            @RequestParam("date") String date, @RequestParam("time") String time,
+            @RequestParam(value = "q", required = false) String q) {
+        java.time.LocalDate d = parseDate(date);
+        java.time.LocalTime tm = parseTime(time);
+        return memberService.list(user.tenantId(), q, null, null).stream()
+                .filter(mr -> mr.status() == com.attendance.pro.user.UserStatus.ACTIVE)
+                .filter(mr -> scheduleAdminService.isWorkingAt(user.tenantId(), mr.userId(), d, tm))
+                .toList();
+    }
+
+    private java.time.LocalDate parseDate(String date) {
+        try {
+            return java.time.LocalDate.parse(date);
+        } catch (java.time.format.DateTimeParseException e) {
+            throw com.attendance.pro.common.ApiException.badRequest("DATE_INVALID", "member.date.invalid");
+        }
+    }
+
+    private java.time.LocalTime parseTime(String time) {
+        try {
+            return java.time.LocalTime.parse(time);
+        } catch (java.time.format.DateTimeParseException e) {
+            throw com.attendance.pro.common.ApiException.badRequest("WORK_TIME_INVALID", "member.work-time.invalid");
+        }
     }
 
     @Operation(summary = "api.member.create.summary", description = "api.member.create.description")

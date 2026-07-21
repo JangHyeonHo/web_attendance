@@ -191,14 +191,18 @@ export const tenantMailTemplateApi = {
 
 /** TENANT_ADMIN 전용 — 멤버 (tenantId는 항상 서버 세션에서 — 파라미터로 보내지 않는다) */
 export const tenantMemberApi = {
-  /** 멤버 목록/검색(#6) — 이름·이메일·부서 텍스트 + 개인 기본 근무 시간대(workFrom~workTo) 겹침 */
-  list: (params?: { q?: string; workFrom?: string; workTo?: string }) => {
+  /** 멤버 목록/검색 — 이름·이메일·부서 텍스트(q) */
+  list: (params?: { q?: string }) => {
     const qs = new URLSearchParams()
     if (params?.q?.trim()) qs.set('q', params.q.trim())
-    if (params?.workFrom) qs.set('workFrom', params.workFrom)
-    if (params?.workTo) qs.set('workTo', params.workTo)
     const s = qs.toString()
     return get<MemberSummary[]>(`/api/v1/tenant/members${s ? `?${s}` : ''}`)
+  },
+  /** 특정 날짜·시각 근무 중인 멤버(#6) — 실효 스케줄로 서버가 판정. date=YYYY-MM-DD, time=HH:mm */
+  working: (date: string, time: string, q?: string) => {
+    const qs = new URLSearchParams({ date, time })
+    if (q?.trim()) qs.set('q', q.trim())
+    return get<MemberSummary[]>(`/api/v1/tenant/members/working?${qs.toString()}`)
   },
   create: (request: MemberCreateRequest) =>
     post<MemberCreateResponse>('/api/v1/tenant/members', request),
