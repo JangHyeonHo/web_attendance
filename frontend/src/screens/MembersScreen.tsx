@@ -89,9 +89,9 @@ export function MembersScreen() {
   const [draftSalary, setDraftSalary] = useState('')
   const [manageBusy, setManageBusy] = useState(false)
   const [manageError, setManageError] = useState<string | null>(null)
-  //통합 근무 스케줄 화면 대상(#1,#13) — 개인 기본 + 반복 패턴 + 월 달력(예외)을 한 화면에서
+  //통합 근무 스케줄 화면 대상 — 정기(반복 패턴) + 월 달력(예외)을 한 화면에서
   const [scheduleMember, setScheduleMember] = useState<
-    { userId: number; name: string; email: string; workStart: string; workEnd: string; workDays: string } | null
+    { userId: number; name: string; email: string } | null
   >(null)
   const [rowError, setRowError] = useState<{ userId: number; message: string } | null>(null)
 
@@ -286,9 +286,6 @@ export function MembersScreen() {
         userId={scheduleMember.userId}
         userName={scheduleMember.name}
         userEmail={scheduleMember.email}
-        workStart={scheduleMember.workStart}
-        workEnd={scheduleMember.workEnd}
-        workDays={scheduleMember.workDays}
         onClose={() => setScheduleMember(null)}
       />
     )
@@ -487,10 +484,7 @@ export function MembersScreen() {
                 type="button"
                 className="link"
                 onClick={() => {
-                  setScheduleMember({
-                    userId: m.userId, name: m.name, email: m.email,
-                    workStart: m.workStart, workEnd: m.workEnd, workDays: m.workDays,
-                  })
+                  setScheduleMember({ userId: m.userId, name: m.name, email: m.email })
                   setManageMember(null)
                 }}
               >
