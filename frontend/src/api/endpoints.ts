@@ -191,7 +191,15 @@ export const tenantMailTemplateApi = {
 
 /** TENANT_ADMIN 전용 — 멤버 (tenantId는 항상 서버 세션에서 — 파라미터로 보내지 않는다) */
 export const tenantMemberApi = {
-  list: () => get<MemberSummary[]>('/api/v1/tenant/members'),
+  /** 멤버 목록/검색(#6) — 이름·이메일·부서 텍스트 + 개인 기본 근무 시간대(workFrom~workTo) 겹침 */
+  list: (params?: { q?: string; workFrom?: string; workTo?: string }) => {
+    const qs = new URLSearchParams()
+    if (params?.q?.trim()) qs.set('q', params.q.trim())
+    if (params?.workFrom) qs.set('workFrom', params.workFrom)
+    if (params?.workTo) qs.set('workTo', params.workTo)
+    const s = qs.toString()
+    return get<MemberSummary[]>(`/api/v1/tenant/members${s ? `?${s}` : ''}`)
+  },
   create: (request: MemberCreateRequest) =>
     post<MemberCreateResponse>('/api/v1/tenant/members', request),
   /** 초대 재발송 — 구 토큰 무효 + 신규 발급(PENDING 대상 한정) */

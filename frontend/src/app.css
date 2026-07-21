@@ -3473,6 +3473,26 @@ form label .pw-field input {
   margin: 4px 0 12px;
 }
 
+/* 멤버 검색 필터(#6) — 텍스트 + 근무 시간대. 좁은 화면에서 줄바꿈 */
+.member-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px;
+}
+.member-filter .member-search {
+  margin-bottom: 4px;
+}
+.member-filter-time {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.member-filter-time .field-label {
+  margin: 0 4px 0 0;
+}
+
 .lv-bal-box {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);

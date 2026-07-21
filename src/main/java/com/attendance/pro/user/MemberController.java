@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -46,8 +47,11 @@ public class MemberController {
 
     @Operation(summary = "api.member.list.summary")
     @GetMapping
-    public List<MemberResponse> list(@LoginUser SessionUser user) {
-        return memberService.list(user.tenantId());
+    public List<MemberResponse> list(@LoginUser SessionUser user,
+            @RequestParam(value = "q", required = false) String q,
+            @RequestParam(value = "workFrom", required = false) String workFrom,
+            @RequestParam(value = "workTo", required = false) String workTo) {
+        return memberService.list(user.tenantId(), q, workFrom, workTo);
     }
 
     @Operation(summary = "api.member.create.summary", description = "api.member.create.description")

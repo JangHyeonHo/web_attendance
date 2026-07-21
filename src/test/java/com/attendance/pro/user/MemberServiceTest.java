@@ -592,7 +592,7 @@ class MemberServiceTest {
         @DisplayName("PENDING 행은 유효 INVITE 토큰의 만료시각을 동봉, 그 외는 null")
         void listCarriesInviteExpiry() {
             LocalDateTime expiresAt = LocalDateTime.now().plusHours(24);
-            when(userMapper.findByTenant(TENANT_ID)).thenReturn(java.util.List.of(
+            when(userMapper.searchByTenant(TENANT_ID, null, null, null)).thenReturn(java.util.List.of(
                     user(2L, Role.MEMBER, UserStatus.PENDING),
                     user(3L, Role.MEMBER, UserStatus.ACTIVE)));
             when(userTokenService.findActiveInviteExpiries(TENANT_ID)).thenReturn(Map.of(2L, expiresAt));
@@ -603,6 +603,31 @@ class MemberServiceTest {
             assertThat(members.get(0).inviteExpiresAt()).isEqualTo(expiresAt);
             assertThat(members.get(0).workStart()).isEqualTo("09:00");
             assertThat(members.get(1).inviteExpiresAt()).isNull();
+        }
+
+        @Test
+        @DisplayName("검색(#6): 텍스트 트림·시간 파싱 후 searchByTenant로 전달, 빈 값은 null")
+        void listPassesFiltersToMapper() {
+            when(userMapper.searchByTenant(TENANT_ID, "김", LocalTime.of(9, 0), LocalTime.of(18, 0)))
+                    .thenReturn(java.util.List.of(user(3L, Role.MEMBER, UserStatus.ACTIVE)));
+            when(userTokenService.findActiveInviteExpiries(TENANT_ID)).thenReturn(Map.of());
+
+            var members = service().list(TENANT_ID, "  김  ", "09:00", "18:00");
+
+            assertThat(members).hasSize(1);
+            verify(userMapper).searchByTenant(TENANT_ID, "김", LocalTime.of(9, 0), LocalTime.of(18, 0));
+        }
+
+        @Test
+        @DisplayName("검색(#6): 잘못된 시간 형식은 400")
+        void listRejectsBadTime() {
+            assertThatThrownBy(() -> service().list(TENANT_ID, null, "9시", null))
+                    .isInstanceOf(ApiException.class)
+                    .satisfies(e -> {
+                        ApiException api = (ApiException) e;
+                        assertThat(api.getStatus().value()).isEqualTo(400);
+                        assertThat(api.getMessageKey()).isEqualTo("member.work-time.invalid");
+                    });
         }
     }
 

@@ -56,6 +56,9 @@ export function MembersScreen() {
 
   const [members, setMembers] = useState<MemberSummary[]>([])
   const [query, setQuery] = useState('') //이름·이메일·부서 검색(대규모 인원 대비, #9와 동일 패턴)
+  //근무 시간대 검색(#6) — 개인 기본 스케줄이 이 구간과 겹치는 멤버만. 백엔드 필터
+  const [workFrom, setWorkFrom] = useState('')
+  const [workTo, setWorkTo] = useState('')
   const [listError, setListError] = useState<string | null>(null)
   /** 자기 자신 행의 강등/비활성/삭제 버튼은 렌더하지 않는다(세션 파괴 사고 방지) */
   const [myUserId, setMyUserId] = useState<number | null>(null)
@@ -88,15 +91,17 @@ export function MembersScreen() {
 
   const reload = useCallback(async () => {
     try {
-      setMembers(await tenantMemberApi.list())
+      setMembers(await tenantMemberApi.list({ q: query, workFrom, workTo }))
       setListError(null)
     } catch (e) {
       setListError(e instanceof ApiError ? e.message : String(e))
     }
-  }, [])
+  }, [query, workFrom, workTo])
 
+  //검색은 백엔드 필터(#6) — 입력 변화마다 디바운스로 재조회(대규모 인원 대비)
   useEffect(() => {
-    void reload()
+    const id = setTimeout(() => { void reload() }, 250)
+    return () => clearTimeout(id)
   }, [reload])
 
   useEffect(() => {
@@ -249,16 +254,6 @@ export function MembersScreen() {
     }
     return t('INVITE_EXPIRED')
   }
-
-  const q = query.trim().toLowerCase()
-  const filtered = q
-    ? members.filter(
-        (m) =>
-          m.name.toLowerCase().includes(q) ||
-          m.email.toLowerCase().includes(q) ||
-          (m.departCd?.toLowerCase().includes(q) ?? false),
-      )
-    : members
 
   //스케줄 화면은 모달이 아니라 전체 화면(패널)으로 — 목록을 밀어내고 그 자리를 채운다(#1,#13)
   if (scheduleMember) {
@@ -439,14 +434,31 @@ export function MembersScreen() {
         </Modal>
       )}
 
-      {/* 대규모 인원 대비 검색 — 이름·이메일·부서(클라이언트 필터, 즉시) */}
-      <input
-        className="member-search"
-        placeholder={t('MEMBER_SEARCH')}
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        aria-label={t('MEMBER_SEARCH')}
-      />
+      {/* 대규모 인원 대비 검색(#6) — 이름·이메일·부서 + 근무 시간대(개인 기본 스케줄). 백엔드 필터 */}
+      <div className="member-filter">
+        <input
+          className="member-search"
+          placeholder={t('MEMBER_SEARCH')}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          aria-label={t('MEMBER_SEARCH')}
+        />
+        <div className="member-filter-time">
+          <span className="field-label">{t('SEARCH_WORK_TIME')}</span>
+          <TimeField value={workFrom} onChange={setWorkFrom} ariaLabel={t('WORK_START')} />
+          <span aria-hidden="true">~</span>
+          <TimeField value={workTo} onChange={setWorkTo} ariaLabel={t('WORK_END')} />
+          {(workFrom || workTo || query) && (
+            <button
+              type="button"
+              className="link"
+              onClick={() => { setQuery(''); setWorkFrom(''); setWorkTo('') }}
+            >
+              {t('FILTER_RESET')}
+            </button>
+          )}
+        </div>
+      </div>
 
       <div className="table-wrap">
         <table className="detail-table">
@@ -457,18 +469,17 @@ export function MembersScreen() {
               <th>{t('DEPART')}</th>
               <th>{t('ROLE')}</th>
               <th>{t('STATUS')}</th>
-              <th>{t('WORK_START')}</th>
-              <th>{t('WORK_END')}</th>
+              <th className="num">{t('SALARY')}</th>
               <th />
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 && (
+            {members.length === 0 && (
               <tr>
-                <td colSpan={8} className="muted center">{t('EMPTY')}</td>
+                <td colSpan={7} className="muted center">{t('EMPTY')}</td>
               </tr>
             )}
-            {filtered.map((member) => {
+            {members.map((member) => {
               const self = myUserId !== null && member.userId === myUserId
               const isPending = member.status === 'PENDING'
               return (
@@ -495,8 +506,9 @@ export function MembersScreen() {
                       {t(STATUS_LABEL_KEYS[member.status])}
                       {isPending && <span className="hint">{inviteExpiryLabel(member)}</span>}
                     </td>
-                    <td>{member.workStart}</td>
-                    <td>{member.workEnd}</td>
+                    <td className="num">
+                      {member.baseMonthlySalary == null ? '—' : member.baseMonthlySalary.toLocaleString()}
+                    </td>
                     <td>
                       <div className="row-actions">
                         {isPending ? (
@@ -562,7 +574,7 @@ export function MembersScreen() {
                   </tr>
                   {rowError?.userId === member.userId && (
                     <tr>
-                      <td colSpan={8} className="row-note">
+                      <td colSpan={7} className="row-note">
                         <p className="error" role="alert">
                           {rowError.message}
                         </p>

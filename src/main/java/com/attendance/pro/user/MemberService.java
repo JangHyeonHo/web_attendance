@@ -57,14 +57,35 @@ public class MemberService {
         this.passwordEncoder = new BCryptPasswordEncoder(12); //강도 12(권장)
     }
 
-    /**
-     * 멤버 목록(자기 테넌트만). PENDING 행은 유효 INVITE 토큰의 만료시각을 동봉한다.
-     */
+    /** 멤버 목록(필터 없음) — 자기 테넌트 전체. */
     public List<MemberResponse> list(long tenantId) {
+        return list(tenantId, null, null, null);
+    }
+
+    /**
+     * 멤버 검색 목록(#6) — 이름·이메일·부서 텍스트 + 개인 기본 근무 시간대(workFrom~workTo) 겹침 필터.
+     * 대규모 인원에서도 서버에서 걸러 응답하므로 전체 로딩이 불필요하다. 빈 값 파라미터는 무시(전체).
+     * PENDING 행은 유효 INVITE 토큰의 만료시각을 동봉한다.
+     */
+    public List<MemberResponse> list(long tenantId, String q, String workFrom, String workTo) {
+        String query = (q == null || q.isBlank()) ? null : q.trim();
+        LocalTime from = parseTimeOrNull(workFrom);
+        LocalTime to = parseTimeOrNull(workTo);
         Map<Long, LocalDateTime> inviteExpiries = userTokenService.findActiveInviteExpiries(tenantId);
-        return userMapper.findByTenant(tenantId).stream()
+        return userMapper.searchByTenant(tenantId, query, from, to).stream()
                 .map(user -> MemberResponse.from(user, inviteExpiries.get(user.userId())))
                 .toList();
+    }
+
+    private LocalTime parseTimeOrNull(String time) {
+        if (time == null || time.isBlank()) {
+            return null;
+        }
+        try {
+            return LocalTime.parse(time.trim());
+        } catch (java.time.format.DateTimeParseException e) {
+            throw ApiException.badRequest("WORK_TIME_INVALID", "member.work-time.invalid");
+        }
     }
 
     /**
