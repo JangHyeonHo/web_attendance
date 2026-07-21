@@ -235,6 +235,9 @@ export const attendanceCloseApi = {
 /** 근태 마감 결재(HR_ADMIN/TENANT_ADMIN) — 대기 목록 + 승인/반려 + 급여 정산(참고, 관리자만)(W021) */
 export const tenantCloseApi = {
   pending: () => get<PendingCloseResponse[]>('/api/v1/tenant/attendance-close/pending'),
+  /** 마감 완료(선택 월) — '마감 취소' 대상. 승인 이력 전체가 아니라 대상 월만 */
+  approved: (year: number, month: number) =>
+    get<PendingCloseResponse[]>(`/api/v1/tenant/attendance-close/approved?year=${year}&month=${month}`),
   decide: (closeId: number, approve: boolean, note?: string) =>
     post<void>(`/api/v1/tenant/attendance-close/${closeId}/decision`, { approve, note }),
   /** 마감 취소 — 승인된 마감을 열린(REQUESTED) 상태로 되돌려 잠금 해제 */

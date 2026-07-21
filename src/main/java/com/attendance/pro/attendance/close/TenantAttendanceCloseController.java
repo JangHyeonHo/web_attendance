@@ -45,6 +45,14 @@ public class TenantAttendanceCloseController {
         return service.pending(user.tenantId());
     }
 
+    /** 마감 완료(선택 월) — '마감 취소' 대상. 승인 이력 전체가 아니라 대상 월만 조회한다. */
+    @Operation(summary = "api.tenant-attendance-close.approved")
+    @GetMapping("/approved")
+    public List<PendingCloseResponse> approved(@LoginUser SessionUser user,
+            @RequestParam("year") int year, @RequestParam("month") int month) {
+        return service.approvedByMonth(user.tenantId(), year, month);
+    }
+
     @Operation(summary = "api.tenant-attendance-close.decision")
     @PostMapping("/{closeId}/decision")
     public void decide(@LoginUser SessionUser user, @PathVariable("closeId") long closeId,

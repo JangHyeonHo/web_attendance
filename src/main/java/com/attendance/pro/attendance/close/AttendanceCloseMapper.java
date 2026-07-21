@@ -34,8 +34,7 @@ public interface AttendanceCloseMapper {
             @Param("year") int year, @Param("month") int month);
 
     /**
-     * 관리자 마감 목록 — 대기(REQUESTED) + 완료(APPROVED). 대기 우선, 그다음 신청 순.
-     * REQUESTED는 승인/반려 대상, APPROVED는 '마감 취소'(잠금 해제) 대상.
+     * 결재 대기 목록 — REQUESTED만(승인/반려 대상). 상시 소수라 전건 조회해도 상한이 있다.
      */
     @Select("""
             SELECT c.close_id AS closeId, c.user_id AS userId, u.name AS userName,
@@ -43,10 +42,27 @@ public interface AttendanceCloseMapper {
                    c.status AS status, c.requested_at AS requestedAt
             FROM attendance_close c
             JOIN users u ON u.user_id = c.user_id AND u.tenant_id = c.tenant_id
-            WHERE c.tenant_id = #{tenantId} AND c.status IN ('REQUESTED','APPROVED')
-            ORDER BY FIELD(c.status,'REQUESTED','APPROVED'), c.requested_at ASC
+            WHERE c.tenant_id = #{tenantId} AND c.status = 'REQUESTED'
+            ORDER BY c.requested_at ASC
             """)
-    List<PendingCloseRow> findActive(@Param("tenantId") long tenantId);
+    List<PendingCloseRow> findRequested(@Param("tenantId") long tenantId);
+
+    /**
+     * 마감 완료(APPROVED) 목록 — 선택한 대상 월만('마감 취소' 대상). 승인 이력 전체를 나열하지 않아
+     * 데이터가 쌓여도 목록이 무한정 길어지지 않는다.
+     */
+    @Select("""
+            SELECT c.close_id AS closeId, c.user_id AS userId, u.name AS userName,
+                   c.target_year AS targetYear, c.target_month AS targetMonth,
+                   c.status AS status, c.requested_at AS requestedAt
+            FROM attendance_close c
+            JOIN users u ON u.user_id = c.user_id AND u.tenant_id = c.tenant_id
+            WHERE c.tenant_id = #{tenantId} AND c.status = 'APPROVED'
+              AND c.target_year = #{year} AND c.target_month = #{month}
+            ORDER BY u.name ASC
+            """)
+    List<PendingCloseRow> findApprovedByMonth(@Param("tenantId") long tenantId,
+            @Param("year") int year, @Param("month") int month);
 
     /** 관리자 마감 목록 행(멤버 이름·상태 포함). */
     record PendingCloseRow(long closeId, long userId, String userName,

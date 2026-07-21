@@ -5,8 +5,16 @@ import { useApp } from '../app/AppContext'
 import { languageApi } from '../api/endpoints'
 import { localeOf } from '../i18n/lang'
 import { Modal } from '../components/Modal'
-import { TextAreaField, ModalSubject } from '../components/fields'
+import { TextAreaField, ModalSubject, SelectField } from '../components/fields'
 import type { PayrollSettlement, PendingCloseResponse } from '../api/types'
+
+//기본 조회 월 = 지난달(가장 최근에 마감이 일어났을 달)
+const LAST_MONTH = (() => {
+  const d = new Date()
+  d.setDate(1)
+  d.setMonth(d.getMonth() - 1)
+  return { year: d.getFullYear(), month: d.getMonth() + 1 }
+})()
 
 /**
  * W021 근태 마감 관리 — 멤버가 신청한 월 마감을 인사관리자가 승인/반려한다.
@@ -16,6 +24,10 @@ export function AttendanceCloseAdminScreen() {
   const { t: commonT, lang } = useApp()
   const [texts, setTexts] = useState<Record<string, string>>({})
   const [rows, setRows] = useState<PendingCloseResponse[]>([])
+  //마감 완료(선택 월) — 승인 이력 전체가 아니라 대상 월만 조회(끝없이 늘어남 방지)
+  const [approvedRows, setApprovedRows] = useState<PendingCloseResponse[]>([])
+  const [appYear, setAppYear] = useState(LAST_MONTH.year)
+  const [appMonth, setAppMonth] = useState(LAST_MONTH.month)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   //반려 사유 입력 모달
@@ -49,18 +61,33 @@ export function AttendanceCloseAdminScreen() {
     languageApi.texts('W021', lang).then(setTexts).catch(() => {})
   }, [lang])
 
-  const reload = useCallback(async () => {
+  const loadApproved = useCallback(async () => {
     try {
-      setRows(await tenantCloseApi.pending())
+      setApprovedRows(await tenantCloseApi.approved(appYear, appMonth))
       setError(null)
     } catch (e) {
       setError(e instanceof ApiError ? e.message : String(e))
     }
-  }, [])
+  }, [appYear, appMonth])
+
+  const reload = useCallback(async () => {
+    try {
+      setRows(await tenantCloseApi.pending())
+      setError(null)
+      await loadApproved()
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : String(e))
+    }
+  }, [loadApproved])
 
   useEffect(() => {
     void reload()
   }, [reload])
+
+  //선택 월 변경 시 마감 완료 목록만 갱신
+  useEffect(() => {
+    void loadApproved()
+  }, [loadApproved])
 
   async function decide(closeId: number, approve: boolean, note?: string) {
     setBusy(true)
@@ -92,72 +119,104 @@ export function AttendanceCloseAdminScreen() {
     }
   }
 
+  //결재 대기·마감 완료 두 표에서 공용으로 쓰는 행 렌더(상태로 조작 분기 + 급여 펼침)
+  const renderRows = (list: PendingCloseResponse[]) =>
+    list.map((r) => [
+      <tr key={r.closeId}>
+        <td>{r.userName}</td>
+        <td>{r.year}. {String(r.month).padStart(2, '0')}</td>
+        <td>
+          <span className={`close-badge ${r.status === 'APPROVED' ? 'done' : 'pending'}`}>
+            {r.status === 'APPROVED' ? t('CLOSE_ST_APPROVED') : t('CLOSE_ST_REQUESTED')}
+          </span>
+        </td>
+        <td>{r.requestedAt.slice(0, 10)}</td>
+        <td>
+          <div className="row-actions">
+            {r.status === 'REQUESTED' ? (
+              <>
+                <button className="primary" disabled={busy} onClick={() => void decide(r.closeId, true)}>
+                  {t('CLOSE_APPROVE')}
+                </button>
+                <button disabled={busy} onClick={() => setRejecting(r)}>
+                  {t('CLOSE_REJECT')}
+                </button>
+              </>
+            ) : (
+              <button className="danger" disabled={busy} onClick={() => void reopen(r)}>
+                {t('CLOSE_REOPEN')}
+              </button>
+            )}
+            <button onClick={() => void togglePayroll(r)}>{t('PAYROLL_TITLE')}</button>
+          </div>
+        </td>
+      </tr>,
+      payrollOpen === r.closeId && (
+        <tr key={`${r.closeId}-pay`} className="payroll-expand">
+          <td colSpan={5}>
+            <PayrollView data={payroll} lang={lang} t={t} />
+          </td>
+        </tr>
+      ),
+    ])
+
+  const head = (
+    <thead>
+      <tr>
+        <th>{t('CLOSE_MEMBER')}</th>
+        <th>{t('CLOSE_TARGET')}</th>
+        <th>{t('CLOSE_STATUS')}</th>
+        <th>{t('CLOSE_REQUESTED_AT')}</th>
+        <th />
+      </tr>
+    </thead>
+  )
+
+  const years = Array.from({ length: 4 }, (_, i) => new Date().getFullYear() - i)
+
   return (
     <div className="panel">
       <h2>{t('CLOSE_ADMIN_TITLE')}</h2>
       <p className="muted">{t('CLOSE_ADMIN_SUB')}</p>
       {error && <p className="error" role="alert">{error}</p>}
 
+      {/* 결재 대기 — REQUESTED만(상시 소수) */}
+      <h3 className="section-head">{t('CLOSE_PENDING_SECTION')}</h3>
       {rows.length === 0 ? (
         <p className="muted center">{t('CLOSE_PENDING_NONE')}</p>
       ) : (
         <div className="table-wrap">
           <table className="detail-table">
-            <thead>
-              <tr>
-                <th>{t('CLOSE_MEMBER')}</th>
-                <th>{t('CLOSE_TARGET')}</th>
-                <th>{t('CLOSE_STATUS')}</th>
-                <th>{t('CLOSE_REQUESTED_AT')}</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => ([
-                <tr key={r.closeId}>
-                  <td>{r.userName}</td>
-                  <td>{r.year}. {String(r.month).padStart(2, '0')}</td>
-                  <td>
-                    <span className={`close-badge ${r.status === 'APPROVED' ? 'done' : 'pending'}`}>
-                      {r.status === 'APPROVED' ? t('CLOSE_ST_APPROVED') : t('CLOSE_ST_REQUESTED')}
-                    </span>
-                  </td>
-                  <td>{r.requestedAt.slice(0, 10)}</td>
-                  <td>
-                    <div className="row-actions">
-                      {r.status === 'REQUESTED' ? (
-                        <>
-                          <button
-                            className="primary"
-                            disabled={busy}
-                            onClick={() => void decide(r.closeId, true)}
-                          >
-                            {t('CLOSE_APPROVE')}
-                          </button>
-                          <button disabled={busy} onClick={() => setRejecting(r)}>
-                            {t('CLOSE_REJECT')}
-                          </button>
-                        </>
-                      ) : (
-                        <button className="danger" disabled={busy} onClick={() => void reopen(r)}>
-                          {t('CLOSE_REOPEN')}
-                        </button>
-                      )}
-                      <button onClick={() => void togglePayroll(r)}>
-                        {t('PAYROLL_TITLE')}
-                      </button>
-                    </div>
-                  </td>
-                </tr>,
-                payrollOpen === r.closeId && (
-                  <tr key={`${r.closeId}-pay`} className="payroll-expand">
-                    <td colSpan={5}>
-                      <PayrollView data={payroll} lang={lang} t={t} />
-                    </td>
-                  </tr>
-                ),
-              ]))}
-            </tbody>
+            {head}
+            <tbody>{renderRows(rows)}</tbody>
+          </table>
+        </div>
+      )}
+
+      {/* 마감 완료 — 선택한 대상 월만(승인 이력 전체를 나열하지 않아 목록이 무한정 길어지지 않음) */}
+      <h3 className="section-head" style={{ marginTop: '1.75rem' }}>{t('CLOSE_APPROVED_SECTION')}</h3>
+      <div className="member-filter-working" style={{ marginBottom: '12px' }}>
+        <span className="field-label">{t('CLOSE_TARGET')}</span>
+        <SelectField
+          value={String(appYear)}
+          options={years.map((y) => ({ value: String(y), label: String(y) }))}
+          ariaLabel={t('CLOSE_TARGET')}
+          onChange={(v) => setAppYear(Number(v))}
+        />
+        <SelectField
+          value={String(appMonth)}
+          options={Array.from({ length: 12 }, (_, i) => ({ value: String(i + 1), label: `${i + 1}` }))}
+          ariaLabel={t('CLOSE_TARGET')}
+          onChange={(v) => setAppMonth(Number(v))}
+        />
+      </div>
+      {approvedRows.length === 0 ? (
+        <p className="muted center">{t('CLOSE_APPROVED_NONE')}</p>
+      ) : (
+        <div className="table-wrap">
+          <table className="detail-table">
+            {head}
+            <tbody>{renderRows(approvedRows)}</tbody>
           </table>
         </div>
       )}

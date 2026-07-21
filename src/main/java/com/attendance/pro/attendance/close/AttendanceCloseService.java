@@ -68,13 +68,25 @@ public class AttendanceCloseService {
         return status(tenantId, userId, year, month);
     }
 
-    /** 결재 대기 목록(관리자). */
+    /** 결재 대기 목록(관리자) — REQUESTED만. */
     @Transactional(readOnly = true)
     public List<PendingCloseResponse> pending(long tenantId) {
-        return mapper.findActive(tenantId).stream()
-                .map(r -> new PendingCloseResponse(r.closeId(), r.userId(), r.userName(),
-                        r.targetYear(), r.targetMonth(), r.status(), r.requestedAt()))
+        return mapper.findRequested(tenantId).stream()
+                .map(this::toResponse)
                 .toList();
+    }
+
+    /** 마감 완료 목록(관리자) — 선택 월만('마감 취소' 대상). 승인 이력 전체를 나열하지 않는다. */
+    @Transactional(readOnly = true)
+    public List<PendingCloseResponse> approvedByMonth(long tenantId, int year, int month) {
+        return mapper.findApprovedByMonth(tenantId, year, month).stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    private PendingCloseResponse toResponse(AttendanceCloseMapper.PendingCloseRow r) {
+        return new PendingCloseResponse(r.closeId(), r.userId(), r.userName(),
+                r.targetYear(), r.targetMonth(), r.status(), r.requestedAt());
     }
 
     /** 마감 취소(관리자) — 승인된 마감을 열린(REQUESTED) 상태로 되돌린다. 잠금 해제. */
