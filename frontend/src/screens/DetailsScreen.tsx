@@ -397,9 +397,6 @@ export function DetailsScreen() {
           {closeStatus?.status === 'REJECTED' && (
             <span className="close-badge rejected">↩ {t('CLOSE_REJECTED')}</span>
           )}
-          {closeStatus && !closeStatus.status && !closeStatus.monthEnded && (
-            <span className="muted">{t('CLOSE_NOT_ENDED')}</span>
-          )}
         </div>
         <div className="close-actions no-print">
           {closeStatus?.status === 'REQUESTED' && (
