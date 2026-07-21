@@ -52,7 +52,7 @@ class AuthServiceTest {
 
     private static User user(long tenantId, String email, String rawPassword, Role role, UserStatus status) {
         return new User(1L, tenantId, email, new BCryptPasswordEncoder().encode(rawPassword), null,
-                "홍길동", null, java.time.LocalTime.of(9, 0), java.time.LocalTime.of(18, 0), "1111100", null,
+                "홍길동", null, java.time.LocalTime.of(9, 0), java.time.LocalTime.of(18, 0), "1111100", null, null,
                 role, status, false, LocalDateTime.now(), LocalDateTime.now());
     }
 
@@ -159,7 +159,7 @@ class AuthServiceTest {
         when(tenantMapper.findByCode("ACME")).thenReturn(tenant(TENANT_A, "ACME", TenantStatus.ACTIVE));
         when(userMapper.findByEmail(TENANT_A, "hong@example.com")).thenReturn(
                 new User(1L, TENANT_A, "hong@example.com", new BCryptPasswordEncoder().encode(PW_A),
-                        changedAt, "홍길동", null, java.time.LocalTime.of(9, 0), java.time.LocalTime.of(18, 0), "1111100", null,
+                        changedAt, "홍길동", null, java.time.LocalTime.of(9, 0), java.time.LocalTime.of(18, 0), "1111100", null, null,
                         Role.MEMBER, UserStatus.ACTIVE, false, LocalDateTime.now(), LocalDateTime.now()));
 
         SessionUser session = service().authenticate("ACME", "hong@example.com", PW_A);

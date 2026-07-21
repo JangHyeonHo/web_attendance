@@ -22,7 +22,7 @@ public interface UserMapper {
 
     @Select("""
             SELECT user_id, tenant_id, email, password_hash, password_changed_at, name, depart_cd,
-                   default_work_start, default_work_end, work_days, hire_date,
+                   default_work_start, default_work_end, work_days, hire_date, base_monthly_salary,
                    role, status, deleted, created_at, updated_at
             FROM users
             WHERE tenant_id = #{tenantId} AND email = #{email} AND deleted = FALSE
@@ -34,7 +34,7 @@ public interface UserMapper {
      */
     @Select("""
             SELECT user_id, tenant_id, email, password_hash, password_changed_at, name, depart_cd,
-                   default_work_start, default_work_end, work_days, hire_date,
+                   default_work_start, default_work_end, work_days, hire_date, base_monthly_salary,
                    role, status, deleted, created_at, updated_at
             FROM users
             WHERE tenant_id = #{tenantId} AND user_id = #{userId} AND deleted = FALSE
@@ -47,7 +47,7 @@ public interface UserMapper {
      */
     @Select("""
             SELECT user_id, tenant_id, email, password_hash, password_changed_at, name, depart_cd,
-                   default_work_start, default_work_end, work_days, hire_date,
+                   default_work_start, default_work_end, work_days, hire_date, base_monthly_salary,
                    role, status, deleted, created_at, updated_at
             FROM users
             WHERE tenant_id = #{tenantId} AND deleted = FALSE
@@ -58,9 +58,10 @@ public interface UserMapper {
 
     @Insert("""
             INSERT INTO users (tenant_id, email, password_hash, name, depart_cd,
-                               default_work_start, default_work_end, hire_date, role, status)
+                               default_work_start, default_work_end, hire_date, base_monthly_salary, role, status)
             VALUES (#{tenantId}, #{email}, #{passwordHash}, #{name}, #{departCd},
-                    #{defaultWorkStart}, #{defaultWorkEnd}, COALESCE(#{hireDate}, CURDATE()), #{role}, #{status})
+                    #{defaultWorkStart}, #{defaultWorkEnd}, COALESCE(#{hireDate}, CURDATE()),
+                    #{baseMonthlySalary}, #{role}, #{status})
             """)
     @Options(useGeneratedKeys = true, keyProperty = "userId", keyColumn = "user_id")
     int insert(UserCreate user);
@@ -164,6 +165,16 @@ public interface UserMapper {
             """)
     int updateHireDate(@Param("tenantId") long tenantId, @Param("userId") long userId,
             @Param("hireDate") java.time.LocalDate hireDate);
+
+    /**
+     * 월 기본급 수정(급여 정산 기준) — 2중 조건. null이면 미입력(정산 계산 제외).
+     */
+    @Update("""
+            UPDATE users SET base_monthly_salary = #{baseMonthlySalary}
+            WHERE tenant_id = #{tenantId} AND user_id = #{userId} AND deleted = FALSE
+            """)
+    int updateSalary(@Param("tenantId") long tenantId, @Param("userId") long userId,
+            @Param("baseMonthlySalary") Long baseMonthlySalary);
 
     /**
      * 소프트 삭제 — 출결 기록 보존(FK user_id 잔존). email_key 생성 컬럼이 NULL이 되어

@@ -63,7 +63,7 @@ class LeaveServiceTest {
 
     private static User member(LocalTime start, LocalTime end, String workDays, LocalDate hire) {
         return new User(USER, TENANT, "hong@acme.co.kr", "hash", null, "홍길동", null,
-                start, end, workDays, hire, Role.MEMBER, UserStatus.ACTIVE, false,
+                start, end, workDays, hire, null, Role.MEMBER, UserStatus.ACTIVE, false,
                 LocalDateTime.now(), LocalDateTime.now());
     }
 
@@ -332,7 +332,7 @@ class LeaveServiceTest {
         long user2 = 5L;
         User u1 = member(LocalTime.of(9, 0), LocalTime.of(18, 0), "1111100", LocalDate.of(2023, 1, 1));
         User u2 = new User(user2, TENANT, "kim@acme.co.kr", "hash", null, "김철수", null,
-                LocalTime.of(9, 0), LocalTime.of(18, 0), "1111100", LocalDate.of(2024, 1, 1),
+                LocalTime.of(9, 0), LocalTime.of(18, 0), "1111100", LocalDate.of(2024, 1, 1), null,
                 Role.MEMBER, UserStatus.ACTIVE, false, LocalDateTime.now(), LocalDateTime.now());
         when(typeMapper.findById(TENANT, ANNUAL_ID)).thenReturn(annual());
         when(userMapper.findById(TENANT, USER)).thenReturn(u1);

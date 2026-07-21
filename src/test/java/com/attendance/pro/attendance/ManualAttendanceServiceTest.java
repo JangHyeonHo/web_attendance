@@ -52,11 +52,13 @@ class ManualAttendanceServiceTest {
     @Mock
     private SchedulePatternMapper patternMapper;
     @Mock
+    private com.attendance.pro.attendance.close.AttendanceCloseMapper closeMapper;
+    @Mock
     private Messages messages;
 
     private AttendanceService service() {
         return new AttendanceService(attendanceMapper, scheduleMapper, holidayMapper, tenantMapper,
-                leaveRequestMapper, patternMapper, messages);
+                leaveRequestMapper, patternMapper, closeMapper, messages);
     }
 
     private ManualStampRequest request(LocalDate date, String time, AttendanceType type,

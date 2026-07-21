@@ -54,19 +54,25 @@ public class AttendanceController {
     private final AttendanceExporters exporters;
     private final UserMapper userMapper;
     private final ReportSettingService reportSettingService;
+    private final com.attendance.pro.attendance.close.AttendanceCloseService closeService;
 
     public AttendanceController(AttendanceService attendanceService, AttendanceExporters exporters,
-            UserMapper userMapper, ReportSettingService reportSettingService) {
+            UserMapper userMapper, ReportSettingService reportSettingService,
+            com.attendance.pro.attendance.close.AttendanceCloseService closeService) {
         this.attendanceService = attendanceService;
         this.exporters = exporters;
         this.userMapper = userMapper;
         this.reportSettingService = reportSettingService;
+        this.closeService = closeService;
     }
 
     @Operation(summary = "api.attendance.report-setting")
     @GetMapping("/report-setting")
     public ReportSettingResponse reportSetting(@LoginUser SessionUser user) {
-        return new ReportSettingResponse(reportSettingService.stampEnabled(user.tenantId()));
+        return new ReportSettingResponse(reportSettingService.stampEnabled(user.tenantId()),
+                reportSettingService.premiumEnabled(user.tenantId()),
+                reportSettingService.stampSize(user.tenantId()),
+                reportSettingService.stampImageDataUrl(user.tenantId()));
     }
 
     @Operation(summary = "api.attendance.status.summary", description = "api.attendance.status.description")
@@ -155,8 +161,14 @@ public class AttendanceController {
         User me = userMapper.findById(user.tenantId(), user.userId());
         String department = me == null ? null : me.departCd();
         boolean stamp = reportSettingService.stampEnabled(user.tenantId());
+        //마감 승인된 달이면 결재란에 도장 날인(이미지 없으면 exporter가 검은 원 대체)
+        boolean sealApproved = stamp && closeService.isClosed(user.tenantId(), user.userId(), year, month);
+        var stampImg = sealApproved ? reportSettingService.stampImage(user.tenantId()) : null;
         ExportMeta meta = new ExportMeta(user.tenantName(), user.name(), department, year, month,
-                lang, LocalDate.now(), stamp);
+                lang, LocalDate.now(), stamp, sealApproved,
+                stampImg == null ? null : stampImg.image(),
+                stampImg == null ? null : stampImg.mime(),
+                reportSettingService.stampSize(user.tenantId()));
         byte[] xlsx = exporters.forTenant(user.tenantId()).toXlsx(data, meta);
         String filename = String.format("attendance-%d-%02d.xlsx", year, month); //ASCII 파일명(인코딩 이슈 회피)
         return ResponseEntity.ok()

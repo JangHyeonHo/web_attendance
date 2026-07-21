@@ -54,6 +54,8 @@ public enum Screen {
     COMPANY_PROFILE("W019", Set.of(Role.TENANT_ADMIN)),
     /** 회사 설정 — 근태 보고서 등 운영 설정. 총관리자+인사관리자(정보/결제보다 낮은 권한도 관리 가능) */
     COMPANY_SETTINGS("W020", Set.of(Role.TENANT_ADMIN, Role.HR_ADMIN)),
+    /** 근태 마감 관리 — 멤버 월 마감 신청 결재(승인/반려). 인사관리자+총관리자 */
+    ATT_CLOSE_ADMIN("W021", Set.of(Role.HR_ADMIN, Role.TENANT_ADMIN)),
     /** 공통(헤더) - 직접 전개하지 않고 공통 텍스트 취득용 */
     COMMON("W999", null);
 

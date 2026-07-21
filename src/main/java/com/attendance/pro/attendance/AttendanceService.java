@@ -63,20 +63,33 @@ public class AttendanceService {
     private final TenantMapper tenantMapper;
     private final com.attendance.pro.leave.LeaveRequestMapper leaveRequestMapper;
     private final SchedulePatternMapper patternMapper;
+    private final com.attendance.pro.attendance.close.AttendanceCloseMapper closeMapper;
     private final Messages messages;
     private final MonthlyAttendanceAssembler assembler = new MonthlyAttendanceAssembler();
 
     public AttendanceService(AttendanceMapper attendanceMapper, ScheduleMapper scheduleMapper,
             HolidayMapper holidayMapper, TenantMapper tenantMapper,
             com.attendance.pro.leave.LeaveRequestMapper leaveRequestMapper,
-            SchedulePatternMapper patternMapper, Messages messages) {
+            SchedulePatternMapper patternMapper,
+            com.attendance.pro.attendance.close.AttendanceCloseMapper closeMapper, Messages messages) {
         this.attendanceMapper = attendanceMapper;
         this.scheduleMapper = scheduleMapper;
         this.holidayMapper = holidayMapper;
         this.tenantMapper = tenantMapper;
         this.leaveRequestMapper = leaveRequestMapper;
         this.patternMapper = patternMapper;
+        this.closeMapper = closeMapper;
         this.messages = messages;
+    }
+
+    /**
+     * 마감 잠금 가드 — 그 (멤버, 날짜의 연·월)이 마감 승인(APPROVED)됐으면 정정 거부(MONTH_CLOSED).
+     * 수동 정정 등록/수정 경로에서 공통 호출(append-only라 잠금은 쓰기 지점에서만 강제).
+     */
+    private void requireMonthOpen(long tenantId, long userId, LocalDate date) {
+        if ("APPROVED".equals(closeMapper.findStatus(tenantId, userId, date.getYear(), date.getMonthValue()))) {
+            throw ApiException.conflict("MONTH_CLOSED", "attendance.month.closed");
+        }
     }
 
     /**
@@ -143,6 +156,7 @@ public class AttendanceService {
      */
     @Transactional
     public StampResponse manual(long tenantId, long userId, ManualStampRequest request) {
+        requireMonthOpen(tenantId, userId, request.date());
         ValidatedManual validated = validateManual(request, false);
         //좌표·장소 없음 — 위치는 자동 스탬프의 무결성 장치이지 정정의 입력이 아니다(§3)
         attendanceMapper.insert(tenantId, userId, request.type().code(), AttendanceStamp.STATUS_ACTIVE,
@@ -159,6 +173,7 @@ public class AttendanceService {
      */
     @Transactional
     public StampResponse manualBreak(long tenantId, long userId, ManualBreakRequest request) {
+        requireMonthOpen(tenantId, userId, request.date());
         ManualReason reason = resolveReason(request.reasonCode());
         String reasonText = resolveReasonText(reason, request.reasonText());
         LocalDateTime start = LocalDateTime.of(request.date(), java.time.LocalTime.parse(request.startTime()));
@@ -184,6 +199,7 @@ public class AttendanceService {
     @Transactional
     public StampResponse updateManual(long tenantId, long userId, long attendanceId,
             ManualStampRequest request) {
+        requireMonthOpen(tenantId, userId, request.date());
         AttendanceStamp existing = attendanceMapper.findManualById(tenantId, userId, attendanceId);
         if (existing == null) {
             throw ApiException.notFound("MANUAL_NOT_FOUND", "attendance.manual.not-found");

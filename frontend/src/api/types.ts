@@ -25,6 +25,7 @@ export type ScreenCode =
   | 'W018' // 청구서 (TENANT_ADMIN — 자사 월별 청구서)
   | 'W019' // 회사 정보/결제 (TENANT_ADMIN — 사업자정보·결제 + 계약 요약)
   | 'W020' // 회사 설정 (TENANT_ADMIN+HR_ADMIN — 근태 보고서 등 운영 설정)
+  | 'W021' // 근태 마감 관리 (HR_ADMIN+TENANT_ADMIN — 월 마감 결재)
   | 'W999' // 공통(헤더)
 
 export type Lang = 'KOR' | 'ENG' | 'JPN'
@@ -333,6 +334,8 @@ export interface MemberSummary {
   workEnd: string
   /** 요일별 근무 플래그(월화수목금토일, '1'=근무 — V12) */
   workDays: string
+  /** 월 기본급(원/円) — 미입력이면 null. 급여 정산 기준 */
+  baseMonthlySalary: number | null
   /** PENDING + 유효 INVITE 토큰이면 그 만료 시각, 아니면 null(만료/실패 → "재발송 필요" 표시) */
   inviteExpiresAt: string | null
 }
@@ -347,6 +350,8 @@ export interface MemberCreateRequest {
   workEnd?: string | null
   /** "YYYY-MM-DD" 입사일(선택) — 미지정(null)은 등록일. 연차 계산 기준(#11) */
   hireDate?: string | null
+  /** 월 기본급(원/円, 선택) — 미입력은 null */
+  baseMonthlySalary?: number | null
 }
 
 /**
@@ -839,9 +844,71 @@ export interface ErrorResponse {
   fieldErrors: FieldErrorDetail[] | null
 }
 
-// ---- 근태 보고서 설정 (W019 — 결재/도장란 on/off) ----
+// ---- 회사 설정 (W020 — 결재/도장란·가산 적용·도장 이미지) ----
 
 export interface ReportSetting {
   /** 근태 보고서(Excel·인쇄)에 결재(도장)란 표시 여부 */
   stampEnabled: boolean
+  /** 연장·야간·휴일 가산수당 적용(§56). 5인 미만이면 false */
+  premiumEnabled: boolean
+  /** 도장 표시 크기 SMALL|MEDIUM|LARGE */
+  stampSize: string
+  /** 등록된 도장 이미지 data URL(미등록이면 null) */
+  stampImageUrl: string | null
+}
+
+export interface ReportSettingUpdateRequest {
+  stampEnabled: boolean
+  premiumEnabled: boolean
+  stampSize: string
+}
+
+// ---- 급여 정산(참고) — 근태 기반 가감 명세 ----
+
+export interface PayrollSettlement {
+  country: string
+  baseMonthlySalary: number
+  hourlyWage: number
+  premiumApplied: boolean
+  overtimeMinutes: number
+  nightMinutes: number
+  holidayWorkMinutes: number
+  shortfallMinutes: number
+  overtimePay: number
+  nightPay: number
+  holidayPay: number
+  deduction: number
+  netAdjustment: number
+}
+
+export interface PayrollResponse {
+  available: boolean
+  settlement: PayrollSettlement | null
+}
+
+// ---- 근태 마감(월 잠금) ----
+
+export type CloseStatus = 'REQUESTED' | 'APPROVED' | 'REJECTED'
+
+export interface CloseStatusResponse {
+  year: number
+  month: number
+  /** 신청 이력 없으면 null */
+  status: CloseStatus | null
+  closeId: number | null
+  /** 신청 가능(대상 월 종료 && (미신청 || 반려)) */
+  canRequest: boolean
+  monthEnded: boolean
+  requestedAt: string | null
+  decidedAt: string | null
+  decisionNote: string | null
+}
+
+export interface PendingCloseResponse {
+  closeId: number
+  userId: number
+  userName: string
+  year: number
+  month: number
+  requestedAt: string
 }

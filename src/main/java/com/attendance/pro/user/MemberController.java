@@ -98,6 +98,17 @@ public class MemberController {
         return memberService.updateSchedule(user.tenantId(), userId, request);
     }
 
+    @Operation(summary = "api.member.salary.summary")
+    @ApiResponses({
+            @ApiResponse(responseCode = "404", description = "api.member.invite.404")
+    })
+    @PutMapping("/{userId}/salary")
+    public MemberResponse updateSalary(@LoginUser SessionUser user,
+            @PathVariable("userId") long userId,
+            @Valid @RequestBody MemberDtos.MemberSalaryRequest request) {
+        return memberService.updateSalary(user.tenantId(), userId, request.baseMonthlySalary());
+    }
+
     @Operation(summary = "api.member.status.summary")
     @ApiResponses({
             @ApiResponse(responseCode = "409", description = "api.member.status.409")

@@ -22,10 +22,12 @@ public class UserCreate {
     private final UserStatus status;
     /** 입사일(선택) — null이면 매퍼가 CURDATE()로 채운다(#11). */
     private final LocalDate hireDate;
+    /** 월 기본급(원/円, 선택) — 급여 정산 기준. null=미입력. */
+    private final Long baseMonthlySalary;
 
     public UserCreate(long tenantId, String email, String passwordHash, String name, String departCd,
             LocalTime defaultWorkStart, LocalTime defaultWorkEnd, Role role, UserStatus status,
-            LocalDate hireDate) {
+            LocalDate hireDate, Long baseMonthlySalary) {
         this.tenantId = tenantId;
         this.email = email;
         this.passwordHash = passwordHash;
@@ -36,6 +38,7 @@ public class UserCreate {
         this.role = role;
         this.status = status;
         this.hireDate = hireDate;
+        this.baseMonthlySalary = baseMonthlySalary;
     }
 
     public Long getUserId() {
@@ -84,6 +87,10 @@ public class UserCreate {
 
     public LocalDate getHireDate() {
         return hireDate;
+    }
+
+    public Long getBaseMonthlySalary() {
+        return baseMonthlySalary;
     }
 
 }

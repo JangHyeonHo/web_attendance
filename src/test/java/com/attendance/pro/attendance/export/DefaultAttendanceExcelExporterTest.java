@@ -55,7 +55,8 @@ class DefaultAttendanceExcelExporterTest {
     @DisplayName("XLSX-01: 상단머리·결재란·헤더·데이터·합계가 올바른 셀에 기록된다")
     void writesExpectedCells() throws Exception {
         byte[] bytes = new DefaultAttendanceExcelExporter().toXlsx(sample(),
-                new ExportMeta("ACME 주식회사", "김총관", "인사팀", 2026, 7, "KOR", LocalDate.of(2026, 8, 1), true));
+                new ExportMeta("ACME 주식회사", "김총관", "인사팀", 2026, 7, "KOR", LocalDate.of(2026, 8, 1),
+                        true, false, null, null, "MEDIUM"));
 
         try (Workbook wb = new XSSFWorkbook(new ByteArrayInputStream(bytes))) {
             Sheet sheet = wb.getSheetAt(0);
@@ -88,6 +89,30 @@ class DefaultAttendanceExcelExporterTest {
             //비고(row 7, manual → 실제 사유) · 공휴일 명칭(row 8)
             assertThat(sheet.getRow(7).getCell(9).getStringCellValue()).isEqualTo("미기록");
             assertThat(sheet.getRow(8).getCell(1).getStringCellValue()).isEqualTo("제헌절");
+        }
+    }
+
+    @Test
+    @DisplayName("XLSX-02: 마감 승인(sealApproved) + 도장 이미지 미등록 → 검은 원 도장이 그림으로 삽입된다")
+    void sealApprovedEmbedsBlackCircle() throws Exception {
+        byte[] bytes = new DefaultAttendanceExcelExporter().toXlsx(sample(),
+                new ExportMeta("ACME 주식회사", "김총관", "인사팀", 2026, 7, "KOR", LocalDate.of(2026, 8, 1),
+                        true, true, null, null, "MEDIUM")); //sealApproved=true, 이미지 없음
+
+        try (Workbook wb = new XSSFWorkbook(new ByteArrayInputStream(bytes))) {
+            assertThat(wb.getAllPictures()).as("검은 원 도장 이미지 1개 삽입").hasSize(1);
+        }
+    }
+
+    @Test
+    @DisplayName("XLSX-03: 마감 미승인이면 도장을 찍지 않는다")
+    void notApprovedNoSeal() throws Exception {
+        byte[] bytes = new DefaultAttendanceExcelExporter().toXlsx(sample(),
+                new ExportMeta("ACME 주식회사", "김총관", "인사팀", 2026, 7, "KOR", LocalDate.of(2026, 8, 1),
+                        true, false, null, null, "MEDIUM"));
+
+        try (Workbook wb = new XSSFWorkbook(new ByteArrayInputStream(bytes))) {
+            assertThat(wb.getAllPictures()).isEmpty();
         }
     }
 }

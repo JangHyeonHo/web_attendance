@@ -229,4 +229,36 @@ public final class AttendanceDtos {
             int totalWorkMinutes) {        //월 실근무 합 = workMinutes non-null 합
     }
 
+    /**
+     * 급여 정산(참고) — 월 기본급 기준의 가감 명세. 실지급이 아닌 근태 기반 참고값(4대보험·세금·수당 별도).
+     * salary 미입력이면 이 응답 없음(available=false). 금액은 원/円 정수.
+     */
+    @Schema(description = "schema.payroll-settlement")
+    public record PayrollSettlement(
+            @Schema(description = "schema.payroll.country", example = "KR") String country,
+            @Schema(description = "schema.payroll.base-salary", example = "3000000") long baseMonthlySalary,
+            @Schema(description = "schema.payroll.hourly-wage", example = "14354") long hourlyWage,
+            @Schema(description = "schema.payroll.premium-applied") boolean premiumApplied,
+            @Schema(description = "schema.payroll.overtime-min", example = "180") int overtimeMinutes,
+            @Schema(description = "schema.payroll.night-min", example = "60") int nightMinutes,
+            @Schema(description = "schema.payroll.holiday-min", example = "0") int holidayWorkMinutes,
+            @Schema(description = "schema.payroll.shortfall-min", example = "30") int shortfallMinutes,
+            @Schema(description = "schema.payroll.overtime-pay", example = "64593") long overtimePay,
+            @Schema(description = "schema.payroll.night-pay", example = "7177") long nightPay,
+            @Schema(description = "schema.payroll.holiday-pay", example = "0") long holidayPay,
+            @Schema(description = "schema.payroll.deduction", example = "7177") long deduction,
+            @Schema(description = "schema.payroll.net-adjustment", example = "64593") long netAdjustment) {
+    }
+
+    /** 급여 정산 조회 응답 — 월 기본급 미입력이면 available=false, settlement=null. */
+    @Schema(description = "schema.payroll-response")
+    public record PayrollResponse(
+            @Schema(description = "schema.payroll.available") boolean available,
+            @Schema(description = "schema.payroll-settlement") PayrollSettlement settlement) {
+
+        public static PayrollResponse of(PayrollSettlement s) {
+            return new PayrollResponse(s != null, s);
+        }
+    }
+
 }

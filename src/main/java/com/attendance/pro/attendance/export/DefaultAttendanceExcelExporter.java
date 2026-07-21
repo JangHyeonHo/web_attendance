@@ -81,6 +81,10 @@ public class DefaultAttendanceExcelExporter implements AttendanceExcelExporter {
 
             if (meta.stampArea()) {
                 stampBox(sheet, wb, font);
+                if (meta.sealApproved()) {
+                    //마감 승인된 달 → 인사담당자(결재자) 칸에 도장 날인(이미지 없으면 검은 원)
+                    drawSeal(sheet, wb, COLS - 2, meta);
+                }
             }
 
             //표 헤더
@@ -167,6 +171,72 @@ public class DefaultAttendanceExcelExporter implements AttendanceExcelExporter {
         merge(sheet, 1, 3, c0 + 2, c0 + 2); //총괄담당자 날인칸
         for (int rr = 1; rr <= 3; rr++) {
             row(sheet, rr).setHeightInPoints(24);
+        }
+    }
+
+    /** 결재란(인사담당자 병합칸, col=c, rows 1~3)에 도장 날인 — 이미지 or 검은 원. 실패해도 보고서는 나가야 함. */
+    private static void drawSeal(XSSFSheet sheet, XSSFWorkbook wb, int c, ExportMeta meta) {
+        try {
+            int sizePx = sealSizePx(meta.sealSize());
+            byte[] img = meta.sealImage();
+            int picType;
+            if (img != null && img.length > 0) {
+                picType = "image/jpeg".equalsIgnoreCase(meta.sealMime())
+                        ? org.apache.poi.ss.usermodel.Workbook.PICTURE_TYPE_JPEG
+                        : org.apache.poi.ss.usermodel.Workbook.PICTURE_TYPE_PNG;
+            } else {
+                img = blackCirclePng(sizePx); //미등록 → 검은 원 대체
+                picType = org.apache.poi.ss.usermodel.Workbook.PICTURE_TYPE_PNG;
+            }
+            int picIdx = wb.addPicture(img, picType);
+            org.apache.poi.xssf.usermodel.XSSFDrawing drawing = sheet.createDrawingPatriarch();
+            org.apache.poi.xssf.usermodel.XSSFClientAnchor anchor =
+                    new org.apache.poi.xssf.usermodel.XSSFClientAnchor();
+            int emu = 9525;   //1px = 9525 EMU
+            int pad = 3 * emu; //칸 안쪽 여백
+            anchor.setCol1(c);
+            anchor.setRow1(1);
+            anchor.setDx1(pad);
+            anchor.setDy1(pad);
+            anchor.setCol2(c);
+            anchor.setRow2(1);
+            anchor.setDx2(pad + sizePx * emu);
+            anchor.setDy2(pad + sizePx * emu);
+            anchor.setAnchorType(org.apache.poi.ss.usermodel.ClientAnchor.AnchorType.DONT_MOVE_AND_RESIZE);
+            drawing.createPicture(anchor, picIdx);
+        } catch (RuntimeException e) {
+            //날인 실패는 무시(도장 없이 결재란만 — 다운로드가 500으로 죽지 않게)
+        }
+    }
+
+    /** 도장 표시 크기(px) — SMALL 57(≈15mm)/MEDIUM 68(≈18mm)/LARGE 83(≈22mm). */
+    private static int sealSizePx(String size) {
+        if ("SMALL".equalsIgnoreCase(size)) {
+            return 57;
+        }
+        if ("LARGE".equalsIgnoreCase(size)) {
+            return 83;
+        }
+        return 68;
+    }
+
+    /** 검은 원 도장 PNG(투명 배경, 안티에일리어싱) — 도장 이미지 미등록 시 대체. */
+    private static byte[] blackCirclePng(int sizePx) {
+        java.awt.image.BufferedImage bi =
+                new java.awt.image.BufferedImage(sizePx, sizePx, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        java.awt.Graphics2D g = bi.createGraphics();
+        g.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+        g.setColor(java.awt.Color.BLACK);
+        int stroke = Math.max(2, sizePx / 16);
+        g.setStroke(new java.awt.BasicStroke(stroke));
+        g.drawOval(stroke, stroke, sizePx - 2 * stroke, sizePx - 2 * stroke);
+        g.dispose();
+        try {
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            javax.imageio.ImageIO.write(bi, "png", out);
+            return out.toByteArray();
+        } catch (java.io.IOException e) {
+            throw new UncheckedIOException(e);
         }
     }
 

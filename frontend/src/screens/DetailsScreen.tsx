@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
-import { attendanceApi, languageApi } from '../api/endpoints'
+import { attendanceApi, attendanceCloseApi, languageApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { Modal } from '../components/Modal'
@@ -8,7 +8,14 @@ import { TimesheetPrintReport } from '../components/TimesheetPrintReport'
 import { SelectField, TimeField } from '../components/fields'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { localeOf } from '../i18n/lang'
-import type { AttendanceType, DailyAttendance, DailyStampEntry, ManualReason, MonthlyResponse } from '../api/types'
+import type {
+  AttendanceType,
+  CloseStatusResponse,
+  DailyAttendance,
+  DailyStampEntry,
+  ManualReason,
+  MonthlyResponse,
+} from '../api/types'
 
 /** 분 → 소수 시간(엑셀 보고서와 동일한 0.00 표기 — 서버는 수치만, 표기는 화면 책임). null은 '-' */
 function formatHours(minutes: number | null): string {
@@ -73,6 +80,12 @@ export function DetailsScreen() {
   const [loading, setLoading] = useState(false)
   //회사 설정: 근태 보고서 결재(도장)란 표시 여부 — 인쇄 시에만 반영
   const [stampEnabled, setStampEnabled] = useState(false)
+  const [stampImageUrl, setStampImageUrl] = useState<string | null>(null)
+  const [stampSize, setStampSize] = useState('MEDIUM')
+  //근태 마감 상태(본인, 이 달) — 신청 버튼·정정 잠금 판단
+  const [closeStatus, setCloseStatus] = useState<CloseStatusResponse | null>(null)
+  const [closeBusy, setCloseBusy] = useState(false)
+  const [closeConfirm, setCloseConfirm] = useState(false)
   //근무표 다운로드 확인 모달 — 형식 선택 시 바로 실행하지 않고 확인 후 실행
   const [pendingDownload, setPendingDownload] = useState<'excel' | 'pdf' | null>(null)
 
@@ -120,11 +133,15 @@ export function DetailsScreen() {
 
   const t = useCallback((key: string) => texts[key] ?? commonT(key), [texts, commonT])
 
-  //근태 보고서 결재란 표시 설정(회사 설정) — 인쇄 결재란 노출 판단
+  //근태 보고서 결재란 표시 설정(회사 설정) — 인쇄 결재란·도장 이미지 노출 판단
   useEffect(() => {
     attendanceApi
       .reportSetting()
-      .then((r) => setStampEnabled(r.stampEnabled))
+      .then((r) => {
+        setStampEnabled(r.stampEnabled)
+        setStampImageUrl(r.stampImageUrl)
+        setStampSize(r.stampSize || 'MEDIUM')
+      })
       .catch(() => {
         //설정 취득 실패는 무시(결재란 미표시로 안전)
       })
@@ -172,9 +189,50 @@ export function DetailsScreen() {
     }
   }, [year, month])
 
+  //마감 상태 — 월 전환 시 갱신(실패는 무시, 화면 안전). 급여 정산은 관리자 전용이라 여기서 조회하지 않는다.
+  const reloadClose = useCallback(async () => {
+    try {
+      setCloseStatus(await attendanceCloseApi.status(year, month))
+    } catch {
+      setCloseStatus(null)
+    }
+  }, [year, month])
+
   useEffect(() => {
     void reload()
   }, [reload])
+
+  useEffect(() => {
+    void reloadClose()
+  }, [reloadClose])
+
+  const locked = closeStatus?.status === 'APPROVED'
+
+  //마감 신청/취소 — 처리 후 상태·정산 갱신
+  async function requestClose() {
+    setCloseBusy(true)
+    setError(null)
+    try {
+      setCloseStatus(await attendanceCloseApi.request(year, month))
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : String(e))
+    } finally {
+      setCloseBusy(false)
+      setCloseConfirm(false)
+    }
+  }
+
+  async function cancelClose() {
+    setCloseBusy(true)
+    setError(null)
+    try {
+      setCloseStatus(await attendanceCloseApi.cancel(year, month))
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : String(e))
+    } finally {
+      setCloseBusy(false)
+    }
+  }
 
   /** 날짜 버튼 클릭 → 그 날짜의 전 스탬프 이력 취득(append-only — 중복 스탬프도 전부 나온다) */
   async function openDetail(date: string) {
@@ -327,6 +385,35 @@ export function DetailsScreen() {
           />
         </div>
       </div>
+      {/* 근태 마감 바 — 지난달 종료 후 마감 신청, 승인되면 정정 잠금(참고 정산 확정) */}
+      <div className={`close-bar${locked ? ' locked' : ''}`}>
+        <div className="close-state">
+          {closeStatus?.status === 'APPROVED' && (
+            <span className="close-badge done">🔒 {t('CLOSE_DONE')}</span>
+          )}
+          {closeStatus?.status === 'REQUESTED' && (
+            <span className="close-badge pending">⏳ {t('CLOSE_PENDING')}</span>
+          )}
+          {closeStatus?.status === 'REJECTED' && (
+            <span className="close-badge rejected">↩ {t('CLOSE_REJECTED')}</span>
+          )}
+          {closeStatus && !closeStatus.status && !closeStatus.monthEnded && (
+            <span className="muted">{t('CLOSE_NOT_ENDED')}</span>
+          )}
+        </div>
+        <div className="close-actions no-print">
+          {closeStatus?.status === 'REQUESTED' && (
+            <button disabled={closeBusy} onClick={() => void cancelClose()}>
+              {t('CLOSE_CANCEL')}
+            </button>
+          )}
+          {closeStatus?.canRequest && (
+            <button className="primary" disabled={closeBusy} onClick={() => setCloseConfirm(true)}>
+              {t('CLOSE_REQUEST')}
+            </button>
+          )}
+        </div>
+      </div>
       {/* 정정 진입은 날짜 버튼 → 일자 상세 → [정정 등록]/[수정] 단일 동선 */}
       {manualNotice && (
         <div className="banner" role="status">
@@ -345,6 +432,9 @@ export function DetailsScreen() {
           userName={userName}
           department={userDepartment}
           stampEnabled={stampEnabled}
+          sealApproved={locked}
+          stampImageUrl={stampImageUrl}
+          stampSize={stampSize}
           issueDate={todayStr}
           lang={lang}
         />
@@ -477,7 +567,7 @@ export function DetailsScreen() {
                     <span className="muted stamp-source">{t('SOURCE_AUTO')}</span>
                   )}
                   {/* 잘못 입력 복구 = 수정(시각·구분·사유 변경) — 이력 삭제는 제공하지 않는다 */}
-                  {stamp.source === 'MANUAL' && (
+                  {stamp.source === 'MANUAL' && !locked && (
                     <span className="stamp-actions">
                       <button type="button" onClick={() => openEdit(detailDate, stamp)}>
                         {t('EDIT')}
@@ -494,11 +584,28 @@ export function DetailsScreen() {
               ))}
             </ul>
           )}
+          {locked && <p className="muted center">🔒 {t('CLOSE_DONE')}</p>}
           <div className="btn-row">
-            <button className="primary" onClick={() => openManual(detailDate)}>
-              {t('MANUAL_ADD')}
-            </button>
+            {!locked && (
+              <button className="primary" onClick={() => openManual(detailDate)}>
+                {t('MANUAL_ADD')}
+              </button>
+            )}
             <button onClick={() => setDetailDate(null)}>{commonT('CLOSE')}</button>
+          </div>
+        </Modal>
+      )}
+
+      {closeConfirm && (
+        <Modal title={t('CLOSE_REQUEST')} onClose={() => setCloseConfirm(false)}>
+          <p className="center">
+            {t('CLOSE_CONFIRM').replace('{y}', String(year)).replace('{m}', String(month))}
+          </p>
+          <div className="btn-row">
+            <button className="primary" disabled={closeBusy} onClick={() => void requestClose()}>
+              {commonT('CONFIRM')}
+            </button>
+            <button onClick={() => setCloseConfirm(false)}>{commonT('CANCEL')}</button>
           </div>
         </Modal>
       )}

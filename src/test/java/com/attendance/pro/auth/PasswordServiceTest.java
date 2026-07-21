@@ -69,7 +69,7 @@ class PasswordServiceTest {
 
     private static User user(UserStatus status) {
         return new User(USER_ID, TENANT_ID, "hong@acme.co.kr", "old-hash", null, "홍길동", null,
-                LocalTime.of(9, 0), LocalTime.of(18, 0), "1111100", null,
+                LocalTime.of(9, 0), LocalTime.of(18, 0), "1111100", null, null,
                 Role.MEMBER, status, false, LocalDateTime.now(), LocalDateTime.now());
     }
 

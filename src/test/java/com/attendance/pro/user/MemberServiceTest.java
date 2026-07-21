@@ -55,7 +55,7 @@ class MemberServiceTest {
 
     private static User user(long userId, Role role, UserStatus status) {
         return new User(userId, TENANT_ID, "user" + userId + "@acme.co.kr", "hash", null,
-                "유저" + userId, null, LocalTime.of(9, 0), LocalTime.of(18, 0), "1111100", null,
+                "유저" + userId, null, LocalTime.of(9, 0), LocalTime.of(18, 0), "1111100", null, null,
                 role, status, false, LocalDateTime.now(), LocalDateTime.now());
     }
 
@@ -282,7 +282,7 @@ class MemberServiceTest {
     class Create {
 
         private MemberCreateRequest request(String workStart, String workEnd) {
-            return new MemberCreateRequest("hong@acme.co.kr", "홍길동", "DEV01", workStart, workEnd, null);
+            return new MemberCreateRequest("hong@acme.co.kr", "홍길동", "DEV01", workStart, workEnd, null, null);
         }
 
         @Test

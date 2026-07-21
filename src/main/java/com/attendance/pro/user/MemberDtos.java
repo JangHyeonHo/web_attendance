@@ -6,6 +6,8 @@ import java.time.format.DateTimeFormatter;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -60,7 +62,13 @@ public final class MemberDtos {
             //입사일(선택, ISO yyyy-MM-dd) — 미입력 시 등록일(CURDATE). 연차 계산 기준(#11)
             @Schema(description = "schema.field.hire-date", example = "2023-03-02")
             @Pattern(regexp = "^\\d{4}-\\d{2}-\\d{2}$", message = "{validation.date.format}")
-            String hireDate) {
+            String hireDate,
+
+            //월 기본급(원/円, 선택) — 급여 정산(참고) 기준값. null=미입력. 0~10억 사이.
+            @Schema(description = "schema.field.salary", example = "3000000")
+            @Min(value = 0, message = "{validation.salary.range}")
+            @Max(value = 1_000_000_000L, message = "{validation.salary.range}")
+            Long baseMonthlySalary) {
     }
 
     //통합 최종 계약(이메일 × 스케줄 병합 — 교차 리뷰 CR3-3 확정). initialPassword 폐지.
@@ -89,6 +97,8 @@ public final class MemberDtos {
             @Schema(description = "schema.field.work-end") String workEnd,
             //요일별 근무 플래그(월화수목금토일, '1'=근무 — V12)
             @Schema(description = "schema.field.work-days", example = "1111100") String workDays,
+            //월 기본급(원/円) — 미입력이면 null
+            @Schema(description = "schema.field.salary", example = "3000000") Long baseMonthlySalary,
             //PENDING+유효 INVITE 토큰이면 그 만료시각, 아니면 null(만료/실패 → "재발송 필요" 표시)
             @Schema(description = "schema.field.invite-expires-at") LocalDateTime inviteExpiresAt) {
 
@@ -96,8 +106,17 @@ public final class MemberDtos {
             return new MemberResponse(user.userId(), user.email(), user.name(),
                     user.departCd(), user.role(), user.status(), user.createdAt(),
                     formatTime(user.defaultWorkStart()), formatTime(user.defaultWorkEnd()),
-                    user.workDays(), inviteExpiresAt);
+                    user.workDays(), user.baseMonthlySalary(), inviteExpiresAt);
         }
+    }
+
+    @Schema(description = "schema.member-salary-request")
+    public record MemberSalaryRequest(
+            //월 기본급(원/円) — null이면 미입력으로 저장(정산 계산 제외). 0~10억.
+            @Schema(description = "schema.field.salary", example = "3000000")
+            @Min(value = 0, message = "{validation.salary.range}")
+            @Max(value = 1_000_000_000L, message = "{validation.salary.range}")
+            Long baseMonthlySalary) {
     }
 
     @Schema(description = "schema.member-status-request")
