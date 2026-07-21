@@ -40,9 +40,11 @@ class ScheduleAdminServiceTest {
     private SchedulePatternMapper patternMapper;
     @Mock
     private UserMapper userMapper;
+    @Mock
+    private TenantDefaultScheduleMapper tenantDefaultScheduleMapper;
 
     private ScheduleAdminService service() {
-        return new ScheduleAdminService(scheduleMapper, patternMapper, userMapper);
+        return new ScheduleAdminService(scheduleMapper, patternMapper, userMapper, tenantDefaultScheduleMapper);
     }
 
     private void stubMember() {

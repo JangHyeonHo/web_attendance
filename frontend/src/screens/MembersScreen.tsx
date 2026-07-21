@@ -28,8 +28,6 @@ const STATUS_LABEL_KEYS: Record<UserStatus, string> = {
   PENDING: 'STATUS_PENDING', //초대 대기 — 비밀번호 설정 전
 }
 
-const DEFAULT_WORK_START = '09:00'
-const DEFAULT_WORK_END = '18:00'
 
 /** 파괴적 조작(비활성/삭제)은 확인 모달 경유. 역할 지정은 인라인 SelectField(총관리자 전용) */
 interface PendingAction {
@@ -69,8 +67,6 @@ export function MembersScreen() {
   const [email, setEmail] = useState('')
   const [name, setName] = useState('')
   const [departCd, setDepartCd] = useState('')
-  const [workStart, setWorkStart] = useState(DEFAULT_WORK_START)
-  const [workEnd, setWorkEnd] = useState(DEFAULT_WORK_END)
   const [hireDate, setHireDate] = useState('') //입사일(선택) — 연차 계산 기준(#11)
   const [salary, setSalary] = useState('') //월 기본급(선택) — 급여 정산 기준
   const [formError, setFormError] = useState<string | null>(null)
@@ -149,8 +145,6 @@ export function MembersScreen() {
         email: email.trim(),
         name: name.trim(),
         departCd: departCd.trim() || null,
-        workStart,
-        workEnd,
         hireDate: hireDate || null,
         baseMonthlySalary: salary.trim() ? Number(salary) : null,
       })
@@ -159,8 +153,6 @@ export function MembersScreen() {
       setEmail('')
       setName('')
       setDepartCd('')
-      setWorkStart(DEFAULT_WORK_START)
-      setWorkEnd(DEFAULT_WORK_END)
       setHireDate('')
       setSalary('')
       await reload()
@@ -332,18 +324,9 @@ export function MembersScreen() {
               <input value={departCd} onChange={(e) => setDepartCd(e.target.value)} />
               {fieldErrors.departCd && <span className="error">{fieldErrors.departCd}</span>}
             </label>
-            <div className="field-row">
-              <label>
-                {t('WORK_START')}
-                <TimeField value={workStart} onChange={setWorkStart} ariaLabel={t('WORK_START')} />
-                {fieldErrors.workStart && <span className="error">{fieldErrors.workStart}</span>}
-              </label>
-              <label>
-                {t('WORK_END')}
-                <TimeField value={workEnd} onChange={setWorkEnd} ariaLabel={t('WORK_END')} />
-                {fieldErrors.workEnd && <span className="error">{fieldErrors.workEnd}</span>}
-              </label>
-            </div>
+            {/* 근무시간은 등록 시 묻지 않는다 — 회사 기본 스케줄이 등록과 동시에 이 멤버의 정기 스케줄로
+                자동 생성되고, 개별 조정은 '관리 → 근무 스케줄'에서 한다(이중 설정 제거) */}
+            <p className="hint">{t('SCHEDULE_AUTO_HINT')}</p>
             {/* 입사일(선택) — 연차 계산 기준. 미입력 시 등록일(#11) */}
             <label>
               {t('HIRE_DATE')}

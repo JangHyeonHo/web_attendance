@@ -43,17 +43,20 @@ public class MemberService {
     private final MemberInviteService memberInviteService;
     private final PasswordResetRateLimiter rateLimiter;
     private final BillingService billingService;
+    private final com.attendance.pro.attendance.ScheduleAdminService scheduleAdminService;
     private final PasswordEncoder passwordEncoder;
     private final SecureRandom random = new SecureRandom();
 
     public MemberService(UserMapper userMapper, UserTokenService userTokenService,
             MemberInviteService memberInviteService, PasswordResetRateLimiter rateLimiter,
-            BillingService billingService) {
+            BillingService billingService,
+            com.attendance.pro.attendance.ScheduleAdminService scheduleAdminService) {
         this.userMapper = userMapper;
         this.userTokenService = userTokenService;
         this.memberInviteService = memberInviteService;
         this.rateLimiter = rateLimiter;
         this.billingService = billingService;
+        this.scheduleAdminService = scheduleAdminService;
         this.passwordEncoder = new BCryptPasswordEncoder(12); //강도 12(권장)
     }
 
@@ -112,6 +115,8 @@ public class MemberService {
             //existsByEmail 검사와 INSERT 사이의 동시 등록 레이스 — UNIQUE(email_key) 위반을 같은 409로
             throw ApiException.conflict("EMAIL_DUPLICATED", "member.email.duplicated");
         }
+        //스케줄 단일화: 회사 기본 스케줄을 이 멤버의 정기 스케줄로 자동 생성(템플릿 없으면 no-op)
+        scheduleAdminService.initFromTenantDefault(tenantId, create.getUserId());
         //메일 발송은 등록 트랜잭션과 분리 — 실패해도 멤버·토큰은 존재(mailSent=false → 재발송 유도)
         InviteOutcome mail = memberInviteService.sendInvite(tenantId, create.getUserId(),
                 create.getEmail(), create.getName(), inviterName);

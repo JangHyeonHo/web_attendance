@@ -43,11 +43,13 @@ public class TenantService {
     private final LeaveService leaveService;
     private final PasswordResetRateLimiter rateLimiter;
     private final TransactionTemplate transactionTemplate;
+    private final com.attendance.pro.attendance.ScheduleAdminService scheduleAdminService;
 
     public TenantService(TenantMapper tenantMapper, UserMapper userMapper, MemberService memberService,
             MemberInviteService memberInviteService, HolidayService holidayService,
             LeaveService leaveService, PasswordResetRateLimiter rateLimiter,
-            TransactionTemplate transactionTemplate) {
+            TransactionTemplate transactionTemplate,
+            com.attendance.pro.attendance.ScheduleAdminService scheduleAdminService) {
         this.tenantMapper = tenantMapper;
         this.userMapper = userMapper;
         this.memberService = memberService;
@@ -56,6 +58,7 @@ public class TenantService {
         this.leaveService = leaveService;
         this.rateLimiter = rateLimiter;
         this.transactionTemplate = transactionTemplate;
+        this.scheduleAdminService = scheduleAdminService;
     }
 
     /**
@@ -78,8 +81,12 @@ public class TenantService {
         Provisioned provisioned = transactionTemplate.execute(status -> {
             TenantCreate create = new TenantCreate(request.tenantCode(), request.name(), country.name());
             tenantMapper.insert(create);
+            //회사 기본 스케줄 시드(스케줄 단일화) — 신규 멤버 등록 시 정기 스케줄로 복제된다
+            scheduleAdminService.seedTenantDefault(create.getTenantId());
             long adminUserId = memberService.registerPendingAdmin(create.getTenantId(),
                     request.adminEmail(), request.adminName());
+            //최초 관리자도 정기 스케줄 자동 생성(등록 경로를 우회하므로 여기서 직접)
+            scheduleAdminService.initFromTenantDefault(create.getTenantId(), adminUserId);
             //국가별 기본 휴가 종류 시드(#10) — 연차 자동계산이 findAnnual에 의존하므로 생성 시점에 보장
             leaveService.seedDefaults(create.getTenantId(), country.name());
             return new Provisioned(create.getTenantId(), adminUserId);

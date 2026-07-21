@@ -28,12 +28,65 @@ public class ScheduleAdminService {
     private final ScheduleMapper scheduleMapper;
     private final SchedulePatternMapper patternMapper;
     private final UserMapper userMapper;
+    private final TenantDefaultScheduleMapper tenantDefaultScheduleMapper;
 
     public ScheduleAdminService(ScheduleMapper scheduleMapper, SchedulePatternMapper patternMapper,
-            UserMapper userMapper) {
+            UserMapper userMapper, TenantDefaultScheduleMapper tenantDefaultScheduleMapper) {
         this.scheduleMapper = scheduleMapper;
         this.patternMapper = patternMapper;
         this.userMapper = userMapper;
+        this.tenantDefaultScheduleMapper = tenantDefaultScheduleMapper;
+    }
+
+    /**
+     * 멤버 등록 시: 회사 기본 스케줄 템플릿을 그 멤버의 정기 스케줄(패턴)로 복제(스케줄 단일화).
+     * 이미 패턴이 있거나 템플릿이 없으면 아무것도 하지 않는다(멱등·방어).
+     */
+    @Transactional
+    public void initFromTenantDefault(long tenantId, long userId) {
+        if (patternMapper.findByUser(tenantId, userId) != null) {
+            return;
+        }
+        List<TenantDefaultScheduleMapper.DefaultDay> template = tenantDefaultScheduleMapper.findByTenant(tenantId);
+        if (template.isEmpty()) {
+            return;
+        }
+        SchedulePatternMapper.PatternInsert pi =
+                new SchedulePatternMapper.PatternInsert(tenantId, userId, 1, LocalDate.of(2024, 1, 1));
+        patternMapper.insertPattern(pi);
+        long patternId = pi.getPatternId();
+        List<SchedulePatternSlot> slots = template.stream()
+                .map(d -> new SchedulePatternSlot(patternId, 0, d.dayOfWeek(), d.off(),
+                        d.startTime(), d.endTime(), d.crossesMidnight()))
+                .toList();
+        patternMapper.insertSlots(patternId, slots);
+    }
+
+    /** 회사 기본 스케줄 조회(회사설정 편집용) — 없으면 빈 목록. */
+    @Transactional(readOnly = true)
+    public List<TenantDefaultScheduleMapper.DefaultDay> tenantDefault(long tenantId) {
+        return tenantDefaultScheduleMapper.findByTenant(tenantId);
+    }
+
+    /** 회사 기본 스케줄 저장(교체) — 7행(월~일)으로 재작성. */
+    @Transactional
+    public void saveTenantDefault(long tenantId, List<TenantDefaultScheduleMapper.DefaultDay> days) {
+        tenantDefaultScheduleMapper.deleteByTenant(tenantId);
+        tenantDefaultScheduleMapper.insertDays(tenantId, days);
+    }
+
+    /** 새 테넌트 기본 스케줄 시드 — 월~금 09:00~18:00 근무, 토·일 휴무. */
+    @Transactional
+    public void seedTenantDefault(long tenantId) {
+        LocalTime start = LocalTime.of(9, 0);
+        LocalTime end = LocalTime.of(18, 0);
+        List<TenantDefaultScheduleMapper.DefaultDay> days = new java.util.ArrayList<>();
+        for (int dow = 1; dow <= 7; dow++) {
+            boolean off = dow >= 6; //토(6)·일(7) 휴무
+            days.add(new TenantDefaultScheduleMapper.DefaultDay(dow, off,
+                    off ? null : start, off ? null : end, false));
+        }
+        saveTenantDefault(tenantId, days);
     }
 
     /** 그 달의 일자 오버라이드(로타 셀) 조회 — 편집기 초기 로드용. */
