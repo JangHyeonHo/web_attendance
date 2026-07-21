@@ -220,11 +220,14 @@ export const attendanceCloseApi = {
     del<CloseStatusResponse>(`/api/v1/attendance/close?year=${year}&month=${month}`),
 }
 
-/** 근태 마감 결재(HR_ADMIN/TENANT_ADMIN) — 대기 목록 + 승인/반려(W021) */
+/** 근태 마감 결재(HR_ADMIN/TENANT_ADMIN) — 대기 목록 + 승인/반려 + 급여 정산(참고, 관리자만)(W021) */
 export const tenantCloseApi = {
   pending: () => get<PendingCloseResponse[]>('/api/v1/tenant/attendance-close/pending'),
   decide: (closeId: number, approve: boolean, note?: string) =>
     post<void>(`/api/v1/tenant/attendance-close/${closeId}/decision`, { approve, note }),
+  /** 멤버 급여 정산(참고) — 관리자 전용. 마감 검토 시 확인 */
+  payroll: (userId: number, year: number, month: number) =>
+    get<PayrollResponse>(`/api/v1/tenant/attendance-close/${userId}/payroll?year=${year}&month=${month}`),
 }
 
 /** TENANT_ADMIN+HR_ADMIN — 월 로타(일자 오버라이드: 야간교대·휴무). #13 */
@@ -263,9 +266,6 @@ export const attendanceApi = {
   confirm: (request: ConfirmRequest) => post<StampResponse>('/api/v1/attendance', request),
   monthly: (year: number, month: number) =>
     get<MonthlyResponse>(`/api/v1/attendance/monthly?year=${year}&month=${month}`),
-  /** 급여 정산(참고) — 본인 월 근태 기반 가감 명세(월 기본급 미입력이면 available=false) */
-  payroll: (year: number, month: number) =>
-    get<PayrollResponse>(`/api/v1/attendance/payroll?year=${year}&month=${month}`),
   /** 근태 보고서 설정(결재란 표시) 조회 — 전 멤버(인쇄 시 결재란 판단) */
   reportSetting: () => get<ReportSetting>('/api/v1/attendance/report-setting'),
   /** 수동 정정 등록(사유 필수) — MANUAL로 기록되어 버튼 스탬프와 구분 */

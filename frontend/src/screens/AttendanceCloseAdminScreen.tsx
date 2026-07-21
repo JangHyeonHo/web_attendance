@@ -3,8 +3,9 @@ import { tenantCloseApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { languageApi } from '../api/endpoints'
+import { localeOf } from '../i18n/lang'
 import { Modal } from '../components/Modal'
-import type { PendingCloseResponse } from '../api/types'
+import type { PayrollSettlement, PendingCloseResponse } from '../api/types'
 
 /**
  * W021 근태 마감 관리 — 멤버가 신청한 월 마감을 인사관리자가 승인/반려한다.
@@ -19,8 +20,29 @@ export function AttendanceCloseAdminScreen() {
   //반려 사유 입력 모달
   const [rejecting, setRejecting] = useState<PendingCloseResponse | null>(null)
   const [rejectNote, setRejectNote] = useState('')
+  //급여 정산(참고) 펼침 — closeId별. settlement=null이면 미입력
+  const [payrollOpen, setPayrollOpen] = useState<number | null>(null)
+  const [payroll, setPayroll] = useState<{ available: boolean; s: PayrollSettlement | null }>({
+    available: false,
+    s: null,
+  })
 
   const t = useCallback((k: string) => texts[k] ?? commonT(k), [texts, commonT])
+
+  async function togglePayroll(r: PendingCloseResponse) {
+    if (payrollOpen === r.closeId) {
+      setPayrollOpen(null)
+      return
+    }
+    setPayrollOpen(r.closeId)
+    setPayroll({ available: false, s: null })
+    try {
+      const p = await tenantCloseApi.payroll(r.userId, r.year, r.month)
+      setPayroll({ available: p.available, s: p.settlement })
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : String(e))
+    }
+  }
 
   useEffect(() => {
     languageApi.texts('W021', lang).then(setTexts).catch(() => {})
@@ -74,7 +96,7 @@ export function AttendanceCloseAdminScreen() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
+              {rows.map((r) => ([
                 <tr key={r.closeId}>
                   <td>{r.userName}</td>
                   <td>{r.year}. {String(r.month).padStart(2, '0')}</td>
@@ -91,10 +113,20 @@ export function AttendanceCloseAdminScreen() {
                       <button disabled={busy} onClick={() => setRejecting(r)}>
                         {t('CLOSE_REJECT')}
                       </button>
+                      <button onClick={() => void togglePayroll(r)}>
+                        {t('PAYROLL_TITLE')}
+                      </button>
                     </div>
                   </td>
-                </tr>
-              ))}
+                </tr>,
+                payrollOpen === r.closeId && (
+                  <tr key={`${r.closeId}-pay`} className="payroll-expand">
+                    <td colSpan={4}>
+                      <PayrollView data={payroll} lang={lang} t={t} />
+                    </td>
+                  </tr>
+                ),
+              ]))}
             </tbody>
           </table>
         </div>
@@ -130,5 +162,66 @@ export function AttendanceCloseAdminScreen() {
         </Modal>
       )}
     </div>
+  )
+}
+
+/**
+ * 급여 정산(참고) 표 — 관리자 전용. 근태 기반 가감 명세. 실지급이 아닌 참고값.
+ * 월 기본급 미입력이면 안내만 표시. 국가별(원/円) 통화.
+ */
+function PayrollView({
+  data,
+  lang,
+  t,
+}: {
+  data: { available: boolean; s: PayrollSettlement | null }
+  lang: string
+  t: (key: string) => string
+}) {
+  if (!data.available || !data.s) {
+    return <p className="muted">{t('PAYROLL_UNSET')}</p>
+  }
+  const s = data.s
+  const unit = s.country === 'JP' ? '円' : '원'
+  const won = (n: number) => `${n.toLocaleString(localeOf(lang as never))}${unit}`
+  const hrs = (m: number) => `${(m / 60).toFixed(1)}h`
+  return (
+    <section className="payroll-panel">
+      <table className="payroll-table">
+        <tbody>
+          <tr>
+            <th>{t('PAYROLL_BASE')}</th>
+            <td className="num">{won(s.baseMonthlySalary)}</td>
+            <td className="muted">{t('PAYROLL_HOURLY')} {won(s.hourlyWage)}</td>
+          </tr>
+          <tr>
+            <th>{t('PAYROLL_OT')}</th>
+            <td className="num plus">+{won(s.overtimePay)}</td>
+            <td className="muted">{hrs(s.overtimeMinutes)}</td>
+          </tr>
+          <tr>
+            <th>{t('PAYROLL_NIGHT')}</th>
+            <td className="num plus">+{won(s.nightPay)}</td>
+            <td className="muted">{hrs(s.nightMinutes)}</td>
+          </tr>
+          <tr>
+            <th>{t('PAYROLL_HOLIDAY')}</th>
+            <td className="num plus">+{won(s.holidayPay)}</td>
+            <td className="muted">{hrs(s.holidayWorkMinutes)}</td>
+          </tr>
+          <tr>
+            <th>{t('PAYROLL_DEDUCT')}</th>
+            <td className="num minus">-{won(s.deduction)}</td>
+            <td className="muted">{hrs(s.shortfallMinutes)}</td>
+          </tr>
+          <tr className="payroll-net">
+            <th>{t('PAYROLL_NET')}</th>
+            <td className="num">{s.netAdjustment >= 0 ? '+' : ''}{won(s.netAdjustment)}</td>
+            <td />
+          </tr>
+        </tbody>
+      </table>
+      <p className="hint">{t('PAYROLL_NOTE')}</p>
+    </section>
   )
 }

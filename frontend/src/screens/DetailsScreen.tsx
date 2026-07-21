@@ -15,7 +15,6 @@ import type {
   DailyStampEntry,
   ManualReason,
   MonthlyResponse,
-  PayrollSettlement,
 } from '../api/types'
 
 /** 분 → 소수 시간(엑셀 보고서와 동일한 0.00 표기 — 서버는 수치만, 표기는 화면 책임). null은 '-' */
@@ -87,8 +86,6 @@ export function DetailsScreen() {
   const [closeStatus, setCloseStatus] = useState<CloseStatusResponse | null>(null)
   const [closeBusy, setCloseBusy] = useState(false)
   const [closeConfirm, setCloseConfirm] = useState(false)
-  //급여 정산(참고) — 월 기본급 미입력이면 null
-  const [payroll, setPayroll] = useState<PayrollSettlement | null>(null)
   //근무표 다운로드 확인 모달 — 형식 선택 시 바로 실행하지 않고 확인 후 실행
   const [pendingDownload, setPendingDownload] = useState<'excel' | 'pdf' | null>(null)
 
@@ -192,18 +189,12 @@ export function DetailsScreen() {
     }
   }, [year, month])
 
-  //마감 상태 + 급여 정산(참고) — 월 전환 시 함께 갱신(실패는 무시, 화면 안전)
-  const reloadCloseAndPayroll = useCallback(async () => {
+  //마감 상태 — 월 전환 시 갱신(실패는 무시, 화면 안전). 급여 정산은 관리자 전용이라 여기서 조회하지 않는다.
+  const reloadClose = useCallback(async () => {
     try {
       setCloseStatus(await attendanceCloseApi.status(year, month))
     } catch {
       setCloseStatus(null)
-    }
-    try {
-      const p = await attendanceApi.payroll(year, month)
-      setPayroll(p.available ? p.settlement : null)
-    } catch {
-      setPayroll(null)
     }
   }, [year, month])
 
@@ -212,8 +203,8 @@ export function DetailsScreen() {
   }, [reload])
 
   useEffect(() => {
-    void reloadCloseAndPayroll()
-  }, [reloadCloseAndPayroll])
+    void reloadClose()
+  }, [reloadClose])
 
   const locked = closeStatus?.status === 'APPROVED'
 
@@ -554,8 +545,6 @@ export function DetailsScreen() {
         </table>
         </div>
       )}
-      {/* 급여 정산(참고) — 월 기본급 입력 시 근태 기반 가감 명세 */}
-      <PayrollPanel payroll={payroll} lang={lang} t={t} />
       </div>{/* /no-print att-interactive */}
       </div>
       )}
@@ -773,72 +762,6 @@ export function DetailsScreen() {
         </Modal>
       )}
     </div>
-  )
-}
-
-/**
- * 급여 정산(참고) 패널 — 근태 기반 가감 명세. 월 기본급 미입력이면 안내만 표시.
- * 국가별(원/円) 통화 표기. 실지급이 아닌 참고값(주의 문구 포함).
- */
-function PayrollPanel({
-  payroll,
-  lang,
-  t,
-}: {
-  payroll: PayrollSettlement | null
-  lang: string
-  t: (key: string) => string
-}) {
-  if (!payroll) {
-    return (
-      <section className="payroll-panel">
-        <h3 className="section-head">{t('PAYROLL_TITLE')}</h3>
-        <p className="muted">{t('PAYROLL_UNSET')}</p>
-      </section>
-    )
-  }
-  const unit = payroll.country === 'JP' ? '円' : '원'
-  const won = (n: number) => `${n.toLocaleString(localeOf(lang as never))}${unit}`
-  const hrs = (m: number) => `${(m / 60).toFixed(1)}h`
-  return (
-    <section className="payroll-panel">
-      <h3 className="section-head">{t('PAYROLL_TITLE')}</h3>
-      <table className="payroll-table">
-        <tbody>
-          <tr>
-            <th>{t('PAYROLL_BASE')}</th>
-            <td className="num">{won(payroll.baseMonthlySalary)}</td>
-            <td className="muted">{t('PAYROLL_HOURLY')} {won(payroll.hourlyWage)}</td>
-          </tr>
-          <tr>
-            <th>{t('PAYROLL_OT')}</th>
-            <td className="num plus">+{won(payroll.overtimePay)}</td>
-            <td className="muted">{hrs(payroll.overtimeMinutes)}</td>
-          </tr>
-          <tr>
-            <th>{t('PAYROLL_NIGHT')}</th>
-            <td className="num plus">+{won(payroll.nightPay)}</td>
-            <td className="muted">{hrs(payroll.nightMinutes)}</td>
-          </tr>
-          <tr>
-            <th>{t('PAYROLL_HOLIDAY')}</th>
-            <td className="num plus">+{won(payroll.holidayPay)}</td>
-            <td className="muted">{hrs(payroll.holidayWorkMinutes)}</td>
-          </tr>
-          <tr>
-            <th>{t('PAYROLL_DEDUCT')}</th>
-            <td className="num minus">-{won(payroll.deduction)}</td>
-            <td className="muted">{hrs(payroll.shortfallMinutes)}</td>
-          </tr>
-          <tr className="payroll-net">
-            <th>{t('PAYROLL_NET')}</th>
-            <td className="num">{payroll.netAdjustment >= 0 ? '+' : ''}{won(payroll.netAdjustment)}</td>
-            <td />
-          </tr>
-        </tbody>
-      </table>
-      <p className="hint">{t('PAYROLL_NOTE')}</p>
-    </section>
   )
 }
 
