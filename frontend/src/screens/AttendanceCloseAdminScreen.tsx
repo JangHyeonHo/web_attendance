@@ -185,6 +185,10 @@ function PayrollView({
   const unit = s.country === 'JP' ? '円' : '원'
   const won = (n: number) => `${n.toLocaleString(localeOf(lang as never))}${unit}`
   const hrs = (m: number) => `${(m / 60).toFixed(1)}h`
+  const L = (ko: string, en: string, ja: string) => (lang === 'ENG' ? en : lang === 'JPN' ? ja : ko)
+  //통상시급 환산 제수(월 기본급 ÷ 통상시급 ≈ 소정근로시간) — 산식 표기용
+  const divisor = s.hourlyWage > 0 ? Math.round(s.baseMonthlySalary / s.hourlyWage) : 0
+  const estimatedPay = s.baseMonthlySalary + s.netAdjustment
   return (
     <section className="payroll-panel">
       <table className="payroll-table">
@@ -192,7 +196,7 @@ function PayrollView({
           <tr>
             <th>{t('PAYROLL_BASE')}</th>
             <td className="num">{won(s.baseMonthlySalary)}</td>
-            <td className="muted">{t('PAYROLL_HOURLY')} {won(s.hourlyWage)}</td>
+            <td className="muted">{t('PAYROLL_HOURLY')} {won(s.hourlyWage)} <span className="payroll-formula">= {won(s.baseMonthlySalary)} ÷ {divisor}h</span></td>
           </tr>
           <tr>
             <th>{t('PAYROLL_OT')}</th>
@@ -214,10 +218,15 @@ function PayrollView({
             <td className="num minus">-{won(s.deduction)}</td>
             <td className="muted">{hrs(s.shortfallMinutes)}</td>
           </tr>
-          <tr className="payroll-net">
+          <tr>
             <th>{t('PAYROLL_NET')}</th>
             <td className="num">{s.netAdjustment >= 0 ? '+' : ''}{won(s.netAdjustment)}</td>
-            <td />
+            <td className="muted">{L('기본급 대비 가감', 'vs base', '基本給比')}</td>
+          </tr>
+          <tr className="payroll-net">
+            <th>{L('예상 실지급', 'Est. net pay', '支給見込')}</th>
+            <td className="num">{won(estimatedPay)}</td>
+            <td className="muted">{L('기본급 + 가감', 'base + adj.', '基本給+増減')}</td>
           </tr>
         </tbody>
       </table>
