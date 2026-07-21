@@ -3635,27 +3635,44 @@ form label .pw-field input {
   margin: 4px 0 12px;
 }
 
-/* 멤버 검색 필터(#6) — 텍스트 + 근무 시간대. 좁은 화면에서 줄바꿈 */
+/*
+ * 멤버 검색 필터(#6) — 텍스트 검색 + 근무 시점(날짜·시각).
+ * 앞뒤 컨트롤의 높이(입력 vs 커스텀 셀렉트 버튼)를 42px로 통일하고 세로 중앙 정렬해 라인이 맞도록.
+ */
 .member-filter {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 16px;
+  align-items: center;
+  gap: 12px 16px;
+  margin: 4px 0 12px;
 }
 .member-filter .member-search {
-  margin-bottom: 4px;
+  margin: 0;
+  height: 42px;
 }
 .member-filter-working {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 12px;
+  margin: 0;
 }
 .member-filter-working .field-label {
   margin: 0 4px 0 0;
 }
+/* 날짜·시각 셀렉트 트리거 높이를 텍스트 검색과 동일하게(버튼 기본 min-height 40 → 42로 통일) */
+.member-filter-working .field-select-trigger {
+  min-height: 42px;
+  height: 42px;
+}
+/* 날짜를 고르기 전/후 폭이 튀지 않게 최소 폭 확보 */
+.member-filter-working .date-field {
+  min-width: 148px;
+}
+.member-filter-working .time-picker {
+  min-width: 104px;
+}
 .working-hint {
-  margin: -4px 0 12px;
+  margin: -4px 0 14px;
   font-size: 0.9rem;
 }
 
