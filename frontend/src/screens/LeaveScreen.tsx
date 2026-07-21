@@ -5,7 +5,7 @@ import { leaveApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { Modal } from '../components/Modal'
-import { SelectField, TimeField } from '../components/fields'
+import { SelectField, TimeField, TextAreaField, ModalSubject } from '../components/fields'
 import { DateField } from '../components/DateField'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { formatLeaveAmount } from '../util/leaveFormat'
@@ -359,7 +359,7 @@ export function LeaveScreen() {
 
       {cancelTarget && (
         <Modal title={t('CANCEL')} onClose={() => setCancelTarget(null)} danger>
-          <p className="center">{periodText(cancelTarget)} — {t('CANCEL')}?</p>
+          <ModalSubject primary={periodText(cancelTarget)} />
           <div className="btn-row">
             <button className="primary" onClick={() => void runCancel(cancelTarget.leaveRequestId)}>
               {t('SUBMIT')}
@@ -371,16 +371,14 @@ export function LeaveScreen() {
 
       {cancelReqTarget && (
         <Modal title={t('REQUEST_CANCEL')} onClose={() => setCancelReqTarget(null)} danger>
-          <p className="center">{periodText(cancelReqTarget)}</p>
-          <label>
-            {t('CANCEL_REASON')}
-            <input
-              value={cancelReqReason}
-              onChange={(e) => setCancelReqReason(e.target.value)}
-              maxLength={200}
-              autoFocus
-            />
-          </label>
+          <ModalSubject primary={periodText(cancelReqTarget)} />
+          <TextAreaField
+            label={t('CANCEL_REASON')}
+            value={cancelReqReason}
+            onChange={setCancelReqReason}
+            maxLength={200}
+            autoFocus
+          />
           <div className="btn-row">
             <button
               className="primary"

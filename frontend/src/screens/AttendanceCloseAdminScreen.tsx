@@ -5,6 +5,7 @@ import { useApp } from '../app/AppContext'
 import { languageApi } from '../api/endpoints'
 import { localeOf } from '../i18n/lang'
 import { Modal } from '../components/Modal'
+import { TextAreaField, ModalSubject } from '../components/fields'
 import type { PayrollSettlement, PendingCloseResponse } from '../api/types'
 
 /**
@@ -163,19 +164,19 @@ export function AttendanceCloseAdminScreen() {
 
       {rejecting && (
         <Modal
-          title={`${rejecting.userName} — ${t('CLOSE_REJECT')}`}
+          title={t('CLOSE_REJECT')}
           onClose={() => setRejecting(null)}
           danger
         >
-          <p className="center">
-            {rejecting.year}. {String(rejecting.month).padStart(2, '0')}
-          </p>
-          <input
-            className="reason-input"
+          <ModalSubject
+            primary={rejecting.userName}
+            secondary={`${rejecting.year}. ${String(rejecting.month).padStart(2, '0')}`}
+          />
+          <TextAreaField
+            label={commonT('REASON')}
             value={rejectNote}
+            onChange={setRejectNote}
             maxLength={200}
-            placeholder={commonT('REASON')}
-            onChange={(e) => setRejectNote(e.target.value)}
             autoFocus
           />
           <div className="btn-row">

@@ -78,6 +78,93 @@ export function SelectField({ value, options, onChange, ariaLabel, compact }: Se
   )
 }
 
+interface TextFieldProps {
+  label: string
+  value: string
+  onChange: (value: string) => void
+  type?: 'text' | 'email' | 'number'
+  placeholder?: string
+  maxLength?: number
+  min?: number
+  required?: boolean
+  autoFocus?: boolean
+  numeric?: boolean
+  error?: string
+}
+
+/**
+ * 공통 라벨 입력 — 모든 모달의 단일행 필드를 한 규격으로(라벨 위·입력 100%).
+ * 폼 사용 여부와 무관하게 동일하게 보이도록 .form-field 스타일로 자기완결.
+ */
+export function TextField({
+  label, value, onChange, type = 'text', placeholder, maxLength, min, required, autoFocus, numeric, error,
+}: TextFieldProps) {
+  return (
+    <label className="form-field">
+      <span className="form-field-label">{label}</span>
+      <input
+        className="form-field-input"
+        type={type}
+        value={value}
+        placeholder={placeholder}
+        maxLength={maxLength}
+        min={min}
+        required={required}
+        autoFocus={autoFocus}
+        inputMode={numeric ? 'numeric' : undefined}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      {error && <span className="error">{error}</span>}
+    </label>
+  )
+}
+
+interface TextAreaFieldProps {
+  label: string
+  value: string
+  onChange: (value: string) => void
+  placeholder?: string
+  maxLength?: number
+  rows?: number
+  autoFocus?: boolean
+}
+
+/**
+ * 공통 라벨 텍스트영역 — 사유·메모 등 여러 줄이 자연스러운 자유 입력용.
+ * 반려/취소 사유처럼 길어질 수 있는 값은 단일행 input 대신 이것으로 통일한다.
+ */
+export function TextAreaField({
+  label, value, onChange, placeholder, maxLength, rows = 3, autoFocus,
+}: TextAreaFieldProps) {
+  return (
+    <label className="form-field">
+      <span className="form-field-label">{label}</span>
+      <textarea
+        className="form-field-input"
+        value={value}
+        placeholder={placeholder}
+        maxLength={maxLength}
+        rows={rows}
+        autoFocus={autoFocus}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </label>
+  )
+}
+
+/**
+ * 모달 대상 표시 — "이름 — 유형" 처럼 떠 있던 가운데 텍스트를 정돈된 헤더 블록으로.
+ * primary(굵게) 위, secondary(연하게) 아래. 확인/반려/취소 모달 공통.
+ */
+export function ModalSubject({ primary, secondary }: { primary: string; secondary?: string }) {
+  return (
+    <div className="modal-subject">
+      <strong>{primary}</strong>
+      {secondary && <span>{secondary}</span>}
+    </div>
+  )
+}
+
 const HOURS = Array.from({ length: 24 }, (_, h) => String(h).padStart(2, '0'))
 const MINUTES = Array.from({ length: 60 }, (_, m) => String(m).padStart(2, '0'))
 

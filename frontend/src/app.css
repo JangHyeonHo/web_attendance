@@ -745,6 +745,90 @@ form button.primary {
   border-color: var(--accent);
   color: var(--accent-dark);
 }
+
+/* 목록은 표시 전용 — 행 오른쪽 '관리' 버튼 하나로 편집 패널을 연다 */
+.row-actions-cell {
+  text-align: right;
+  white-space: nowrap;
+}
+/* 부드러운 보조 버튼(목록의 '관리') */
+button.ghost {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 16px;
+  min-height: 32px;
+  font-size: 13px;
+}
+button.ghost:hover {
+  border-color: var(--accent);
+  color: var(--accent-dark);
+  background: var(--surface-alt);
+}
+
+/* 상태 배지(목록·관리 패널 공용) */
+.member-status {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+.member-status-active {
+  color: var(--success);
+  background: rgba(37, 110, 60, 0.1);
+}
+.member-status-disabled {
+  color: var(--muted);
+  background: var(--surface-alt);
+}
+.member-status-pending {
+  color: var(--info);
+  background: rgba(59, 98, 181, 0.1);
+}
+
+/* 멤버 관리 패널 — 라벨 + 값/조작을 한 규격으로 나열 */
+.manage-field {
+  margin-bottom: 16px;
+}
+.manage-field > .form-field-label {
+  display: block;
+  margin-bottom: 6px;
+}
+.manage-value {
+  font-size: 15px;
+  color: var(--text);
+}
+.manage-value-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.manage-inline-save {
+  display: flex;
+  justify-content: flex-end;
+  margin: -8px 0 18px;
+}
+.manage-inline-save button.primary {
+  width: auto;
+  margin: 0;
+  min-width: 96px;
+}
+.manage-danger {
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+button.danger-outline {
+  background: transparent;
+  border: 1px solid var(--error);
+  color: var(--error);
+}
+button.danger-outline:hover {
+  background: rgba(179, 55, 42, 0.1);
+  border-color: var(--error);
+}
 /* 전체 화면 편집기(모달 대신 목록을 밀어내고 채우는 서브스크린, #13) */
 .subscreen-head {
   display: flex;
@@ -1123,6 +1207,53 @@ form button.primary {
 .modal-body > button.primary {
   width: 100%;
   margin-top: 16px;
+}
+
+/*
+ * 공통 필드 컴포넌트(TextField/TextAreaField) — 폼/비폼 무관 동일 규격.
+ * 라벨은 항상 필드 위(누락 없이), 입력/텍스트영역은 100% 폭. 필드마다 제각각이던 모달을 한 규격으로.
+ */
+.form-field {
+  display: block;
+  margin-bottom: 16px;
+}
+.form-field-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.form-field-input {
+  display: block;
+  width: 100%;
+  font-weight: 400;
+  color: var(--text);
+}
+textarea.form-field-input {
+  min-height: 82px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+/* 모달 대상 표시 — "이름 — 유형" 떠 있던 가운데 텍스트를 정돈된 헤더 블록으로 */
+.modal-subject {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  background: var(--surface-alt);
+  border-radius: var(--radius-sm);
+}
+.modal-subject strong {
+  font-size: 15px;
+  color: var(--text);
+}
+.modal-subject span {
+  font-size: 13px;
+  color: var(--muted);
 }
 
 @keyframes overlay-in {

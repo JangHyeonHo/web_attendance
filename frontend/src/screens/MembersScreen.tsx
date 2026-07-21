@@ -5,7 +5,7 @@ import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { Modal } from '../components/Modal'
 import { ScheduleEditor } from '../components/ScheduleEditor'
-import { SelectField, TimeField } from '../components/fields'
+import { SelectField, TimeField, TextField, ModalSubject } from '../components/fields'
 import { DateField } from '../components/DateField'
 import type { MemberSummary, Role, UserStatus } from '../api/types'
 
@@ -81,8 +81,11 @@ export function MembersScreen() {
 
   //행 조작
   const [pending, setPending] = useState<PendingAction | null>(null)
-  //월 기본급 수정 대상 — 급여 정산 기준값(멤버 관리에서 조정)
-  const [salaryEdit, setSalaryEdit] = useState<{ userId: number; name: string; value: string } | null>(null)
+  //멤버 관리 패널 — 목록은 표시만 하고, 역할·상태·급여·스케줄·삭제는 이 패널에서 처리
+  const [manageMember, setManageMember] = useState<MemberSummary | null>(null)
+  const [manageSalary, setManageSalary] = useState('')
+  const [manageBusy, setManageBusy] = useState(false)
+  const [manageError, setManageError] = useState<string | null>(null)
   //통합 근무 스케줄 화면 대상(#1,#13) — 개인 기본 + 반복 패턴 + 월 달력(예외)을 한 화면에서
   const [scheduleMember, setScheduleMember] = useState<
     { userId: number; name: string; email: string; workStart: string; workEnd: string; workDays: string } | null
@@ -173,20 +176,6 @@ export function MembersScreen() {
     }
   }
 
-  /** 재발송 — 파괴적 조작이 아니므로 즉시 실행(구 링크는 서버가 무효화) */
-  async function resendInvite(userId: number) {
-    setRowError(null)
-    try {
-      const response = await tenantMemberApi.invite(userId)
-      if (!response.mailSent) {
-        setRowError({ userId, message: t('MAIL_FAILED') })
-      }
-      await reload()
-    } catch (e) {
-      setRowError({ userId, message: e instanceof ApiError ? e.message : String(e) })
-    }
-  }
-
   async function removeMember(userId: number) {
     setPending(null)
     setRowError(null)
@@ -210,32 +199,48 @@ export function MembersScreen() {
     }
   }
 
-  async function updateRole(userId: number, role: Role) {
-    setPending(null)
-    setRowError(null)
+  //관리 패널에서 편집 대상이 바뀌면 급여 입력값·오류를 그 멤버 기준으로 초기화
+  useEffect(() => {
+    if (manageMember) {
+      setManageSalary(manageMember.baseMonthlySalary == null ? '' : String(manageMember.baseMonthlySalary))
+      setManageError(null)
+    }
+  }, [manageMember])
+
+  /**
+   * 관리 패널 내 즉시 반영 조작(역할·급여·활성화·재발송). 성공 후 목록을 새로고침하고,
+   * 패널이 열린 채로 최신 멤버 값으로 갱신한다(모달은 유지). 실패는 패널 안에 표시.
+   */
+  async function manageAction(userId: number, fn: () => Promise<unknown>) {
+    setManageBusy(true)
+    setManageError(null)
     try {
-      await tenantMemberApi.updateRole(userId, { role })
-      await reload()
+      await fn()
+      const list = await tenantMemberApi.list({ q: query, workFrom, workTo })
+      setMembers(list)
+      const fresh = list.find((m) => m.userId === userId)
+      setManageMember(fresh ?? null)
     } catch (e) {
-      setRowError({ userId, message: e instanceof ApiError ? e.message : String(e) })
+      setManageError(e instanceof ApiError ? e.message : String(e))
+    } finally {
+      setManageBusy(false)
     }
   }
 
-  async function saveSalary() {
-    if (!salaryEdit) return
-    setRowError(null)
-    const raw = salaryEdit.value.trim()
-    const value = raw === '' ? null : Number(raw)
+  //관리 패널에서 초대 재발송 — 발송 실패(mailSent=false)도 멤버는 존재하므로 경고만 표시
+  async function manageResend(userId: number) {
+    setManageBusy(true)
+    setManageError(null)
     try {
-      await tenantMemberApi.updateSalary(salaryEdit.userId, value)
-      setSalaryEdit(null)
-      await reload()
+      const response = await tenantMemberApi.invite(userId)
+      const list = await tenantMemberApi.list({ q: query, workFrom, workTo })
+      setMembers(list)
+      setManageMember(list.find((m) => m.userId === userId) ?? null)
+      if (!response.mailSent) setManageError(t('MAIL_FAILED'))
     } catch (e) {
-      setRowError({
-        userId: salaryEdit.userId,
-        message: e instanceof ApiError ? e.message : String(e),
-      })
-      setSalaryEdit(null)
+      setManageError(e instanceof ApiError ? e.message : String(e))
+    } finally {
+      setManageBusy(false)
     }
   }
 
@@ -386,35 +391,126 @@ export function MembersScreen() {
         </Modal>
       )}
 
-      {salaryEdit && (
-        <Modal title={`${salaryEdit.name} — ${t('SALARY')}`} onClose={() => setSalaryEdit(null)}>
-          <label className="salary-edit">
-            {t('SALARY')}
-            <input
+      {manageMember && (() => {
+        const m = manageMember
+        const self = myUserId !== null && m.userId === myUserId
+        const isPending = m.status === 'PENDING'
+        const canRole = viewerRole === 'TENANT_ADMIN' && !self && !isPending
+        return (
+          <Modal title={t('MEMBER_MANAGE')} onClose={() => setManageMember(null)}>
+            <ModalSubject primary={m.name} secondary={m.email} />
+            {manageError && <p className="error" role="alert">{manageError}</p>}
+
+            {/* 역할 — 총관리자만 변경(직권 분산). 그 외/자기 자신/초대 대기는 표시만 */}
+            <div className="manage-field">
+              <span className="form-field-label">{t('ROLE')}</span>
+              {canRole ? (
+                <SelectField
+                  value={m.role}
+                  options={ROLE_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) }))}
+                  ariaLabel={t('ROLE')}
+                  onChange={(v) =>
+                    void manageAction(m.userId, () => tenantMemberApi.updateRole(m.userId, { role: v as Role }))
+                  }
+                />
+              ) : (
+                <span className="manage-value">{t(ROLE_LABEL_KEYS[m.role] ?? m.role)}</span>
+              )}
+            </div>
+
+            {/* 상태 — 활성/비활성 전환·초대 재발송 */}
+            <div className="manage-field">
+              <span className="form-field-label">{t('STATUS')}</span>
+              <div className="manage-value-row">
+                <span className={`member-status member-status-${m.status.toLowerCase()}`}>
+                  {t(STATUS_LABEL_KEYS[m.status])}
+                </span>
+                {!self && !isPending && m.status === 'ACTIVE' && (
+                  <button
+                    disabled={manageBusy}
+                    onClick={() => { setManageMember(null); setPending({ userId: m.userId, name: m.name, action: 'DISABLE' }) }}
+                  >
+                    {t('DISABLE')}
+                  </button>
+                )}
+                {m.status === 'DISABLED' && (
+                  <button
+                    disabled={manageBusy}
+                    onClick={() =>
+                      void manageAction(m.userId, () => tenantMemberApi.updateStatus(m.userId, { status: 'ACTIVE' }))
+                    }
+                  >
+                    {t('ENABLE')}
+                  </button>
+                )}
+                {isPending && (
+                  <button disabled={manageBusy} onClick={() => void manageResend(m.userId)}>
+                    {t('RESEND')}
+                  </button>
+                )}
+              </div>
+              {isPending && <span className="hint">{inviteExpiryLabel(m)}</span>}
+            </div>
+
+            {/* 월 기본급 — 급여 정산 기준값 */}
+            <TextField
+              label={t('SALARY')}
               type="number"
               min={0}
-              inputMode="numeric"
-              autoFocus
-              value={salaryEdit.value}
+              numeric
+              value={manageSalary}
               placeholder={t('SALARY_HINT')}
-              onChange={(e) => setSalaryEdit({ ...salaryEdit, value: e.target.value })}
+              onChange={setManageSalary}
             />
-          </label>
-          <p className="hint">{t('SALARY_HINT')}</p>
-          <div className="btn-row">
-            <button className="primary" onClick={() => void saveSalary()}>
-              {t('SALARY_SAVE')}
-            </button>
-            <button onClick={() => setSalaryEdit(null)}>{t('CANCEL')}</button>
-          </div>
-        </Modal>
-      )}
+            <div className="manage-inline-save">
+              <button
+                className="primary"
+                disabled={manageBusy}
+                onClick={() =>
+                  void manageAction(m.userId, () =>
+                    tenantMemberApi.updateSalary(m.userId, manageSalary.trim() === '' ? null : Number(manageSalary)),
+                  )
+                }
+              >
+                {t('SALARY_SAVE')}
+              </button>
+            </div>
+
+            {/* 근무 스케줄 — 개인 기본+정기+상세 통합 화면으로 이동(#1) */}
+            <div className="manage-field">
+              <span className="form-field-label">{t('SCHEDULE_TITLE')}</span>
+              <button
+                onClick={() => {
+                  setScheduleMember({
+                    userId: m.userId, name: m.name, email: m.email,
+                    workStart: m.workStart, workEnd: m.workEnd, workDays: m.workDays,
+                  })
+                  setManageMember(null)
+                }}
+              >
+                {t('EDIT_SCHEDULE')}
+              </button>
+            </div>
+
+            {/* 삭제 — 확인 모달 경유(자기 자신은 불가) */}
+            {!self && (
+              <div className="manage-danger">
+                <button
+                  className="danger-outline"
+                  disabled={manageBusy}
+                  onClick={() => { setManageMember(null); setPending({ userId: m.userId, name: m.name, action: 'DELETE' }) }}
+                >
+                  {t('DELETE')}
+                </button>
+              </div>
+            )}
+          </Modal>
+        )
+      })()}
 
       {pending && (
         <Modal title={confirmLabel(pending.action)} onClose={() => setPending(null)} danger>
-          <p className="center">
-            {pending.name} — {confirmLabel(pending.action)}
-          </p>
+          <ModalSubject primary={pending.name} secondary={confirmLabel(pending.action)} />
           {pending.action === 'DELETE' && <p className="hint center">{t('DELETE_CONFIRM')}</p>}
           <div className="btn-row">
             <button
@@ -480,7 +576,6 @@ export function MembersScreen() {
               </tr>
             )}
             {members.map((member) => {
-              const self = myUserId !== null && member.userId === myUserId
               const isPending = member.status === 'PENDING'
               return (
                 <Fragment key={member.userId}>
@@ -488,88 +583,21 @@ export function MembersScreen() {
                     <td>{member.name}</td>
                     <td>{member.email}</td>
                     <td>{member.departCd ?? '-'}</td>
+                    {/* 목록은 표시만 — 편집(역할·상태·급여·스케줄·삭제)은 '관리' 패널에서 일괄 처리 */}
+                    <td>{t(ROLE_LABEL_KEYS[member.role] ?? member.role)}</td>
                     <td>
-                      {/* 역할 지정은 총관리자 전용(직권 분산). 그 외 뷰어·자기 자신·초대 대기는 정적 라벨 */}
-                      {viewerRole === 'TENANT_ADMIN' && !self && !isPending ? (
-                        <SelectField
-                          compact
-                          value={member.role}
-                          options={ROLE_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) }))}
-                          ariaLabel={t('ROLE')}
-                          onChange={(v) => void updateRole(member.userId, v as Role)}
-                        />
-                      ) : (
-                        t(ROLE_LABEL_KEYS[member.role] ?? member.role)
-                      )}
-                    </td>
-                    <td>
-                      {t(STATUS_LABEL_KEYS[member.status])}
+                      <span className={`member-status member-status-${member.status.toLowerCase()}`}>
+                        {t(STATUS_LABEL_KEYS[member.status])}
+                      </span>
                       {isPending && <span className="hint">{inviteExpiryLabel(member)}</span>}
                     </td>
                     <td className="num">
                       {member.baseMonthlySalary == null ? '—' : member.baseMonthlySalary.toLocaleString()}
                     </td>
-                    <td>
-                      <div className="row-actions">
-                        {isPending ? (
-                          //초대 대기 행: 재발송(즉시)·삭제 — 상태 변경은 서버도 400으로 거부(§4.2)
-                          <button onClick={() => void resendInvite(member.userId)}>
-                            {t('RESEND')}
-                          </button>
-                        ) : (
-                          <>
-                            {/* 역할 변경은 역할 열의 SelectField(총관리자 전용)로 이동 */}
-                            {member.status === 'ACTIVE' && !self && (
-                              <button
-                                onClick={() =>
-                                  setPending({ userId: member.userId, name: member.name, action: 'DISABLE' })
-                                }
-                              >
-                                {t('DISABLE')}
-                              </button>
-                            )}
-                            {member.status === 'DISABLED' && (
-                              <button onClick={() => void updateStatus(member.userId, 'ACTIVE')}>
-                                {t('ENABLE')}
-                              </button>
-                            )}
-                          </>
-                        )}
-                        <button
-                          onClick={() =>
-                            setScheduleMember({
-                              userId: member.userId,
-                              name: member.name,
-                              email: member.email,
-                              workStart: member.workStart,
-                              workEnd: member.workEnd,
-                              workDays: member.workDays,
-                            })
-                          }
-                        >
-                          {t('EDIT_SCHEDULE')}
-                        </button>
-                        <button
-                          onClick={() =>
-                            setSalaryEdit({
-                              userId: member.userId,
-                              name: member.name,
-                              value: member.baseMonthlySalary == null ? '' : String(member.baseMonthlySalary),
-                            })
-                          }
-                        >
-                          {t('SALARY')}
-                        </button>
-                        {!self && (
-                          <button
-                            onClick={() =>
-                              setPending({ userId: member.userId, name: member.name, action: 'DELETE' })
-                            }
-                          >
-                            {t('DELETE')}
-                          </button>
-                        )}
-                      </div>
+                    <td className="row-actions-cell">
+                      <button className="ghost" onClick={() => setManageMember(member)}>
+                        {t('MEMBER_MANAGE')}
+                      </button>
                     </td>
                   </tr>
                   {rowError?.userId === member.userId && (
