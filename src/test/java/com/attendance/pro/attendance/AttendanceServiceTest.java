@@ -72,11 +72,30 @@ class AttendanceServiceTest {
                 leaveRequestMapper, patternMapper, closeMapper, realMessages());
     }
 
-    /** status()의 오늘 스케줄 해석 경로 스텁(오버라이드/공휴일 없음 + 개인 기본값 없음 → 09:00/18:00). */
+    private static final long PATTERN_ID = 100L;
+
+    /** 전 요일 s~e 근무의 정기 패턴(주기 1주) — 요일 무관 검증용(주말 실행 시 dayOff 방지). */
+    private static SchedulePattern allDayPattern() {
+        return new SchedulePattern(PATTERN_ID, TENANT_ID, USER_ID, 1,
+                java.time.LocalDate.of(2024, 1, 1), true, LocalDateTime.now(), LocalDateTime.now());
+    }
+
+    private static java.util.List<SchedulePatternSlot> allDaySlots(java.time.LocalTime start,
+            java.time.LocalTime end) {
+        java.util.List<SchedulePatternSlot> slots = new java.util.ArrayList<>();
+        for (int dow = 1; dow <= 7; dow++) {
+            slots.add(new SchedulePatternSlot(PATTERN_ID, 0, dow, false, start, end, false));
+        }
+        return slots;
+    }
+
+    /** status()의 오늘 스케줄 해석 경로 스텁(오버라이드/공휴일 없음 + 정기 패턴 09:00~18:00). */
     private void stubTodaySchedule() {
         when(scheduleMapper.findBetween(eq(TENANT_ID), eq(USER_ID), any(), any())).thenReturn(java.util.List.of());
         when(holidayMapper.findHolidaysBetween(eq(TENANT_ID), any(), any())).thenReturn(java.util.List.of());
-        when(scheduleMapper.findWorkDefaults(TENANT_ID, USER_ID)).thenReturn(null);
+        when(patternMapper.findByUser(TENANT_ID, USER_ID)).thenReturn(allDayPattern());
+        when(patternMapper.findSlots(PATTERN_ID))
+                .thenReturn(allDaySlots(java.time.LocalTime.of(9, 0), java.time.LocalTime.of(18, 0)));
     }
 
     static Messages realMessages() {
@@ -299,14 +318,15 @@ class AttendanceServiceTest {
         }
 
         @Test
-        @DisplayName("개인 기본값(10:00~19:00)이 있으면 오늘 근무에 반영된다")
+        @DisplayName("정기 스케줄(10:00~19:00)이 있으면 오늘 근무에 반영된다")
         void personalDefaultsInStatus() {
             when(scheduleMapper.findBetween(eq(TENANT_ID), eq(USER_ID), any(), any()))
                     .thenReturn(java.util.List.of());
             when(holidayMapper.findHolidaysBetween(eq(TENANT_ID), any(), any())).thenReturn(java.util.List.of());
-            //요일 무관하게 개인 기본값 반영을 검증(주말 실행 시 dayOff로 빠지는 것 방지) — 전 요일 근무
-            when(scheduleMapper.findWorkDefaults(TENANT_ID, USER_ID))
-                    .thenReturn(new WorkDefaults(java.time.LocalTime.of(10, 0), java.time.LocalTime.of(19, 0), "1111111"));
+            //요일 무관하게 정기 스케줄 반영을 검증(주말 실행 시 dayOff로 빠지는 것 방지) — 전 요일 근무
+            when(patternMapper.findByUser(TENANT_ID, USER_ID)).thenReturn(allDayPattern());
+            when(patternMapper.findSlots(PATTERN_ID))
+                    .thenReturn(allDaySlots(java.time.LocalTime.of(10, 0), java.time.LocalTime.of(19, 0)));
             when(attendanceMapper.findLatest(TENANT_ID, USER_ID)).thenReturn(null);
 
             StatusResponse response = service.status(TENANT_ID, USER_ID);
@@ -401,7 +421,11 @@ class AttendanceServiceTest {
                     .thenReturn(java.util.List.of());
             org.mockito.Mockito.lenient().when(attendanceMapper.findBetween(eq(TENANT_ID), eq(USER_ID), any(), any()))
                     .thenReturn(java.util.List.of());
-            org.mockito.Mockito.lenient().when(scheduleMapper.findWorkDefaults(TENANT_ID, USER_ID)).thenReturn(null);
+            //정기 패턴 09:00~18:00(전 요일) — 스케줄 단일화 후 근무일·시각은 실효 스케줄에서
+            org.mockito.Mockito.lenient().when(patternMapper.findByUser(TENANT_ID, USER_ID))
+                    .thenReturn(allDayPattern());
+            org.mockito.Mockito.lenient().when(patternMapper.findSlots(PATTERN_ID))
+                    .thenReturn(allDaySlots(java.time.LocalTime.of(9, 0), java.time.LocalTime.of(18, 0)));
             org.mockito.Mockito.lenient().when(tenantMapper.findById(TENANT_ID))
                     .thenReturn(new com.attendance.pro.tenant.Tenant(
                             TENANT_ID, "ACME", "에이크미(주)", "KR",
@@ -409,13 +433,13 @@ class AttendanceServiceTest {
         }
 
         @Test
-        @DisplayName("ISO-15: monthly가 defaults/공휴일/테넌트 조회에 세션 tenantId를 전달한다")
+        @DisplayName("ISO-15: monthly가 패턴/공휴일/테넌트 조회에 세션 tenantId를 전달한다")
         void monthlyPropagatesTenantId() {
             stubMonthly();
 
             service.monthly(TENANT_ID, USER_ID, 2026, 7);
 
-            verify(scheduleMapper).findWorkDefaults(eq(TENANT_ID), eq(USER_ID));
+            verify(patternMapper).findByUser(eq(TENANT_ID), eq(USER_ID));
             verify(holidayMapper).findHolidaysBetween(eq(TENANT_ID), any(), any());
             verify(tenantMapper).findById(eq(TENANT_ID));
         }
@@ -465,8 +489,9 @@ class AttendanceServiceTest {
             when(tenantMapper.findById(TENANT_ID)).thenReturn(new com.attendance.pro.tenant.Tenant(
                     TENANT_ID, "ACME", "에이크미(주)", "JP",
                     com.attendance.pro.tenant.TenantStatus.ACTIVE, LocalDateTime.now()));
-            when(scheduleMapper.findWorkDefaults(TENANT_ID, USER_ID))
-                    .thenReturn(new WorkDefaults(java.time.LocalTime.of(9, 0), java.time.LocalTime.of(15, 0), "1111100"));
+            //6시간 정각 스케줄(09:00~15:00) → JP 법정휴게 0
+            when(patternMapper.findSlots(PATTERN_ID))
+                    .thenReturn(allDaySlots(java.time.LocalTime.of(9, 0), java.time.LocalTime.of(15, 0)));
 
             var response = service.monthly(TENANT_ID, USER_ID, 2026, 7);
 

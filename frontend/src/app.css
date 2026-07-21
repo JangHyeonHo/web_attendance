@@ -1660,6 +1660,7 @@ button.link:hover {
   font-size: 13px;
   font-weight: 600;
   color: var(--muted);
+  white-space: nowrap; /* '대상 월' '근무 시점' 등 라벨이 공백에서 개행되지 않게 */
 }
 
 .weekday-row {

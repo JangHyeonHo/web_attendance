@@ -115,12 +115,6 @@ public class ScheduleAdminService {
         SchedulePattern pattern = patternMapper.findByUser(tenantId, userId);
         SchedulePatternResolver resolver = pattern == null ? null
                 : new SchedulePatternResolver(pattern, patternMapper.findSlots(pattern.patternId()));
-        WorkDefaults defaults = scheduleMapper.findWorkDefaults(tenantId, userId);
-        LocalTime dStart = defaults != null && defaults.start() != null
-                ? defaults.start() : MonthlyAttendanceAssembler.DEFAULT_START;
-        LocalTime dEnd = defaults != null && defaults.end() != null
-                ? defaults.end() : MonthlyAttendanceAssembler.DEFAULT_END;
-        String workDays = defaults == null ? null : defaults.workDays();
 
         List<EffectiveDay> result = new java.util.ArrayList<>();
         for (LocalDate day = from; day.isBefore(to); day = day.plusDays(1)) {
@@ -136,19 +130,15 @@ public class ScheduleAdminService {
                         pj.crossesMidnight()));
                 continue;
             }
-            //개인 기본값: 근무 요일이면 기본 시각, 아니면 휴무
-            boolean off = !WorkDefaults.worksOn(workDays, day.getDayOfWeek());
-            result.add(off
-                    ? EffectiveDay.of(day, "DEFAULT", true, null, null, false)
-                    : EffectiveDay.of(day, "DEFAULT", false, dStart, dEnd, false));
+            //스케줄 미설정(오버라이드·패턴 모두 없음) → 휴무로 표시(스케줄 단일화)
+            result.add(EffectiveDay.of(day, "DEFAULT", true, null, null, false));
         }
         return result;
     }
 
     /**
-     * 특정 날짜·시각에 그 멤버가 근무 중인지(#6) — 실효 스케줄(오버라이드 &gt; 반복 패턴 &gt; 개인 기본)로 판정.
-     * 휴무면 false, 근무면 그 시각이 근무창(야간 교대는 자정 넘김 처리) 안에 드는지로 판정.
-     * "특정 날짜의 특정 시간에 누가 근무 중인가" 검색에 쓰인다.
+     * 특정 날짜·시각에 그 멤버가 근무 중인지(#6) — 실효 스케줄(상세 오버라이드 &gt; 정기 패턴)로 판정.
+     * 휴무·스케줄 미설정이면 false, 근무면 그 시각이 근무창(야간 교대는 자정 넘김 처리) 안에 드는지로 판정.
      */
     @Transactional(readOnly = true)
     public boolean isWorkingAt(long tenantId, long userId, LocalDate date, LocalTime time) {
@@ -166,16 +156,7 @@ public class ScheduleAdminService {
                 return !pj.off() && within(pj.startTime(), pj.endTime(), pj.crossesMidnight(), time);
             }
         }
-        WorkDefaults defaults = scheduleMapper.findWorkDefaults(tenantId, userId);
-        LocalTime dStart = defaults != null && defaults.start() != null
-                ? defaults.start() : MonthlyAttendanceAssembler.DEFAULT_START;
-        LocalTime dEnd = defaults != null && defaults.end() != null
-                ? defaults.end() : MonthlyAttendanceAssembler.DEFAULT_END;
-        String workDays = defaults == null ? null : defaults.workDays();
-        if (!WorkDefaults.worksOn(workDays, date.getDayOfWeek())) {
-            return false;
-        }
-        return within(dStart, dEnd, false, time);
+        return false; //스케줄 미설정 = 근무 없음
     }
 
     /**

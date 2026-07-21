@@ -42,15 +42,20 @@ class MonthlyAttendanceAssemblerTest {
                 AttendanceStamp.STATUS_BREAK_ENDED, at, StampSource.AUTO, null, null);
     }
 
+    /** 09:00~18:00 정규 근무 스케줄(실효 스케줄 단일화 — 근무일·시각은 전부 schedules 맵에서 온다). */
+    private static WorkSchedule regular(LocalDate day) {
+        return new WorkSchedule(1L, 1L, day, LocalTime.of(9, 0), LocalTime.of(18, 0), false, false, false);
+    }
+
     private List<DailyAttendance> assemble(List<AttendanceStamp> stamps) {
-        return assembler.assemble(List.of(D1, D2, D3), Map.of(), Map.of(), stamps,
-                null, null, null, BreakPolicy.KR);
+        return assembler.assemble(List.of(D1, D2, D3),
+                Map.of(D1, regular(D1), D2, regular(D2), D3, regular(D3)),
+                Map.of(), stamps, BreakPolicy.KR);
     }
 
     private List<DailyAttendance> assembleKr(Map<LocalDate, WorkSchedule> schedules,
             List<AttendanceStamp> stamps) {
-        return assembler.assemble(List.of(D1, D2, D3), schedules, Map.of(), stamps,
-                null, null, null, BreakPolicy.KR);
+        return assembler.assemble(List.of(D1, D2, D3), schedules, Map.of(), stamps, BreakPolicy.KR);
     }
 
     @Nested
@@ -135,10 +140,10 @@ class MonthlyAttendanceAssemblerTest {
             WorkSchedule personalHoliday = new WorkSchedule(1L, 1L, D2, null, null, false, false, true);
             List<DailyAttendance> days = assembler.assemble(
                     List.of(D1, D2, D3),
-                    Map.of(D2, personalHoliday),
+                    Map.of(D2, personalHoliday, D3, regular(D3)),
                     Map.of(D1, "삼일절"),
                     List.of(stamp(AttendanceType.GO_TO_WORK, D3.atTime(9, 0))),
-                    null, null, null, BreakPolicy.KR);
+                    BreakPolicy.KR);
 
             assertThat(days.get(0).holiday()).isTrue();
             assertThat(days.get(0).scheduleStart()).isNull();
@@ -155,8 +160,8 @@ class MonthlyAttendanceAssemblerTest {
         void scheduleOverride() {
             WorkSchedule override = new WorkSchedule(1L, 1L, D1, LocalTime.of(10, 30), LocalTime.of(19, 30), false, false, false);
             List<DailyAttendance> days = assembler.assemble(
-                    List.of(D1, D2), Map.of(D1, override), Map.of(), List.of(),
-                    null, null, null, BreakPolicy.KR);
+                    List.of(D1, D2), Map.of(D1, override, D2, regular(D2)), Map.of(), List.of(),
+                    BreakPolicy.KR);
 
             assertThat(days.get(0).scheduleStart()).isEqualTo("10:30");
             assertThat(days.get(0).scheduleEnd()).isEqualTo("19:30");
@@ -230,7 +235,7 @@ class MonthlyAttendanceAssemblerTest {
                             breakStart(D1.atTime(12, 0)),
                             breakEnd(D1.atTime(12, 20)),
                             stamp(AttendanceType.OFF_WORK, D1.atTime(15, 0))),
-                    null, null, null, BreakPolicy.JP);
+                    BreakPolicy.JP);
 
             assertThat(days.get(0).statutoryBreakMinutes()).isEqualTo(0);
             assertThat(days.get(0).breakMinutes()).isEqualTo(20);
@@ -244,7 +249,7 @@ class MonthlyAttendanceAssemblerTest {
             WorkSchedule night = new WorkSchedule(1L, 1L, D1, LocalTime.of(22, 0), LocalTime.of(6, 0), true, false, false);
             List<DailyAttendance> days = assembler.assemble(
                     List.of(D1), Map.of(D1, night), Map.of(), List.of(),
-                    null, null, null, BreakPolicy.KR);
+                    BreakPolicy.KR);
 
             assertThat(days.get(0).scheduleStart()).isEqualTo("22:00");
             assertThat(days.get(0).scheduleEnd()).isEqualTo("30:00"); //익일 06:00
@@ -292,7 +297,7 @@ class MonthlyAttendanceAssemblerTest {
             List<DailyAttendance> none = assembler.assemble(List.of(D1), Map.of(D1, day), Map.of(),
                     List.of(stamp(AttendanceType.GO_TO_WORK, D1.atTime(9, 0)),
                             stamp(AttendanceType.OFF_WORK, D1.atTime(18, 0))),
-                    null, null, null, BreakPolicy.KR);
+                    BreakPolicy.KR);
             assertThat(none.get(0).breakMinutes()).isZero();
             assertThat(none.get(0).recognizedBreakMinutes()).isEqualTo(60);
             assertThat(none.get(0).workMinutes()).isEqualTo(480);
@@ -302,7 +307,7 @@ class MonthlyAttendanceAssemblerTest {
                     List.of(stamp(AttendanceType.GO_TO_WORK, D1.atTime(9, 0)),
                             breakStart(D1.atTime(12, 0)), breakEnd(D1.atTime(12, 45)),
                             stamp(AttendanceType.OFF_WORK, D1.atTime(18, 0))),
-                    null, null, null, BreakPolicy.KR);
+                    BreakPolicy.KR);
             assertThat(under.get(0).breakMinutes()).isEqualTo(45);
             assertThat(under.get(0).recognizedBreakMinutes()).isEqualTo(60);
             assertThat(under.get(0).workMinutes()).isEqualTo(480);
@@ -312,7 +317,7 @@ class MonthlyAttendanceAssemblerTest {
                     List.of(stamp(AttendanceType.GO_TO_WORK, D1.atTime(9, 0)),
                             breakStart(D1.atTime(12, 0)), breakEnd(D1.atTime(13, 30)),
                             stamp(AttendanceType.OFF_WORK, D1.atTime(18, 0))),
-                    null, null, null, BreakPolicy.KR);
+                    BreakPolicy.KR);
             assertThat(over.get(0).breakMinutes()).isEqualTo(90);
             assertThat(over.get(0).recognizedBreakMinutes()).isEqualTo(90);
             assertThat(over.get(0).workMinutes()).isEqualTo(450);
@@ -320,19 +325,20 @@ class MonthlyAttendanceAssemblerTest {
             //출근만(퇴근 미확정) → 인정 휴게 null
             List<DailyAttendance> open = assembler.assemble(List.of(D1), Map.of(D1, day), Map.of(),
                     List.of(stamp(AttendanceType.GO_TO_WORK, D1.atTime(9, 0))),
-                    null, null, null, BreakPolicy.KR);
+                    BreakPolicy.KR);
             assertThat(open.get(0).recognizedBreakMinutes()).isNull();
         }
 
         @Test
-        @DisplayName("CALC-07: 개인 기본값(10:00~19:00) — 오버라이드 없는 날은 개인값 기준 산출")
+        @DisplayName("CALC-07: 정기 스케줄(10:00~19:00) — 실효 스케줄 기준 산출")
         void personalDefaultsApplied() {
+            WorkSchedule sched = new WorkSchedule(1L, 1L, D1, LocalTime.of(10, 0), LocalTime.of(19, 0), false, false, false);
             List<DailyAttendance> days = assembler.assemble(
-                    List.of(D1), Map.of(), Map.of(),
+                    List.of(D1), Map.of(D1, sched), Map.of(),
                     List.of(
                             stamp(AttendanceType.GO_TO_WORK, D1.atTime(10, 0)),
                             stamp(AttendanceType.OFF_WORK, D1.atTime(19, 0))),
-                    LocalTime.of(10, 0), LocalTime.of(19, 0), null, BreakPolicy.KR);
+                    BreakPolicy.KR);
 
             assertThat(days.get(0).scheduleStart()).isEqualTo("10:00");
             assertThat(days.get(0).scheduleEnd()).isEqualTo("19:00");
@@ -448,7 +454,7 @@ class MonthlyAttendanceAssemblerTest {
                     Map.of(D2, personalHoliday),
                     Map.of(D1, "삼일절"),
                     List.of(),
-                    null, null, null, BreakPolicy.KR);
+                    BreakPolicy.KR);
 
             assertThat(days.get(0).holiday()).isTrue();
             assertThat(days.get(0).holidayName()).isEqualTo("삼일절");

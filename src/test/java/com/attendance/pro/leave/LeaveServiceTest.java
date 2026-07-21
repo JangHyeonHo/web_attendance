@@ -14,7 +14,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Set;
@@ -69,9 +68,9 @@ class LeaveServiceTest {
                 holidayMapper, scheduleAdminService, clock);
     }
 
-    private static User member(LocalTime start, LocalTime end, String workDays, LocalDate hire) {
+    private static User member(LocalDate hire) {
         return new User(USER, TENANT, "hong@acme.co.kr", "hash", null, "홍길동", null,
-                start, end, workDays, hire, null, Role.MEMBER, UserStatus.ACTIVE, false,
+                hire, null, Role.MEMBER, UserStatus.ACTIVE, false,
                 LocalDateTime.now(), LocalDateTime.now());
     }
 
@@ -91,7 +90,7 @@ class LeaveServiceTest {
     @DisplayName("DAY-MIN-01: 소정근로 1일 분은 스케줄 서비스(정기 스케줄)에서 산출 — 표준 멤버 480분")
     void standardDayMinutesFromSchedule() {
         int min = service().standardDayMinutes(
-                member(LocalTime.of(9, 0), LocalTime.of(18, 0), "1111100", null),
+                member(null),
                 com.attendance.pro.tenant.ProfileCountry.KR);
         assertThat(min).isEqualTo(480);
     }
@@ -99,7 +98,7 @@ class LeaveServiceTest {
     @Test
     @DisplayName("WD-01: 근무일 & 공휴일 제외 카운트 — 실효 스케줄 기준(월~금 근무, 수 공휴일 → 4)")
     void countWorkingDays() {
-        User u = member(LocalTime.of(9, 0), LocalTime.of(18, 0), "1111100", null);
+        User u = member(null);
         //2026-07-13(월)~07-19(일): 근무일 5일. 07-15(수)를 공휴일로 제외 → 4
         int days = service().countWorkingDays(u, LocalDate.of(2026, 7, 13), LocalDate.of(2026, 7, 19),
                 Set.of(LocalDate.of(2026, 7, 15)));
@@ -110,7 +109,7 @@ class LeaveServiceTest {
     @DisplayName("BAL-01: 만기일별 잔여 — 만기 임박순 FIFO 차감(음수 조정 480분이 이른 부여부터 소진)")
     void balanceRowsFifo() {
         when(userMapper.findById(TENANT, USER))
-                .thenReturn(member(LocalTime.of(9, 0), LocalTime.of(18, 0), "1111100", null));
+                .thenReturn(member(null));
         stubCountry();
         when(typeMapper.findByTenant(TENANT)).thenReturn(List.of(annual()));
         when(requestMapper.findViewByUser(TENANT, USER)).thenReturn(List.of());
@@ -140,7 +139,7 @@ class LeaveServiceTest {
     @DisplayName("APPLY-01: 종료일이 시작일보다 이르면 400")
     void applyInvalidRange() {
         when(userMapper.findById(TENANT, USER))
-                .thenReturn(member(LocalTime.of(9, 0), LocalTime.of(18, 0), "1111100", null));
+                .thenReturn(member(null));
         when(typeMapper.findById(TENANT, ANNUAL_ID)).thenReturn(annual());
         stubCountry();
         LeaveApplyRequest req = new LeaveApplyRequest(ANNUAL_ID, true,
@@ -154,7 +153,7 @@ class LeaveServiceTest {
     @DisplayName("APPLY-02: 기간에 근무일 없음(토요일) → 400")
     void applyNoWorkingDay() {
         when(userMapper.findById(TENANT, USER))
-                .thenReturn(member(LocalTime.of(9, 0), LocalTime.of(18, 0), "1111100", null));
+                .thenReturn(member(null));
         when(typeMapper.findById(TENANT, ANNUAL_ID)).thenReturn(annual());
         stubCountry();
         when(holidayMapper.findHolidaysBetween(anyLong(), any(), any())).thenReturn(List.of());
@@ -170,7 +169,7 @@ class LeaveServiceTest {
     @DisplayName("APPLY-03: 잔여 부족 → 400(가용 = 부여 − 승인 − 대기)")
     void applyInsufficient() {
         when(userMapper.findById(TENANT, USER))
-                .thenReturn(member(LocalTime.of(9, 0), LocalTime.of(18, 0), "1111100", null));
+                .thenReturn(member(null));
         when(typeMapper.findById(TENANT, ANNUAL_ID)).thenReturn(annual());
         stubCountry();
         when(holidayMapper.findHolidaysBetween(anyLong(), any(), any())).thenReturn(List.of());
@@ -189,7 +188,7 @@ class LeaveServiceTest {
     @DisplayName("APPLY-05: 기간이 기존 신청과 겹치면 400(이중 차감 방지)")
     void applyOverlap() {
         when(userMapper.findById(TENANT, USER))
-                .thenReturn(member(LocalTime.of(9, 0), LocalTime.of(18, 0), "1111100", null));
+                .thenReturn(member(null));
         when(typeMapper.findById(TENANT, ANNUAL_ID)).thenReturn(annual());
         stubCountry();
         when(holidayMapper.findHolidaysBetween(anyLong(), any(), any())).thenReturn(List.of());
@@ -211,7 +210,7 @@ class LeaveServiceTest {
     @DisplayName("APPLY-04: 시간단위 종료<=시작 또는 날짜 다르면 400")
     void applyHourInvalid() {
         when(userMapper.findById(TENANT, USER))
-                .thenReturn(member(LocalTime.of(9, 0), LocalTime.of(18, 0), "1111100", null));
+                .thenReturn(member(null));
         //시간 휴가 허용 종류라야 단위 검증까지 도달(#12)
         when(typeMapper.findById(TENANT, ANNUAL_ID)).thenReturn(hourlyType());
         stubCountry();
@@ -226,7 +225,7 @@ class LeaveServiceTest {
     @DisplayName("APPLY-04b(#12): 시간 휴가 미허용 종류에 시간단위 신청 → 400 hourly-not-allowed")
     void applyHourNotAllowed() {
         when(userMapper.findById(TENANT, USER))
-                .thenReturn(member(LocalTime.of(9, 0), LocalTime.of(18, 0), "1111100", null));
+                .thenReturn(member(null));
         //annual()은 hourly_enabled=false → 시간 단위 신청 거부
         when(typeMapper.findById(TENANT, ANNUAL_ID)).thenReturn(annual());
         stubCountry();
@@ -312,7 +311,7 @@ class LeaveServiceTest {
     @Test
     @DisplayName("REC-01: KR 3년 근속 연차 재계산 = 16일 × 480 = 7680분 upsert")
     void recomputeAnnualKr() {
-        User u = member(LocalTime.of(9, 0), LocalTime.of(18, 0), "1111100", LocalDate.of(2023, 1, 1));
+        User u = member(LocalDate.of(2023, 1, 1));
         when(userMapper.findById(TENANT, USER)).thenReturn(u);
         when(typeMapper.findAnnual(TENANT)).thenReturn(annual());
         stubCountry();
@@ -329,9 +328,9 @@ class LeaveServiceTest {
     @DisplayName("BULK-01: 두 멤버에 3일 일괄 부여 → 각자 표준분 환산(480×3=1440)으로 insert 2회, 중복 userId는 1회")
     void grantBulk() {
         long user2 = 5L;
-        User u1 = member(LocalTime.of(9, 0), LocalTime.of(18, 0), "1111100", LocalDate.of(2023, 1, 1));
+        User u1 = member(LocalDate.of(2023, 1, 1));
         User u2 = new User(user2, TENANT, "kim@acme.co.kr", "hash", null, "김철수", null,
-                LocalTime.of(9, 0), LocalTime.of(18, 0), "1111100", LocalDate.of(2024, 1, 1), null,
+                LocalDate.of(2024, 1, 1), null,
                 Role.MEMBER, UserStatus.ACTIVE, false, LocalDateTime.now(), LocalDateTime.now());
         when(typeMapper.findById(TENANT, ANNUAL_ID)).thenReturn(annual());
         when(userMapper.findById(TENANT, USER)).thenReturn(u1);

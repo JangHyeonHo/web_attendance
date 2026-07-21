@@ -22,7 +22,7 @@ public interface UserMapper {
 
     @Select("""
             SELECT user_id, tenant_id, email, password_hash, password_changed_at, name, depart_cd,
-                   default_work_start, default_work_end, work_days, hire_date, base_monthly_salary,
+                   hire_date, base_monthly_salary,
                    role, status, deleted, created_at, updated_at
             FROM users
             WHERE tenant_id = #{tenantId} AND email = #{email} AND deleted = FALSE
@@ -34,7 +34,7 @@ public interface UserMapper {
      */
     @Select("""
             SELECT user_id, tenant_id, email, password_hash, password_changed_at, name, depart_cd,
-                   default_work_start, default_work_end, work_days, hire_date, base_monthly_salary,
+                   hire_date, base_monthly_salary,
                    role, status, deleted, created_at, updated_at
             FROM users
             WHERE tenant_id = #{tenantId} AND user_id = #{userId} AND deleted = FALSE
@@ -47,7 +47,7 @@ public interface UserMapper {
      */
     @Select("""
             SELECT user_id, tenant_id, email, password_hash, password_changed_at, name, depart_cd,
-                   default_work_start, default_work_end, work_days, hire_date, base_monthly_salary,
+                   hire_date, base_monthly_salary,
                    role, status, deleted, created_at, updated_at
             FROM users
             WHERE tenant_id = #{tenantId} AND deleted = FALSE
@@ -57,13 +57,12 @@ public interface UserMapper {
     List<User> findByTenant(@Param("tenantId") long tenantId);
 
     /**
-     * 멤버 관리 검색 목록(#6) — 이름·이메일·부서 텍스트 + 개인 기본 근무 시간대 겹침 필터.
-     * 파라미터가 null이면 해당 조건은 건너뛴다(전체). 시간대는 개인 기본 스케줄(default_work_start/end) 기준.
-     * 겹침: 멤버의 근무창 [start,end]가 [workFrom, workTo]와 교차 — start &lt; workTo AND end &gt; workFrom.
+     * 멤버 관리 검색 목록 — 이름·이메일·부서 텍스트 필터(q). null이면 전체.
+     * (근무 시간대 검색은 실효 스케줄 기반 별도 엔드포인트 /members/working로 이동)
      */
     @Select("""
             SELECT user_id, tenant_id, email, password_hash, password_changed_at, name, depart_cd,
-                   default_work_start, default_work_end, work_days, hire_date, base_monthly_salary,
+                   hire_date, base_monthly_salary,
                    role, status, deleted, created_at, updated_at
             FROM users
             WHERE tenant_id = #{tenantId} AND deleted = FALSE
@@ -72,18 +71,15 @@ public interface UserMapper {
                    OR name LIKE CONCAT('%', #{q}, '%')
                    OR email LIKE CONCAT('%', #{q}, '%')
                    OR depart_cd LIKE CONCAT('%', #{q}, '%'))
-              AND (#{workFrom} IS NULL OR default_work_end > #{workFrom})
-              AND (#{workTo} IS NULL OR default_work_start < #{workTo})
             ORDER BY name ASC, user_id ASC
             """)
-    List<User> searchByTenant(@Param("tenantId") long tenantId, @Param("q") String q,
-            @Param("workFrom") java.time.LocalTime workFrom, @Param("workTo") java.time.LocalTime workTo);
+    List<User> searchByTenant(@Param("tenantId") long tenantId, @Param("q") String q);
 
     @Insert("""
             INSERT INTO users (tenant_id, email, password_hash, name, depart_cd,
-                               default_work_start, default_work_end, hire_date, base_monthly_salary, role, status)
+                               hire_date, base_monthly_salary, role, status)
             VALUES (#{tenantId}, #{email}, #{passwordHash}, #{name}, #{departCd},
-                    #{defaultWorkStart}, #{defaultWorkEnd}, COALESCE(#{hireDate}, CURDATE()),
+                    COALESCE(#{hireDate}, CURDATE()),
                     #{baseMonthlySalary}, #{role}, #{status})
             """)
     @Options(useGeneratedKeys = true, keyProperty = "userId", keyColumn = "user_id")
@@ -134,19 +130,6 @@ public interface UserMapper {
             """)
     int updateStatus(@Param("tenantId") long tenantId, @Param("userId") long userId,
             @Param("status") UserStatus status);
-
-    /**
-     * 개인 기본 근무 스케줄 수정 — 2중 조건(테넌트 전파 규약).
-     */
-    @Update("""
-            UPDATE users SET default_work_start = #{workStart}, default_work_end = #{workEnd},
-                             work_days = #{workDays}
-            WHERE tenant_id = #{tenantId} AND user_id = #{userId} AND deleted = FALSE
-            """)
-    int updateWorkSchedule(@Param("tenantId") long tenantId, @Param("userId") long userId,
-            @Param("workStart") java.time.LocalTime workStart,
-            @Param("workEnd") java.time.LocalTime workEnd,
-            @Param("workDays") String workDays);
 
     /**
      * 로그인 성공 시 현재 유효 세션 토큰 교체(단일 세션 강제) — 이전 세션 스냅샷 토큰과 달라져

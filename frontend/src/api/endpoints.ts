@@ -37,7 +37,6 @@ import type {
   MemberCreateRequest,
   MemberCreateResponse,
   MemberRoleUpdateRequest,
-  MemberScheduleUpdateRequest,
   MemberStatusUpdateRequest,
   MemberSummary,
   MonthlyResponse,
@@ -216,8 +215,6 @@ export const tenantMemberApi = {
     put<MemberSummary>(`/api/v1/tenant/members/${userId}/status`, request),
   updateRole: (userId: number, request: MemberRoleUpdateRequest) =>
     put<MemberSummary>(`/api/v1/tenant/members/${userId}/role`, request),
-  updateSchedule: (userId: number, request: MemberScheduleUpdateRequest) =>
-    put<MemberSummary>(`/api/v1/tenant/members/${userId}/schedule`, request),
   /** 월 기본급 수정(급여 정산 기준) — null이면 미입력으로 저장 */
   updateSalary: (userId: number, baseMonthlySalary: number | null) =>
     put<MemberSummary>(`/api/v1/tenant/members/${userId}/salary`, { baseMonthlySalary }),
