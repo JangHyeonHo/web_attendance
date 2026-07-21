@@ -1091,6 +1091,40 @@ form button.primary {
   margin-top: 24px;
 }
 
+/*
+ * 모달 필드 통일(#4) — 폼(<form>)을 쓰지 않는 모달도 폼 모달과 동일한 필드 레이아웃으로.
+ * 클래스 없는 순수 <label>만 대상(체크박스 .check-inline·요일칩 .weekday-chip·.salary-edit 등은 각자 유지).
+ * 라벨은 블록(필드 위), 입력은 100% 폭 — 인라인 라벨로 제각각이던 모달을 한 규격으로 맞춘다.
+ */
+.modal-body label:not([class]) {
+  display: block;
+  margin-bottom: 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.modal-body label:not([class]) > input,
+.modal-body label:not([class]) > select,
+.modal-body label:not([class]) > textarea,
+.modal-body label:not([class]) > .field-select,
+.modal-body label:not([class]) > .time-picker,
+.modal-body label:not([class]) > .date-field {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  font-weight: 400;
+  color: var(--text);
+}
+/* field-group은 가로 배치라 안쪽 라벨의 하단 마진만 제거(이중 간격 방지) */
+.modal-body .field-group > label:not([class]) {
+  margin-bottom: 0;
+}
+/* 폼을 쓰지 않는 모달의 단독 주요 버튼도 폼 모달처럼 꽉 찬 바 형태로(예: 일괄 부여) */
+.modal-body > button.primary {
+  width: 100%;
+  margin-top: 16px;
+}
+
 @keyframes overlay-in {
   from {
     opacity: 0;
