@@ -10,7 +10,6 @@ public record AttendanceClose(
         int targetYear,
         int targetMonth,
         AttendanceCloseStatus status,
-        long requestedBy,
         LocalDateTime requestedAt,
         Long approverId,
         LocalDateTime decidedAt,

@@ -17,7 +17,7 @@ import org.apache.ibatis.annotations.Update;
 public interface AttendanceCloseMapper {
 
     String COLS = "close_id, tenant_id, user_id, target_year, target_month, status, "
-            + "requested_by, requested_at, approver_id, decided_at, decision_note";
+            + "requested_at, approver_id, decided_at, decision_note";
 
     /** (멤버, 연, 월) 단건 — 상태 판정·재신청 분기용. 없으면 null. */
     @Select("SELECT " + COLS + " FROM attendance_close "
@@ -51,8 +51,8 @@ public interface AttendanceCloseMapper {
     }
 
     @Insert("""
-            INSERT INTO attendance_close (tenant_id, user_id, target_year, target_month, status, requested_by, requested_at)
-            VALUES (#{tenantId}, #{userId}, #{year}, #{month}, 'REQUESTED', #{userId}, NOW())
+            INSERT INTO attendance_close (tenant_id, user_id, target_year, target_month, status, requested_at)
+            VALUES (#{tenantId}, #{userId}, #{year}, #{month}, 'REQUESTED', NOW())
             """)
     @Options(useGeneratedKeys = true, keyProperty = "closeId", keyColumn = "close_id")
     int insert(CloseInsert row);
@@ -60,7 +60,7 @@ public interface AttendanceCloseMapper {
     /** 반려된 행을 다시 신청 상태로(재신청). REQUESTED로 되돌리고 결재 정보 초기화. */
     @Update("""
             UPDATE attendance_close
-            SET status = 'REQUESTED', requested_by = #{userId}, requested_at = NOW(),
+            SET status = 'REQUESTED', requested_at = NOW(),
                 approver_id = NULL, decided_at = NULL, decision_note = NULL
             WHERE tenant_id = #{tenantId} AND user_id = #{userId}
               AND target_year = #{year} AND target_month = #{month} AND status = 'REJECTED'
