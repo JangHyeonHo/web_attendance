@@ -222,7 +222,7 @@ function CancellationsTab() {
     <>
       {error && <p className="error" role="alert">{error}</p>}
 
-      <h3 className="section-head">{t('CANCEL_REQUESTS_TITLE')}</h3>
+      {/* 취소 신청 헤더는 바깥 TAB_CANCELS가 이미 표시하므로 중복 제거(#3) */}
       {rows.length === 0 ? (
         <p className="muted center">{t('NO_CANCELS')}</p>
       ) : (

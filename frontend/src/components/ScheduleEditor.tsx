@@ -27,17 +27,33 @@ export function ScheduleEditor({
   userId,
   userName,
   userEmail,
+  workStart,
+  workEnd,
+  workDays,
   onClose,
 }: {
   userId: number
   userName: string
   userEmail: string
+  /** 개인 기본 스케줄 초기값(users.default_work_start/end, work_days 월~일 [01]{7}) */
+  workStart: string
+  workEnd: string
+  workDays: string
   onClose: () => void
 }) {
   const { t, lang } = useApp()
   const now = new Date()
   const [year, setYear] = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth() + 1)
+
+  //개인 기본 스케줄(멤버 관리 모달에서 흡수, #1) — 정기/상세가 없는 날의 기본값
+  const [defStart, setDefStart] = useState(workStart)
+  const [defEnd, setDefEnd] = useState(workEnd)
+  const [defDays, setDefDays] = useState(workDays)
+  const weekdayLabels = useMemo(() => {
+    const fmt = new Intl.DateTimeFormat(localeOf(lang), { weekday: 'short' })
+    return Array.from({ length: 7 }, (_, i) => fmt.format(new Date(2024, 0, 1 + i)))
+  }, [lang])
 
   const [pat, setPat] = useState<Record<number, PatCell>>({})
   const [days, setDays] = useState<Record<string, DayCell>>({})
@@ -157,6 +173,9 @@ export function ScheduleEditor({
   }
 
   function invalid(): boolean {
+    //개인 기본: 야간 개념 없음 — 종료<=시작이면 오류, 전 요일 휴무도 오류
+    if (defStart && defEnd && defEnd <= defStart) return true
+    if (!defDays.includes('1')) return true
     for (let d = 1; d <= 7; d++) {
       const c = pat[d]
       if (c?.type === 'work' && !c.night && c.end <= c.start) return true
@@ -165,7 +184,7 @@ export function ScheduleEditor({
     return false
   }
 
-  //일괄저장 — 정기 + 상세(현재 값)를 현재 멤버 + 함께 적용 멤버 전부에게 저장
+  //일괄저장 — 개인 기본 + 정기 + 상세(현재 값)를 현재 멤버 + 함께 적용 멤버 전부에게 저장
   async function saveAll() {
     setBusy(true)
     setError(null)
@@ -174,6 +193,7 @@ export function ScheduleEditor({
       const cells = detailCells()
       const ids = [userId, ...included.map((m) => m.userId)]
       for (const id of ids) {
+        await tenantMemberApi.updateSchedule(id, { workStart: defStart, workEnd: defEnd, workDays: defDays })
         await tenantScheduleApi.savePattern(id, pattern)
         await tenantScheduleApi.saveRota(id, { year, month, cells })
       }
@@ -239,7 +259,44 @@ export function ScheduleEditor({
 
       {error && <p className="error" role="alert">{error}</p>}
 
-      {/* ① 정기 스케줄 */}
+      {/* ① 개인 기본 스케줄 — 멤버 관리 모달을 흡수(#1). 정기/상세가 없는 날에 적용되는 기본값 */}
+      <section className="sched-section">
+        <h3 className="section-head">{t('DEFAULT_SCHEDULE')}</h3>
+        <p className="hint">{t('DEFAULT_HINT')}</p>
+        <div className="field-row">
+          <label>
+            {t('WORK_START')}
+            <TimeField value={defStart} onChange={(v) => { setDefStart(v); setSaved(false) }} ariaLabel={t('WORK_START')} />
+          </label>
+          <label>
+            {t('WORK_END')}
+            <TimeField value={defEnd} onChange={(v) => { setDefEnd(v); setSaved(false) }} ariaLabel={t('WORK_END')} />
+          </label>
+        </div>
+        <span className="field-label">{t('WORK_DAYS')}</span>
+        <div className="weekday-row" role="group" aria-label={t('WORK_DAYS')}>
+          {weekdayLabels.map((label, index) => {
+            const on = defDays.charAt(index) === '1'
+            return (
+              <label key={index} className={`weekday-chip${on ? ' on' : ''}`}>
+                <input
+                  type="checkbox"
+                  checked={on}
+                  onChange={() => {
+                    const chars = defDays.split('')
+                    chars[index] = on ? '0' : '1'
+                    setDefDays(chars.join(''))
+                    setSaved(false)
+                  }}
+                />
+                {label}
+              </label>
+            )
+          })}
+        </div>
+      </section>
+
+      {/* ② 정기 스케줄 */}
       <section className="sched-section">
         <h3 className="section-head">{t('REGULAR_SCHEDULE')}</h3>
         <p className="hint">{t('REGULAR_HINT')}</p>
@@ -269,7 +326,7 @@ export function ScheduleEditor({
         </div>
       </section>
 
-      {/* ② 상세 스케줄(일별) */}
+      {/* ③ 상세 스케줄(일별) */}
       <section className="sched-section">
         <h3 className="section-head">{t('DETAIL_SCHEDULE')}</h3>
         <p className="hint">{t('DETAIL_HINT')}</p>
@@ -311,7 +368,7 @@ export function ScheduleEditor({
         )}
       </section>
 
-      {/* ③ 함께 적용할 멤버 */}
+      {/* ④ 함께 적용할 멤버 */}
       <section className="sched-section">
         <h3 className="section-head">{t('APPLY_TITLE')}</h3>
         <p className="hint">{t('APPLY_HINT')}</p>

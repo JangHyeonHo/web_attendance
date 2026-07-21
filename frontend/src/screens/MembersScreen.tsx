@@ -7,7 +7,6 @@ import { Modal } from '../components/Modal'
 import { ScheduleEditor } from '../components/ScheduleEditor'
 import { SelectField, TimeField } from '../components/fields'
 import { DateField } from '../components/DateField'
-import { localeOf } from '../i18n/lang'
 import type { MemberSummary, Role, UserStatus } from '../api/types'
 
 const ROLE_LABEL_KEYS: Partial<Record<Role, string>> = {
@@ -39,16 +38,6 @@ interface PendingAction {
   action: 'DISABLE' | 'DELETE'
 }
 
-/** 행별 스케줄 수정 모달 상태(PENDING 행 포함 — 입사 전 준비, CR3-6). workDays는 월~일 [01]{7} */
-interface ScheduleEdit {
-  userId: number
-  name: string
-  email: string
-  workStart: string
-  workEnd: string
-  workDays: string
-}
-
 /** 등록 결과 안내(초대 메일 발송됨 / 발송 실패 — 멤버는 PENDING으로 존재) */
 interface CreatedNotice {
   email: string
@@ -63,13 +52,8 @@ interface CreatedNotice {
  * 행 아래 인라인 표시는 에러만 남긴다.
  */
 export function MembersScreen() {
-  const { t, lang, role: viewerRole } = useApp()
+  const { t, role: viewerRole } = useApp()
 
-  //요일 라벨(월~일)은 사전 없이 Intl로 생성 — 2024-01-01이 월요일
-  const weekdayLabels = (() => {
-    const format = new Intl.DateTimeFormat(localeOf(lang), { weekday: 'short' })
-    return Array.from({ length: 7 }, (_, i) => format.format(new Date(2024, 0, 1 + i)))
-  })()
   const [members, setMembers] = useState<MemberSummary[]>([])
   const [query, setQuery] = useState('') //이름·이메일·부서 검색(대규모 인원 대비, #9와 동일 패턴)
   const [listError, setListError] = useState<string | null>(null)
@@ -94,11 +78,12 @@ export function MembersScreen() {
 
   //행 조작
   const [pending, setPending] = useState<PendingAction | null>(null)
-  const [scheduleEdit, setScheduleEdit] = useState<ScheduleEdit | null>(null)
   //월 기본급 수정 대상 — 급여 정산 기준값(멤버 관리에서 조정)
   const [salaryEdit, setSalaryEdit] = useState<{ userId: number; name: string; value: string } | null>(null)
-  //통합 근무 스케줄 화면 대상(#13) — 반복 패턴 + 월 달력(예외)을 한 화면에서
-  const [scheduleMember, setScheduleMember] = useState<{ userId: number; name: string; email: string } | null>(null)
+  //통합 근무 스케줄 화면 대상(#1,#13) — 개인 기본 + 반복 패턴 + 월 달력(예외)을 한 화면에서
+  const [scheduleMember, setScheduleMember] = useState<
+    { userId: number; name: string; email: string; workStart: string; workEnd: string; workDays: string } | null
+  >(null)
   const [rowError, setRowError] = useState<{ userId: number; message: string } | null>(null)
 
   const reload = useCallback(async () => {
@@ -231,27 +216,6 @@ export function MembersScreen() {
     }
   }
 
-  async function saveSchedule() {
-    if (!scheduleEdit) return
-    setRowError(null)
-    try {
-      await tenantMemberApi.updateSchedule(scheduleEdit.userId, {
-        workStart: scheduleEdit.workStart,
-        workEnd: scheduleEdit.workEnd,
-        workDays: scheduleEdit.workDays,
-      })
-      setScheduleEdit(null)
-      await reload()
-    } catch (e) {
-      //400 WORK_TIME_INVALID_RANGE 등 — 서버 메시지 그대로(모달은 닫고 행 아래 표시)
-      setRowError({
-        userId: scheduleEdit.userId,
-        message: e instanceof ApiError ? e.message : String(e),
-      })
-      setScheduleEdit(null)
-    }
-  }
-
   async function saveSalary() {
     if (!salaryEdit) return
     setRowError(null)
@@ -296,13 +260,16 @@ export function MembersScreen() {
       )
     : members
 
-  //스케줄 화면은 모달이 아니라 전체 화면(패널)으로 — 목록을 밀어내고 그 자리를 채운다(#13)
+  //스케줄 화면은 모달이 아니라 전체 화면(패널)으로 — 목록을 밀어내고 그 자리를 채운다(#1,#13)
   if (scheduleMember) {
     return (
       <ScheduleEditor
         userId={scheduleMember.userId}
         userName={scheduleMember.name}
         userEmail={scheduleMember.email}
+        workStart={scheduleMember.workStart}
+        workEnd={scheduleMember.workEnd}
+        workDays={scheduleMember.workDays}
         onClose={() => setScheduleMember(null)}
       />
     )
@@ -420,75 +387,6 @@ export function MembersScreen() {
             >
               {t('CANCEL')}
             </button>
-          </div>
-        </Modal>
-      )}
-
-      {scheduleEdit && (
-        <Modal title={`${scheduleEdit.name} — ${t('EDIT_SCHEDULE')}`} onClose={() => setScheduleEdit(null)}>
-          <div className="field-row">
-            <label>
-              {t('WORK_START')}
-              <TimeField
-                value={scheduleEdit.workStart}
-                onChange={(v) => setScheduleEdit({ ...scheduleEdit, workStart: v })}
-                ariaLabel={t('WORK_START')}
-              />
-            </label>
-            <label>
-              {t('WORK_END')}
-              <TimeField
-                value={scheduleEdit.workEnd}
-                onChange={(v) => setScheduleEdit({ ...scheduleEdit, workEnd: v })}
-                ariaLabel={t('WORK_END')}
-              />
-            </label>
-          </div>
-          {/* 근무 요일(월~일) — 토·일 근무 유무를 멤버별로 설정(manual-attendance §2) */}
-          <span className="field-label">{t('WORK_DAYS')}</span>
-          <div className="weekday-row" role="group" aria-label={t('WORK_DAYS')}>
-            {weekdayLabels.map((label, index) => {
-              const on = scheduleEdit.workDays.charAt(index) === '1'
-              return (
-                <label key={index} className={`weekday-chip${on ? ' on' : ''}`}>
-                  <input
-                    type="checkbox"
-                    checked={on}
-                    onChange={() => {
-                      const chars = scheduleEdit.workDays.split('')
-                      chars[index] = on ? '0' : '1'
-                      setScheduleEdit({ ...scheduleEdit, workDays: chars.join('') })
-                    }}
-                  />
-                  {label}
-                </label>
-              )
-            })}
-          </div>
-          {/* 기본(고정) 스케줄 위에 월 로타(일자별 예외·야간교대·휴무)를 얹는다(#13) */}
-          <p className="hint">{t('ROTA_HINT')}</p>
-          <div className="btn-row">
-            <button
-              className="primary"
-              onClick={() => void saveSchedule()}
-              disabled={
-                !scheduleEdit.workStart ||
-                !scheduleEdit.workEnd ||
-                !scheduleEdit.workDays.includes('1') //전 요일 휴무는 서버도 400
-              }
-            >
-              {t('SUBMIT')}
-            </button>
-            <button
-              onClick={() => {
-                //기본(고정) 스케줄 모달을 닫고 통합 근무 스케줄 화면(반복 패턴 + 월 달력)으로
-                setScheduleMember({ userId: scheduleEdit.userId, name: scheduleEdit.name, email: scheduleEdit.email })
-                setScheduleEdit(null)
-              }}
-            >
-              {t('SCHEDULE_MANAGE')}
-            </button>
-            <button onClick={() => setScheduleEdit(null)}>{t('CANCEL')}</button>
           </div>
         </Modal>
       )}
@@ -627,7 +525,7 @@ export function MembersScreen() {
                         )}
                         <button
                           onClick={() =>
-                            setScheduleEdit({
+                            setScheduleMember({
                               userId: member.userId,
                               name: member.name,
                               email: member.email,
