@@ -1,12 +1,11 @@
 package com.attendance.pro.user;
 
 import java.time.LocalDate;
-import java.time.LocalTime;
 
 /**
  * 회원 등록용 파라미터.
  * MyBatis가 자동 생성 키(userId)를 되돌려 넣을 수 있도록 record가 아닌 가변 클래스로 둔다.
- * 기본 근무 시각은 서비스에서 09:00/18:00을 채운다(DB DEFAULT에 맡기지 않고 응답 조립에 즉시 사용).
+ * 근무 스케줄은 등록 후 회사 기본 스케줄이 정기 스케줄로 복제된다(스케줄 단일화 — users에 근무시간 없음).
  */
 public class UserCreate {
 
@@ -16,8 +15,6 @@ public class UserCreate {
     private final String passwordHash;
     private final String name;
     private final String departCd;
-    private final LocalTime defaultWorkStart;
-    private final LocalTime defaultWorkEnd;
     private final Role role;
     private final UserStatus status;
     /** 입사일(선택) — null이면 매퍼가 CURDATE()로 채운다(#11). */
@@ -26,15 +23,12 @@ public class UserCreate {
     private final Long baseMonthlySalary;
 
     public UserCreate(long tenantId, String email, String passwordHash, String name, String departCd,
-            LocalTime defaultWorkStart, LocalTime defaultWorkEnd, Role role, UserStatus status,
-            LocalDate hireDate, Long baseMonthlySalary) {
+            Role role, UserStatus status, LocalDate hireDate, Long baseMonthlySalary) {
         this.tenantId = tenantId;
         this.email = email;
         this.passwordHash = passwordHash;
         this.name = name;
         this.departCd = departCd;
-        this.defaultWorkStart = defaultWorkStart;
-        this.defaultWorkEnd = defaultWorkEnd;
         this.role = role;
         this.status = status;
         this.hireDate = hireDate;
@@ -67,14 +61,6 @@ public class UserCreate {
 
     public String getDepartCd() {
         return departCd;
-    }
-
-    public LocalTime getDefaultWorkStart() {
-        return defaultWorkStart;
-    }
-
-    public LocalTime getDefaultWorkEnd() {
-        return defaultWorkEnd;
     }
 
     public Role getRole() {

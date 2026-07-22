@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -20,7 +21,6 @@ import com.attendance.pro.user.MemberDtos.MemberCreateRequest;
 import com.attendance.pro.user.MemberDtos.MemberCreateResponse;
 import com.attendance.pro.user.MemberDtos.MemberResponse;
 import com.attendance.pro.user.MemberDtos.MemberRoleRequest;
-import com.attendance.pro.user.MemberDtos.MemberScheduleRequest;
 import com.attendance.pro.user.MemberDtos.MemberStatusRequest;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -39,15 +39,52 @@ import jakarta.validation.Valid;
 public class MemberController {
 
     private final MemberService memberService;
+    private final com.attendance.pro.attendance.ScheduleAdminService scheduleAdminService;
 
-    public MemberController(MemberService memberService) {
+    public MemberController(MemberService memberService,
+            com.attendance.pro.attendance.ScheduleAdminService scheduleAdminService) {
         this.memberService = memberService;
+        this.scheduleAdminService = scheduleAdminService;
     }
 
     @Operation(summary = "api.member.list.summary")
     @GetMapping
-    public List<MemberResponse> list(@LoginUser SessionUser user) {
-        return memberService.list(user.tenantId());
+    public List<MemberResponse> list(@LoginUser SessionUser user,
+            @RequestParam(value = "q", required = false) String q) {
+        return memberService.list(user.tenantId(), q);
+    }
+
+    /**
+     * 특정 날짜·시각에 근무 중인 멤버(#6) — 실효 스케줄(상세 로타 오버라이드&gt;정기 패턴)로 판정.
+     * "그 날 그 시간에 누가 근무 중인가"를 서버에서 계산해 활성 멤버만 돌려준다. q는 이름·이메일·부서 추가 필터.
+     */
+    @Operation(summary = "api.member.working")
+    @GetMapping("/working")
+    public List<MemberResponse> working(@LoginUser SessionUser user,
+            @RequestParam("date") String date, @RequestParam("time") String time,
+            @RequestParam(value = "q", required = false) String q) {
+        java.time.LocalDate d = parseDate(date);
+        java.time.LocalTime tm = parseTime(time);
+        return memberService.list(user.tenantId(), q).stream()
+                .filter(mr -> mr.status() == com.attendance.pro.user.UserStatus.ACTIVE)
+                .filter(mr -> scheduleAdminService.isWorkingAt(user.tenantId(), mr.userId(), d, tm))
+                .toList();
+    }
+
+    private java.time.LocalDate parseDate(String date) {
+        try {
+            return java.time.LocalDate.parse(date);
+        } catch (java.time.format.DateTimeParseException e) {
+            throw com.attendance.pro.common.ApiException.badRequest("DATE_INVALID", "member.date.invalid");
+        }
+    }
+
+    private java.time.LocalTime parseTime(String time) {
+        try {
+            return java.time.LocalTime.parse(time);
+        } catch (java.time.format.DateTimeParseException e) {
+            throw com.attendance.pro.common.ApiException.badRequest("WORK_TIME_INVALID", "member.work-time.invalid");
+        }
     }
 
     @Operation(summary = "api.member.create.summary", description = "api.member.create.description")
@@ -84,18 +121,6 @@ public class MemberController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@LoginUser SessionUser user, @PathVariable("userId") long userId) {
         memberService.delete(user.tenantId(), user.userId(), userId);
-    }
-
-    @Operation(summary = "api.member.schedule.summary")
-    @ApiResponses({
-            @ApiResponse(responseCode = "400", description = "api.member.schedule.400"),
-            @ApiResponse(responseCode = "404", description = "api.member.invite.404")
-    })
-    @PutMapping("/{userId}/schedule")
-    public MemberResponse updateSchedule(@LoginUser SessionUser user,
-            @PathVariable("userId") long userId,
-            @Valid @RequestBody MemberScheduleRequest request) {
-        return memberService.updateSchedule(user.tenantId(), userId, request);
     }
 
     @Operation(summary = "api.member.salary.summary")

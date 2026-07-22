@@ -35,7 +35,7 @@ import com.attendance.pro.attendance.AttendanceDtos.DailyAttendance;
  * <ul>
  *   <li>공휴일·개인휴일·요일 휴무(dayOff)에도 스탬프를 채용한다(구현은 공란 스킵이었음).
  *       스케줄이 없으므로 법정휴게는 실체류 기반 {@code policy.requiredBreak(체류)} — 월 합계 포함</li>
- *   <li>dayOff = work_days 요일 플래그 '0' && 일자 오버라이드 없음(오버라이드가 있으면 근무일)</li>
+ *   <li>dayOff = 실효 스케줄이 OFF이거나 그 날짜에 스케줄이 없음(스케줄 단일화 — 개인 기본값 폐지)</li>
  *   <li>manual = 그 달력 날짜에 MANUAL 스탬프 존재(테이블 마커용 — 상세는 daily API)</li>
  * </ul>
  */
@@ -47,12 +47,10 @@ public class MonthlyAttendanceAssembler {
 
     /**
      * @param monthDays    대상 월의 모든 날짜(오름차순)
-     * @param schedules    일자별 스케쥴 오버라이드(work_date -> WorkSchedule)
+     * @param schedules    일자별 실효 스케줄(work_date -> WorkSchedule) — 상세 로타 + 정기 패턴 투영을 합친 결과.
+     *                     스케줄 단일화: 근무일·시각은 전부 여기서 온다. 그 날짜에 항목이 없으면 스케줄 미설정 = 휴무.
      * @param holidays     공휴일(날짜 -> 명칭) — 판정은 containsKey(정본: holiday-plan §6, CR3-2)
      * @param stamps       전 타입 스탬프(시각 오름차순, 다음달 1일치 야근 포함 — BREAK 포함)
-     * @param defaultStart 개인 기본 시업(users.default_work_start — null이면 상수 폴백)
-     * @param defaultEnd   개인 기본 종업
-     * @param workDays     요일별 근무 플래그(월~일 '1'=근무). null이면 전 요일 근무(방어)
      * @param breakPolicy  테넌트 소재국 법정 휴게 정책
      */
     /** 휴가 없는 호출 호환(기존 시그니처) — 빈 휴가 맵으로 위임. */
@@ -60,12 +58,8 @@ public class MonthlyAttendanceAssembler {
             Map<LocalDate, WorkSchedule> schedules,
             Map<LocalDate, String> holidays,
             List<AttendanceStamp> stamps,
-            LocalTime defaultStart,
-            LocalTime defaultEnd,
-            String workDays,
             BreakPolicy breakPolicy) {
-        return assemble(monthDays, schedules, holidays, java.util.Map.of(), stamps,
-                defaultStart, defaultEnd, workDays, breakPolicy);
+        return assemble(monthDays, schedules, holidays, java.util.Map.of(), stamps, breakPolicy);
     }
 
     public List<DailyAttendance> assemble(List<LocalDate> monthDays,
@@ -73,13 +67,7 @@ public class MonthlyAttendanceAssembler {
             Map<LocalDate, String> holidays,
             Map<LocalDate, String> leaves,
             List<AttendanceStamp> stamps,
-            LocalTime defaultStart,
-            LocalTime defaultEnd,
-            String workDays,
             BreakPolicy breakPolicy) {
-
-        LocalTime baseStart = defaultStart != null ? defaultStart : DEFAULT_START;
-        LocalTime baseEnd = defaultEnd != null ? defaultEnd : DEFAULT_END;
 
         //수동 정정 마커(달력 날짜 단위) — 채용 여부와 무관하게 "그 날에 정정이 있었다"를 표시
         Set<LocalDate> manualDays = stamps.stream()
@@ -105,16 +93,15 @@ public class MonthlyAttendanceAssembler {
             //스케줄상 휴무(패턴/로타의 OFF일) — 공휴일과 구분되는 근무 없음(#13)
             boolean scheduledOff = schedule != null && schedule.off();
             boolean holiday = holidays.containsKey(day) || (schedule != null && schedule.holiday());
-            //요일 휴무 — 오버라이드(비-OFF)가 있으면 근무일로 승격(오버라이드 우선), OFF면 휴무
-            boolean dayOff = !holiday && (scheduledOff
-                    || (schedule == null && !WorkDefaults.worksOn(workDays, day.getDayOfWeek())));
+            //스케줄 단일화: 그 날짜에 실효 스케줄 항목이 없으면 스케줄 미설정 = 휴무. OFF일도 휴무.
+            boolean dayOff = !holiday && (scheduledOff || schedule == null);
             boolean offDuty = holiday || dayOff;
 
-            //우선순위: work_schedule(필드 단위) > 개인 기본값 > 상수 — §3-1. 휴일·휴무는 스케줄 없음
+            //근무일 시각은 실효 스케줄에서. 근무인데 시각 결손(이론적 방어)이면 상수 폴백.
             LocalTime resolvedStart = offDuty ? null
-                    : (schedule != null && schedule.startTime() != null ? schedule.startTime() : baseStart);
+                    : (schedule != null && schedule.startTime() != null ? schedule.startTime() : DEFAULT_START);
             LocalTime resolvedEnd = offDuty ? null
-                    : (schedule != null && schedule.endTime() != null ? schedule.endTime() : baseEnd);
+                    : (schedule != null && schedule.endTime() != null ? schedule.endTime() : DEFAULT_END);
             //야간 교대(자정 넘김) — 두 시각이 모두 있고 오버라이드가 지정한 경우만(#13)
             boolean crosses = !offDuty && schedule != null && schedule.crossesMidnight()
                     && resolvedStart != null && resolvedEnd != null;

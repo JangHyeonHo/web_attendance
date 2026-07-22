@@ -188,7 +188,7 @@ public final class AttendanceDtos {
     public record DailyAttendance(
             @Schema(description = "schema.daily-attendance.date") LocalDate date,
             @Schema(description = "schema.daily-attendance.holiday") boolean holiday,
-            //요일 휴무(work_days 플래그 0 && 일자 오버라이드 없음). holiday와 상호배타
+            //휴무일(실효 스케줄 OFF 또는 스케줄 미설정). holiday와 상호배타
             @Schema(description = "schema.daily-attendance.day-off") boolean dayOff,
             @Schema(description = "schema.daily-attendance.schedule-start", example = "09:00") String scheduleStart,
             @Schema(description = "schema.daily-attendance.schedule-end", example = "18:00") String scheduleEnd,

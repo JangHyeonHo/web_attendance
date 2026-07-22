@@ -45,11 +45,26 @@ public class TenantAttendanceCloseController {
         return service.pending(user.tenantId());
     }
 
+    /** 마감 완료(선택 월) — '마감 취소' 대상. 승인 이력 전체가 아니라 대상 월만 조회한다. */
+    @Operation(summary = "api.tenant-attendance-close.approved")
+    @GetMapping("/approved")
+    public List<PendingCloseResponse> approved(@LoginUser SessionUser user,
+            @RequestParam("year") int year, @RequestParam("month") int month) {
+        return service.approvedByMonth(user.tenantId(), year, month);
+    }
+
     @Operation(summary = "api.tenant-attendance-close.decision")
     @PostMapping("/{closeId}/decision")
     public void decide(@LoginUser SessionUser user, @PathVariable("closeId") long closeId,
             @Valid @RequestBody CloseDecisionRequest request) {
         service.decide(user.tenantId(), user.userId(), closeId, request.approve(), request.note());
+    }
+
+    /** 마감 취소(관리자) — 승인된 마감을 열린(REQUESTED) 상태로 되돌려 정정 잠금을 해제한다. */
+    @Operation(summary = "api.tenant-attendance-close.reopen")
+    @PostMapping("/{closeId}/reopen")
+    public void reopen(@LoginUser SessionUser user, @PathVariable("closeId") long closeId) {
+        service.reopen(user.tenantId(), closeId);
     }
 
     /** 멤버 급여 정산(참고) — 관리자 전용. 마감 검토 시 해당 멤버·월의 가감 명세를 확인한다. */

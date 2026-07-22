@@ -2,7 +2,6 @@ package com.attendance.pro.user;
 
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
@@ -20,7 +19,6 @@ import com.attendance.pro.user.MemberDtos.InviteResponse;
 import com.attendance.pro.user.MemberDtos.MemberCreateRequest;
 import com.attendance.pro.user.MemberDtos.MemberCreateResponse;
 import com.attendance.pro.user.MemberDtos.MemberResponse;
-import com.attendance.pro.user.MemberDtos.MemberScheduleRequest;
 import com.attendance.pro.user.MemberInviteService.InviteOutcome;
 
 /**
@@ -34,70 +32,73 @@ import com.attendance.pro.user.MemberInviteService.InviteOutcome;
 @Service
 public class MemberService {
 
-    /** 개인 기본 근무 스케줄 미지정 시 기본값 */
-    static final LocalTime DEFAULT_WORK_START = LocalTime.of(9, 0);
-    static final LocalTime DEFAULT_WORK_END = LocalTime.of(18, 0);
-
     private final UserMapper userMapper;
     private final UserTokenService userTokenService;
     private final MemberInviteService memberInviteService;
     private final PasswordResetRateLimiter rateLimiter;
     private final BillingService billingService;
+    private final com.attendance.pro.attendance.ScheduleAdminService scheduleAdminService;
     private final PasswordEncoder passwordEncoder;
     private final SecureRandom random = new SecureRandom();
 
     public MemberService(UserMapper userMapper, UserTokenService userTokenService,
             MemberInviteService memberInviteService, PasswordResetRateLimiter rateLimiter,
-            BillingService billingService) {
+            BillingService billingService,
+            com.attendance.pro.attendance.ScheduleAdminService scheduleAdminService) {
         this.userMapper = userMapper;
         this.userTokenService = userTokenService;
         this.memberInviteService = memberInviteService;
         this.rateLimiter = rateLimiter;
         this.billingService = billingService;
+        this.scheduleAdminService = scheduleAdminService;
         this.passwordEncoder = new BCryptPasswordEncoder(12); //강도 12(권장)
     }
 
-    /**
-     * 멤버 목록(자기 테넌트만). PENDING 행은 유효 INVITE 토큰의 만료시각을 동봉한다.
-     */
+    /** 멤버 목록(필터 없음) — 자기 테넌트 전체. */
     public List<MemberResponse> list(long tenantId) {
+        return list(tenantId, null);
+    }
+
+    /**
+     * 멤버 검색 목록 — 이름·이메일·부서 텍스트(q). 대규모 인원 대비 서버에서 걸러 응답한다.
+     * (특정 날짜·시각 근무자 검색은 실효 스케줄 기반 별도 엔드포인트 /members/working)
+     * PENDING 행은 유효 INVITE 토큰의 만료시각을 동봉한다.
+     */
+    public List<MemberResponse> list(long tenantId, String q) {
+        String query = (q == null || q.isBlank()) ? null : q.trim();
         Map<Long, LocalDateTime> inviteExpiries = userTokenService.findActiveInviteExpiries(tenantId);
-        return userMapper.findByTenant(tenantId).stream()
+        return userMapper.searchByTenant(tenantId, query).stream()
                 .map(user -> MemberResponse.from(user, inviteExpiries.get(user.userId())))
                 .toList();
     }
 
     /**
      * 멤버 초대 등록. 항상 MEMBER/PENDING으로 생성하고 INVITE 메일을 발송한다.
-     * 테넌트 내 이메일 중복(활성 행 기준)시 409. workStart/End 미지정은 09:00/18:00.
+     * 테넌트 내 이메일 중복(활성 행 기준)시 409. 근무 스케줄은 등록 후 회사 기본 스케줄이 정기 스케줄로 복제된다.
      */
     public MemberCreateResponse create(long tenantId, MemberCreateRequest request, String inviterName) {
         if (userMapper.existsByEmail(tenantId, request.email())) {
             throw ApiException.conflict("EMAIL_DUPLICATED", "member.email.duplicated");
         }
-        LocalTime workStart = parseOrDefault(request.workStart(), DEFAULT_WORK_START);
-        LocalTime workEnd = parseOrDefault(request.workEnd(), DEFAULT_WORK_END);
-        validateWorkRange(workStart, workEnd);
         //입사일 선택 — 미입력 시 null(매퍼가 CURDATE로 채움). 연차 계산 기준(#11)
         java.time.LocalDate hireDate = (request.hireDate() == null || request.hireDate().isBlank())
                 ? null : java.time.LocalDate.parse(request.hireDate());
         UserCreate create = new UserCreate(tenantId, request.email(),
                 unusablePasswordHash(), request.name(), request.departCd(),
-                workStart, workEnd, Role.MEMBER, UserStatus.PENDING, hireDate,
-                request.baseMonthlySalary());
+                Role.MEMBER, UserStatus.PENDING, hireDate, request.baseMonthlySalary());
         try {
             userMapper.insert(create);
         } catch (DuplicateKeyException e) {
             //existsByEmail 검사와 INSERT 사이의 동시 등록 레이스 — UNIQUE(email_key) 위반을 같은 409로
             throw ApiException.conflict("EMAIL_DUPLICATED", "member.email.duplicated");
         }
+        //스케줄 단일화: 회사 기본 스케줄을 이 멤버의 정기 스케줄로 자동 생성(템플릿 없으면 no-op)
+        scheduleAdminService.initFromTenantDefault(tenantId, create.getUserId());
         //메일 발송은 등록 트랜잭션과 분리 — 실패해도 멤버·토큰은 존재(mailSent=false → 재발송 유도)
         InviteOutcome mail = memberInviteService.sendInvite(tenantId, create.getUserId(),
                 create.getEmail(), create.getName(), inviterName);
         return new MemberCreateResponse(create.getUserId(), create.getEmail(), create.getName(),
-                create.getDepartCd(), Role.MEMBER, UserStatus.PENDING,
-                MemberDtos.formatTime(workStart), MemberDtos.formatTime(workEnd),
-                mail.mailSent(), mail.expiresAt());
+                create.getDepartCd(), Role.MEMBER, UserStatus.PENDING, mail.mailSent(), mail.expiresAt());
     }
 
     /**
@@ -184,25 +185,7 @@ public class MemberService {
     }
 
     /**
-     * 개인 기본 근무 스케줄 수정(속성별 PUT — /status·/role 패턴 계승).
-     * PENDING(초대 대기) 행에도 허용(입사 전 준비 — CR3-6).
-     */
-    @Transactional
-    public MemberResponse updateSchedule(long tenantId, long userId, MemberScheduleRequest request) {
-        requireManageableMember(tenantId, userId);
-        LocalTime workStart = LocalTime.parse(request.workStart());
-        LocalTime workEnd = LocalTime.parse(request.workEnd());
-        validateWorkRange(workStart, workEnd);
-        //전 요일 휴무는 거부 — 집계상 매일이 dayOff가 되어 근무 기록이 전부 휴무 표시가 된다
-        if (!request.workDays().contains("1")) {
-            throw ApiException.badRequest("WORK_DAYS_EMPTY", "member.work-days.empty");
-        }
-        userMapper.updateWorkSchedule(tenantId, userId, workStart, workEnd, request.workDays());
-        return toResponse(tenantId, userMapper.findById(tenantId, userId));
-    }
-
-    /**
-     * 월 기본급 수정(속성별 PUT — /schedule 패턴 계승). null이면 미입력으로 저장(정산 제외).
+     * 월 기본급 수정(속성별 PUT). null이면 미입력으로 저장(정산 제외).
      * PENDING·ACTIVE 무관 허용(입사 전 등록 준비 포함).
      */
     @Transactional
@@ -218,7 +201,7 @@ public class MemberService {
      */
     public long registerPendingAdmin(long tenantId, String email, String name) {
         UserCreate create = new UserCreate(tenantId, email, unusablePasswordHash(), name, null,
-                DEFAULT_WORK_START, DEFAULT_WORK_END, Role.TENANT_ADMIN, UserStatus.PENDING, null, null);
+                Role.TENANT_ADMIN, UserStatus.PENDING, null, null);
         userMapper.insert(create);
         return create.getUserId();
     }
@@ -250,16 +233,6 @@ public class MemberService {
         }
     }
 
-    private LocalTime parseOrDefault(String time, LocalTime defaultValue) {
-        return time == null || time.isBlank() ? defaultValue : LocalTime.parse(time);
-    }
-
-    /** 교차 검증은 서비스 단일 출처 — 자정 넘김(22:00~06:00) 개인 기본 스케줄은 비지원(교대제는 별도 Phase). */
-    private void validateWorkRange(LocalTime workStart, LocalTime workEnd) {
-        if (!workStart.isBefore(workEnd)) {
-            throw ApiException.badRequest("WORK_TIME_INVALID_RANGE", "member.work-time.invalid-range");
-        }
-    }
 
     /**
      * PENDING 계정의 사용 불능 플레이스홀더 해시 — password_hash NOT NULL 불변식 유지.

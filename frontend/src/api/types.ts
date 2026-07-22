@@ -328,12 +328,6 @@ export interface MemberSummary {
   role: Role
   status: UserStatus
   createdAt: string
-  /** 개인 기본 시업 시각("HH:mm") */
-  workStart: string
-  /** 개인 기본 종업 시각("HH:mm") */
-  workEnd: string
-  /** 요일별 근무 플래그(월화수목금토일, '1'=근무 — V12) */
-  workDays: string
   /** 월 기본급(원/円) — 미입력이면 null. 급여 정산 기준 */
   baseMonthlySalary: number | null
   /** PENDING + 유효 INVITE 토큰이면 그 만료 시각, 아니면 null(만료/실패 → "재발송 필요" 표시) */
@@ -344,10 +338,6 @@ export interface MemberCreateRequest {
   email: string
   name: string
   departCd?: string | null
-  /** "HH:mm" — 미지정(null)은 09:00 */
-  workStart?: string | null
-  /** "HH:mm" — 미지정(null)은 18:00 */
-  workEnd?: string | null
   /** "YYYY-MM-DD" 입사일(선택) — 미지정(null)은 등록일. 연차 계산 기준(#11) */
   hireDate?: string | null
   /** 월 기본급(원/円, 선택) — 미입력은 null */
@@ -367,8 +357,6 @@ export interface MemberCreateResponse {
   role: Role
   /** 항상 PENDING — 비밀번호는 초대 링크에서 본인이 설정 */
   status: UserStatus
-  workStart: string
-  workEnd: string
   /** 발송 실패해도 201(멤버는 생성됨) — false면 재발송 유도 */
   mailSent: boolean
   inviteExpiresAt: string
@@ -388,14 +376,6 @@ export interface MemberStatusUpdateRequest {
 
 export interface MemberRoleUpdateRequest {
   role: Role // TENANT_ADMIN | MEMBER
-}
-
-/** PUT /members/{id}/schedule — 속성별 PUT(기존 /status·/role 패턴) */
-export interface MemberScheduleUpdateRequest {
-  workStart: string // "HH:mm"
-  workEnd: string // "HH:mm"
-  /** 요일별 근무 플래그(월~일, [01]{7} — 최소 1일 '1') */
-  workDays: string
 }
 
 // ---- attendance ----
@@ -656,6 +636,15 @@ export interface EffectiveDay {
   crossesMidnight: boolean
 }
 
+/** 회사 신규 멤버 기본 스케줄 한 요일(월~일). 등록 시 정기 스케줄로 복제된다. */
+export interface DefaultScheduleDay {
+  dayOfWeek: number
+  off: boolean
+  start: string | null
+  end: string | null
+  crossesMidnight: boolean
+}
+
 // ---- i18n (언어 마스터) ----
 
 export interface LanguageEntry {
@@ -910,5 +899,7 @@ export interface PendingCloseResponse {
   userName: string
   year: number
   month: number
+  /** REQUESTED=승인/반려 대상, APPROVED=마감 취소(잠금 해제) 대상 */
+  status: 'REQUESTED' | 'APPROVED'
   requestedAt: string
 }

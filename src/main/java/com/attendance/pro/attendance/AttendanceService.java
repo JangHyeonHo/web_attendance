@@ -409,7 +409,8 @@ public class AttendanceService {
     }
 
     /**
-     * 우선순위 해석(work_schedule > 개인 기본값 > 상수 — work-schedule §3-1)을 오늘 1일에 적용.
+     * 오늘 1일의 실효 스케줄(상세 로타 오버라이드 &gt; 정기 패턴)을 표시용으로 해석(스케줄 단일화).
+     * 공휴일·OFF·스케줄 미설정은 휴무 표시.
      */
     private TodaySchedule resolveTodaySchedule(long tenantId, long userId) {
         LocalDate today = LocalDate.now();
@@ -419,20 +420,23 @@ public class AttendanceService {
         if (publicHoliday || (override != null && override.holiday())) {
             return TodaySchedule.HOLIDAY;
         }
-        WorkDefaults defaults = scheduleMapper.findWorkDefaults(tenantId, userId);
-        //요일 휴무(일자 오버라이드 없음)는 휴일과 동일 표시 — 스탬프 자체는 휴일처럼 가능(§4)
-        if (override == null && defaults != null
-                && !WorkDefaults.worksOn(defaults.workDays(), today.getDayOfWeek())) {
+        //오버라이드가 없으면 정기 패턴 투영으로 실효 스케줄을 구한다
+        WorkSchedule effective = override;
+        if (effective == null) {
+            SchedulePattern pattern = patternMapper.findByUser(tenantId, userId);
+            if (pattern != null) {
+                effective = new SchedulePatternResolver(pattern, patternMapper.findSlots(pattern.patternId()))
+                        .resolve(today);
+            }
+        }
+        //스케줄 미설정 또는 OFF → 휴무 표시(스탬프 자체는 §4에 따라 가능)
+        if (effective == null || effective.off()) {
             return TodaySchedule.HOLIDAY;
         }
-        java.time.LocalTime baseStart = defaults != null && defaults.start() != null
-                ? defaults.start() : MonthlyAttendanceAssembler.DEFAULT_START;
-        java.time.LocalTime baseEnd = defaults != null && defaults.end() != null
-                ? defaults.end() : MonthlyAttendanceAssembler.DEFAULT_END;
-        java.time.LocalTime start = override != null && override.startTime() != null
-                ? override.startTime() : baseStart;
-        java.time.LocalTime end = override != null && override.endTime() != null
-                ? override.endTime() : baseEnd;
+        java.time.LocalTime start = effective.startTime() != null
+                ? effective.startTime() : MonthlyAttendanceAssembler.DEFAULT_START;
+        java.time.LocalTime end = effective.endTime() != null
+                ? effective.endTime() : MonthlyAttendanceAssembler.DEFAULT_END;
         DateTimeFormatter format = DateTimeFormatter.ofPattern("HH:mm");
         return new TodaySchedule(start.format(format), end.format(format));
     }
@@ -485,18 +489,13 @@ public class AttendanceService {
         Map<LocalDate, String> leaves = buildLeaveNames(tenantId, userId, from, to);
         //야근(자정 넘긴 퇴근) 판정을 위해 다음달 1일치 스탬프까지 함께 조회(BREAK 포함)
         List<AttendanceStamp> stamps = attendanceMapper.findBetween(tenantId, userId, from, to.plusDays(1));
-        //개인 기본 스케줄 + 테넌트 소재국 법정 휴게 정책(세션 tenantId 전파 — ISO-15)
-        WorkDefaults defaults = scheduleMapper.findWorkDefaults(tenantId, userId);
+        //테넌트 소재국 법정 휴게 정책(세션 tenantId 전파 — ISO-15). 근무일·시각은 실효 스케줄(schedules)에서.
         Tenant tenant = tenantMapper.findById(tenantId);
         ProfileCountry country = tenant == null ? null : ProfileCountry.of(tenant.country());
         //country 미설정/미지원이면 KR로 동작(안전한 실패 — X10)
         BreakPolicy policy = BreakPolicy.of(country == null ? ProfileCountry.KR : country);
 
-        List<DailyAttendance> days = assembler.assemble(monthDays, schedules, holidays, leaves, stamps,
-                defaults == null ? null : defaults.start(),
-                defaults == null ? null : defaults.end(),
-                defaults == null ? null : defaults.workDays(),
-                policy);
+        List<DailyAttendance> days = assembler.assemble(monthDays, schedules, holidays, leaves, stamps, policy);
         int totalScheduledMinutes = sumNonNull(days, DailyAttendance::scheduledMinutes);
         int totalBreakMinutes = sumNonNull(days, DailyAttendance::recognizedBreakMinutes);
         int totalWorkMinutes = sumNonNull(days, DailyAttendance::workMinutes);

@@ -28,12 +28,65 @@ public class ScheduleAdminService {
     private final ScheduleMapper scheduleMapper;
     private final SchedulePatternMapper patternMapper;
     private final UserMapper userMapper;
+    private final TenantDefaultScheduleMapper tenantDefaultScheduleMapper;
 
     public ScheduleAdminService(ScheduleMapper scheduleMapper, SchedulePatternMapper patternMapper,
-            UserMapper userMapper) {
+            UserMapper userMapper, TenantDefaultScheduleMapper tenantDefaultScheduleMapper) {
         this.scheduleMapper = scheduleMapper;
         this.patternMapper = patternMapper;
         this.userMapper = userMapper;
+        this.tenantDefaultScheduleMapper = tenantDefaultScheduleMapper;
+    }
+
+    /**
+     * 멤버 등록 시: 회사 기본 스케줄 템플릿을 그 멤버의 정기 스케줄(패턴)로 복제(스케줄 단일화).
+     * 이미 패턴이 있거나 템플릿이 없으면 아무것도 하지 않는다(멱등·방어).
+     */
+    @Transactional
+    public void initFromTenantDefault(long tenantId, long userId) {
+        if (patternMapper.findByUser(tenantId, userId) != null) {
+            return;
+        }
+        List<TenantDefaultScheduleMapper.DefaultDay> template = tenantDefaultScheduleMapper.findByTenant(tenantId);
+        if (template.isEmpty()) {
+            return;
+        }
+        SchedulePatternMapper.PatternInsert pi =
+                new SchedulePatternMapper.PatternInsert(tenantId, userId, 1, LocalDate.of(2024, 1, 1));
+        patternMapper.insertPattern(pi);
+        long patternId = pi.getPatternId();
+        List<SchedulePatternSlot> slots = template.stream()
+                .map(d -> new SchedulePatternSlot(patternId, 0, d.dayOfWeek(), d.off(),
+                        d.startTime(), d.endTime(), d.crossesMidnight()))
+                .toList();
+        patternMapper.insertSlots(patternId, slots);
+    }
+
+    /** 회사 기본 스케줄 조회(회사설정 편집용) — 없으면 빈 목록. */
+    @Transactional(readOnly = true)
+    public List<TenantDefaultScheduleMapper.DefaultDay> tenantDefault(long tenantId) {
+        return tenantDefaultScheduleMapper.findByTenant(tenantId);
+    }
+
+    /** 회사 기본 스케줄 저장(교체) — 7행(월~일)으로 재작성. */
+    @Transactional
+    public void saveTenantDefault(long tenantId, List<TenantDefaultScheduleMapper.DefaultDay> days) {
+        tenantDefaultScheduleMapper.deleteByTenant(tenantId);
+        tenantDefaultScheduleMapper.insertDays(tenantId, days);
+    }
+
+    /** 새 테넌트 기본 스케줄 시드 — 월~금 09:00~18:00 근무, 토·일 휴무. */
+    @Transactional
+    public void seedTenantDefault(long tenantId) {
+        LocalTime start = LocalTime.of(9, 0);
+        LocalTime end = LocalTime.of(18, 0);
+        List<TenantDefaultScheduleMapper.DefaultDay> days = new java.util.ArrayList<>();
+        for (int dow = 1; dow <= 7; dow++) {
+            boolean off = dow >= 6; //토(6)·일(7) 휴무
+            days.add(new TenantDefaultScheduleMapper.DefaultDay(dow, off,
+                    off ? null : start, off ? null : end, false));
+        }
+        saveTenantDefault(tenantId, days);
     }
 
     /** 그 달의 일자 오버라이드(로타 셀) 조회 — 편집기 초기 로드용. */
@@ -62,12 +115,6 @@ public class ScheduleAdminService {
         SchedulePattern pattern = patternMapper.findByUser(tenantId, userId);
         SchedulePatternResolver resolver = pattern == null ? null
                 : new SchedulePatternResolver(pattern, patternMapper.findSlots(pattern.patternId()));
-        WorkDefaults defaults = scheduleMapper.findWorkDefaults(tenantId, userId);
-        LocalTime dStart = defaults != null && defaults.start() != null
-                ? defaults.start() : MonthlyAttendanceAssembler.DEFAULT_START;
-        LocalTime dEnd = defaults != null && defaults.end() != null
-                ? defaults.end() : MonthlyAttendanceAssembler.DEFAULT_END;
-        String workDays = defaults == null ? null : defaults.workDays();
 
         List<EffectiveDay> result = new java.util.ArrayList<>();
         for (LocalDate day = from; day.isBefore(to); day = day.plusDays(1)) {
@@ -83,13 +130,97 @@ public class ScheduleAdminService {
                         pj.crossesMidnight()));
                 continue;
             }
-            //개인 기본값: 근무 요일이면 기본 시각, 아니면 휴무
-            boolean off = !WorkDefaults.worksOn(workDays, day.getDayOfWeek());
-            result.add(off
-                    ? EffectiveDay.of(day, "DEFAULT", true, null, null, false)
-                    : EffectiveDay.of(day, "DEFAULT", false, dStart, dEnd, false));
+            //스케줄 미설정(오버라이드·패턴 모두 없음) → 휴무로 표시(스케줄 단일화)
+            result.add(EffectiveDay.of(day, "DEFAULT", true, null, null, false));
         }
         return result;
+    }
+
+    /**
+     * 특정 날짜·시각에 그 멤버가 근무 중인지(#6) — 실효 스케줄(상세 오버라이드 &gt; 정기 패턴)로 판정.
+     * 휴무·스케줄 미설정이면 false, 근무면 그 시각이 근무창(야간 교대는 자정 넘김 처리) 안에 드는지로 판정.
+     */
+    @Transactional(readOnly = true)
+    public boolean isWorkingAt(long tenantId, long userId, LocalDate date, LocalTime time) {
+        List<WorkSchedule> overrides = scheduleMapper.findBetween(tenantId, userId, date, date.plusDays(1));
+        if (!overrides.isEmpty()) {
+            WorkSchedule ov = overrides.get(0);
+            return !ov.off() && within(ov.startTime(), ov.endTime(), ov.crossesMidnight(), time);
+        }
+        SchedulePattern pattern = patternMapper.findByUser(tenantId, userId);
+        if (pattern != null) {
+            SchedulePatternResolver resolver =
+                    new SchedulePatternResolver(pattern, patternMapper.findSlots(pattern.patternId()));
+            WorkSchedule pj = resolver.resolve(date);
+            if (pj != null) {
+                return !pj.off() && within(pj.startTime(), pj.endTime(), pj.crossesMidnight(), time);
+            }
+        }
+        return false; //스케줄 미설정 = 근무 없음
+    }
+
+    /**
+     * 멤버가 그 날짜에 근무 예정인가(연차 소정일 산정용) — 실효 스케줄(상세 오버라이드 &gt; 정기 패턴).
+     * 휴무면 false. 패턴·오버라이드가 모두 없으면 스케줄 미설정으로 보고 false.
+     */
+    @Transactional(readOnly = true)
+    public boolean isWorkday(long tenantId, long userId, LocalDate date) {
+        List<WorkSchedule> overrides = scheduleMapper.findBetween(tenantId, userId, date, date.plusDays(1));
+        if (!overrides.isEmpty()) {
+            return !overrides.get(0).off();
+        }
+        SchedulePattern pattern = patternMapper.findByUser(tenantId, userId);
+        if (pattern != null) {
+            SchedulePatternResolver resolver =
+                    new SchedulePatternResolver(pattern, patternMapper.findSlots(pattern.patternId()));
+            WorkSchedule pj = resolver.resolve(date);
+            if (pj != null) {
+                return !pj.off();
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 멤버의 소정근로 1일 분(연차 1일 = 몇 분) — 정기 스케줄 근무일의 평균 근무분(근무구간 − 법정휴게).
+     * 스케줄(정기 패턴)이 없거나 근무 슬롯이 없으면 fallback. 균일 근무면 정확, 변동 근무면 평균.
+     */
+    @Transactional(readOnly = true)
+    public int standardDayMinutes(long tenantId, long userId, BreakPolicy breakPolicy, int fallback) {
+        SchedulePattern pattern = patternMapper.findByUser(tenantId, userId);
+        if (pattern == null) {
+            return fallback;
+        }
+        long total = 0;
+        int n = 0;
+        for (SchedulePatternSlot s : patternMapper.findSlots(pattern.patternId())) {
+            if (s.off() || s.startTime() == null || s.endTime() == null) {
+                continue;
+            }
+            long span = spanMinutes(s.startTime(), s.endTime(), s.crossesMidnight());
+            long brk = breakPolicy.requiredBreak(java.time.Duration.ofMinutes(span)).toMinutes();
+            total += Math.max(1, span - brk);
+            n++;
+        }
+        return n == 0 ? fallback : (int) (total / n);
+    }
+
+    /** 근무 구간 분 — 야간 교대(자정 넘김)면 24시간에서 되돌린다. */
+    private long spanMinutes(LocalTime start, LocalTime end, boolean crossesMidnight) {
+        int s = start.getHour() * 60 + start.getMinute();
+        int e = end.getHour() * 60 + end.getMinute();
+        return crossesMidnight ? (1440 - s) + e : e - s;
+    }
+
+    /** 그 시각이 근무창 [start,end) 안인가. 야간 교대(자정 넘김)는 start 이후이거나 end 이전이면 근무 중. */
+    private boolean within(LocalTime start, LocalTime end, boolean crossesMidnight, LocalTime time) {
+        if (start == null || end == null) {
+            return false;
+        }
+        if (crossesMidnight) {
+            return !time.isBefore(start) || time.isBefore(end);
+        }
+        return !time.isBefore(start) && time.isBefore(end);
     }
 
     /** 월 로타 저장 — 그 달을 통째로 대체. cells는 오버라이드할 날짜만(빈 목록이면 그 달 오버라이드 전부 해제). */

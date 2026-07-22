@@ -11,7 +11,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.Map;
 
 import org.junit.jupiter.api.DisplayName;
@@ -25,7 +24,6 @@ import com.attendance.pro.common.ApiException;
 import com.attendance.pro.user.MemberDtos.InviteResponse;
 import com.attendance.pro.user.MemberDtos.MemberCreateRequest;
 import com.attendance.pro.user.MemberDtos.MemberCreateResponse;
-import com.attendance.pro.user.MemberDtos.MemberScheduleRequest;
 import com.attendance.pro.user.MemberInviteService.InviteOutcome;
 
 /**
@@ -46,16 +44,18 @@ class MemberServiceTest {
     private MemberInviteService memberInviteService;
     @Mock
     private com.attendance.pro.billing.BillingService billingService;
+    @Mock
+    private com.attendance.pro.attendance.ScheduleAdminService scheduleAdminService;
 
     private MemberService service() {
         //레이트 리미터는 실물(테스트별 새 인스턴스 — 임계 3회/5분에 도달하지 않는다)
         return new MemberService(userMapper, userTokenService, memberInviteService,
-                new com.attendance.pro.auth.PasswordResetRateLimiter(), billingService);
+                new com.attendance.pro.auth.PasswordResetRateLimiter(), billingService, scheduleAdminService);
     }
 
     private static User user(long userId, Role role, UserStatus status) {
         return new User(userId, TENANT_ID, "user" + userId + "@acme.co.kr", "hash", null,
-                "유저" + userId, null, LocalTime.of(9, 0), LocalTime.of(18, 0), "1111100", null, null,
+                "유저" + userId, null, null, null,
                 role, status, false, LocalDateTime.now(), LocalDateTime.now());
     }
 
@@ -281,8 +281,8 @@ class MemberServiceTest {
     @DisplayName("멤버 초대 등록(INV)")
     class Create {
 
-        private MemberCreateRequest request(String workStart, String workEnd) {
-            return new MemberCreateRequest("hong@acme.co.kr", "홍길동", "DEV01", workStart, workEnd, null, null);
+        private MemberCreateRequest request() {
+            return new MemberCreateRequest("hong@acme.co.kr", "홍길동", "DEV01", null, null);
         }
 
         @Test
@@ -299,7 +299,7 @@ class MemberServiceTest {
             when(memberInviteService.sendInvite(TENANT_ID, 7L, "hong@acme.co.kr", "홍길동", "김관리"))
                     .thenReturn(new InviteOutcome(true, expiresAt));
 
-            MemberCreateResponse response = service().create(TENANT_ID, request(null, null), "김관리");
+            MemberCreateResponse response = service().create(TENANT_ID, request(), "김관리");
 
             assertThat(response.userId()).isEqualTo(7L);
             assertThat(response.role()).isEqualTo(Role.MEMBER);
@@ -312,60 +312,19 @@ class MemberServiceTest {
         }
 
         @Test
-        @DisplayName("SCH-U-02: workStart/End 미지정은 09:00/18:00으로 저장·응답")
-        void createDefaultsWorkSchedule() {
+        @DisplayName("등록 후 회사 기본 스케줄을 그 멤버의 정기 스케줄로 자동 생성(스케줄 단일화)")
+        void createInitsScheduleFromTenantDefault() {
             when(userMapper.existsByEmail(TENANT_ID, "hong@acme.co.kr")).thenReturn(false);
-            final UserCreate[] captured = new UserCreate[1];
             when(userMapper.insert(any(UserCreate.class))).thenAnswer(inv -> {
-                captured[0] = inv.getArgument(0);
-                captured[0].setUserId(7L);
+                inv.getArgument(0, UserCreate.class).setUserId(7L);
                 return 1;
             });
             when(memberInviteService.sendInvite(anyLong(), anyLong(), anyString(), anyString(), anyString()))
                     .thenReturn(new InviteOutcome(true, LocalDateTime.now()));
 
-            MemberCreateResponse response = service().create(TENANT_ID, request(null, null), "김관리");
+            service().create(TENANT_ID, request(), "김관리");
 
-            assertThat(captured[0].getDefaultWorkStart()).isEqualTo(LocalTime.of(9, 0));
-            assertThat(captured[0].getDefaultWorkEnd()).isEqualTo(LocalTime.of(18, 0));
-            assertThat(response.workStart()).isEqualTo("09:00");
-            assertThat(response.workEnd()).isEqualTo("18:00");
-        }
-
-        @Test
-        @DisplayName("지정한 workStart/End(10:00~19:00)가 저장·응답에 반영된다")
-        void createWithCustomSchedule() {
-            when(userMapper.existsByEmail(TENANT_ID, "hong@acme.co.kr")).thenReturn(false);
-            final UserCreate[] captured = new UserCreate[1];
-            when(userMapper.insert(any(UserCreate.class))).thenAnswer(inv -> {
-                captured[0] = inv.getArgument(0);
-                captured[0].setUserId(7L);
-                return 1;
-            });
-            when(memberInviteService.sendInvite(anyLong(), anyLong(), anyString(), anyString(), anyString()))
-                    .thenReturn(new InviteOutcome(true, LocalDateTime.now()));
-
-            MemberCreateResponse response = service().create(TENANT_ID, request("10:00", "19:00"), "김관리");
-
-            assertThat(captured[0].getDefaultWorkStart()).isEqualTo(LocalTime.of(10, 0));
-            assertThat(response.workStart()).isEqualTo("10:00");
-            assertThat(response.workEnd()).isEqualTo("19:00");
-        }
-
-        @Test
-        @DisplayName("SCH-U-01: workStart >= workEnd 등록은 400 WORK_TIME_INVALID_RANGE")
-        void invalidWorkRangeRejected() {
-            when(userMapper.existsByEmail(TENANT_ID, "hong@acme.co.kr")).thenReturn(false);
-
-            assertThatThrownBy(() -> service().create(TENANT_ID, request("18:00", "09:00"), "김관리"))
-                    .isInstanceOf(ApiException.class)
-                    .satisfies(e -> {
-                        ApiException apiException = (ApiException) e;
-                        assertThat(apiException.getStatus().value()).isEqualTo(400);
-                        assertThat(apiException.getCode()).isEqualTo("WORK_TIME_INVALID_RANGE");
-                        assertThat(apiException.getMessageKey()).isEqualTo("member.work-time.invalid-range");
-                    });
-            verify(userMapper, never()).insert(any(UserCreate.class));
+            verify(scheduleAdminService).initFromTenantDefault(TENANT_ID, 7L);
         }
 
         @Test
@@ -380,7 +339,7 @@ class MemberServiceTest {
             when(memberInviteService.sendInvite(anyLong(), anyLong(), anyString(), anyString(), anyString()))
                     .thenReturn(new InviteOutcome(false, LocalDateTime.now().plusHours(72)));
 
-            MemberCreateResponse response = service().create(TENANT_ID, request(null, null), "김관리");
+            MemberCreateResponse response = service().create(TENANT_ID, request(), "김관리");
 
             assertThat(response.mailSent()).isFalse();
             verify(userMapper).insert(any(UserCreate.class));
@@ -391,7 +350,7 @@ class MemberServiceTest {
         void duplicateEmailRejected() {
             when(userMapper.existsByEmail(TENANT_ID, "hong@acme.co.kr")).thenReturn(true);
 
-            assertThatThrownBy(() -> service().create(TENANT_ID, request(null, null), "김관리"))
+            assertThatThrownBy(() -> service().create(TENANT_ID, request(), "김관리"))
                     .isInstanceOf(ApiException.class)
                     .satisfies(e -> {
                         ApiException apiException = (ApiException) e;
@@ -537,54 +496,6 @@ class MemberServiceTest {
     }
 
     @Nested
-    @DisplayName("개인 기본 스케줄 수정(SCH-U)")
-    class Schedule {
-
-        @Test
-        @DisplayName("스케줄 수정은 저장 후 갱신 행을 돌려준다(PENDING 행에도 허용)")
-        void updateSchedule() {
-            when(userMapper.findById(TENANT_ID, TARGET_ID))
-                    .thenReturn(user(TARGET_ID, Role.MEMBER, UserStatus.PENDING));
-            when(userTokenService.findActiveInviteExpiries(TENANT_ID)).thenReturn(Map.of());
-
-            service().updateSchedule(TENANT_ID, TARGET_ID, new MemberScheduleRequest("10:00", "19:00", "1111100"));
-
-            verify(userMapper).updateWorkSchedule(TENANT_ID, TARGET_ID,
-                    LocalTime.of(10, 0), LocalTime.of(19, 0), "1111100");
-        }
-
-        @Test
-        @DisplayName("SCH-U-01: workStart >= workEnd 수정은 400 WORK_TIME_INVALID_RANGE")
-        void invalidRangeRejected() {
-            when(userMapper.findById(TENANT_ID, TARGET_ID))
-                    .thenReturn(user(TARGET_ID, Role.MEMBER, UserStatus.ACTIVE));
-
-            assertThatThrownBy(() -> service().updateSchedule(TENANT_ID, TARGET_ID,
-                    new MemberScheduleRequest("19:00", "10:00", "1111100")))
-                    .isInstanceOf(ApiException.class)
-                    .satisfies(e -> assertThat(((ApiException) e).getCode()).isEqualTo("WORK_TIME_INVALID_RANGE"));
-            verify(userMapper, never()).updateWorkSchedule(anyLong(), anyLong(), any(), any(), any());
-        }
-
-        @Test
-        @DisplayName("SCH-U-03: 타 테넌트/미존재/SYSTEM_ADMIN 대상 스케줄 수정은 404(존재 비노출)")
-        void crossTenantOrSystemAdminHidden() {
-            when(userMapper.findById(TENANT_ID, 999L)).thenReturn(null);
-            assertThatThrownBy(() -> service().updateSchedule(TENANT_ID, 999L,
-                    new MemberScheduleRequest("09:00", "18:00", "1111100")))
-                    .isInstanceOf(ApiException.class)
-                    .satisfies(e -> assertThat(((ApiException) e).getCode()).isEqualTo("MEMBER_NOT_FOUND"));
-
-            when(userMapper.findById(TENANT_ID, TARGET_ID))
-                    .thenReturn(user(TARGET_ID, Role.SYSTEM_ADMIN, UserStatus.ACTIVE));
-            assertThatThrownBy(() -> service().updateSchedule(TENANT_ID, TARGET_ID,
-                    new MemberScheduleRequest("09:00", "18:00", "1111100")))
-                    .isInstanceOf(ApiException.class)
-                    .satisfies(e -> assertThat(((ApiException) e).getCode()).isEqualTo("MEMBER_NOT_FOUND"));
-        }
-    }
-
-    @Nested
     @DisplayName("멤버 목록")
     class ListMembers {
 
@@ -592,7 +503,7 @@ class MemberServiceTest {
         @DisplayName("PENDING 행은 유효 INVITE 토큰의 만료시각을 동봉, 그 외는 null")
         void listCarriesInviteExpiry() {
             LocalDateTime expiresAt = LocalDateTime.now().plusHours(24);
-            when(userMapper.findByTenant(TENANT_ID)).thenReturn(java.util.List.of(
+            when(userMapper.searchByTenant(TENANT_ID, null)).thenReturn(java.util.List.of(
                     user(2L, Role.MEMBER, UserStatus.PENDING),
                     user(3L, Role.MEMBER, UserStatus.ACTIVE)));
             when(userTokenService.findActiveInviteExpiries(TENANT_ID)).thenReturn(Map.of(2L, expiresAt));
@@ -601,8 +512,20 @@ class MemberServiceTest {
 
             assertThat(members).hasSize(2);
             assertThat(members.get(0).inviteExpiresAt()).isEqualTo(expiresAt);
-            assertThat(members.get(0).workStart()).isEqualTo("09:00");
             assertThat(members.get(1).inviteExpiresAt()).isNull();
+        }
+
+        @Test
+        @DisplayName("검색: 텍스트를 트림해 searchByTenant로 전달, 빈 값은 null")
+        void listPassesFiltersToMapper() {
+            when(userMapper.searchByTenant(TENANT_ID, "김"))
+                    .thenReturn(java.util.List.of(user(3L, Role.MEMBER, UserStatus.ACTIVE)));
+            when(userTokenService.findActiveInviteExpiries(TENANT_ID)).thenReturn(Map.of());
+
+            var members = service().list(TENANT_ID, "  김  ");
+
+            assertThat(members).hasSize(1);
+            verify(userMapper).searchByTenant(TENANT_ID, "김");
         }
     }
 

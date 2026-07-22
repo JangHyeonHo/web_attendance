@@ -31,6 +31,7 @@ public class AttendanceCloseService {
     @Transactional
     public CloseStatusResponse request(long tenantId, long userId, int year, int month) {
         requireMonthEnded(year, month);
+        requireAfterHire(tenantId, userId, year, month); //입사월 이전 달은 신청 불가(#8)
         AttendanceClose existing = mapper.find(tenantId, userId, year, month);
         if (existing != null) {
             switch (existing.status()) {
@@ -67,13 +68,34 @@ public class AttendanceCloseService {
         return status(tenantId, userId, year, month);
     }
 
-    /** 결재 대기 목록(관리자). */
+    /** 결재 대기 목록(관리자) — REQUESTED만. */
     @Transactional(readOnly = true)
     public List<PendingCloseResponse> pending(long tenantId) {
-        return mapper.findPending(tenantId).stream()
-                .map(r -> new PendingCloseResponse(r.closeId(), r.userId(), r.userName(),
-                        r.targetYear(), r.targetMonth(), r.requestedAt()))
+        return mapper.findRequested(tenantId).stream()
+                .map(this::toResponse)
                 .toList();
+    }
+
+    /** 마감 완료 목록(관리자) — 선택 월만('마감 취소' 대상). 승인 이력 전체를 나열하지 않는다. */
+    @Transactional(readOnly = true)
+    public List<PendingCloseResponse> approvedByMonth(long tenantId, int year, int month) {
+        return mapper.findApprovedByMonth(tenantId, year, month).stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    private PendingCloseResponse toResponse(AttendanceCloseMapper.PendingCloseRow r) {
+        return new PendingCloseResponse(r.closeId(), r.userId(), r.userName(),
+                r.targetYear(), r.targetMonth(), r.status(), r.requestedAt());
+    }
+
+    /** 마감 취소(관리자) — 승인된 마감을 열린(REQUESTED) 상태로 되돌린다. 잠금 해제. */
+    @Transactional
+    public void reopen(long tenantId, long closeId) {
+        int affected = mapper.reopenApproved(tenantId, closeId);
+        if (affected == 0) {
+            throw ApiException.conflict("CLOSE_NOT_REOPENABLE", "attendance.close.not-reopenable");
+        }
     }
 
     /** 결재(관리자) — 승인/반려. REQUESTED가 아니면 409(이미 결재됨/없음). */
@@ -94,6 +116,14 @@ public class AttendanceCloseService {
     private void requireMonthEnded(int year, int month) {
         if (!isMonthEnded(year, month)) {
             throw ApiException.badRequest("CLOSE_NOT_ENDED", "attendance.close.not-ended");
+        }
+    }
+
+    /** 입사월 이전 달은 근무 이력이 없으므로 마감 신청 불가(#8). hire_date 없으면 통과. */
+    private void requireAfterHire(long tenantId, long userId, int year, int month) {
+        java.time.LocalDate hire = mapper.findHireDate(tenantId, userId);
+        if (hire != null && java.time.YearMonth.of(year, month).isBefore(java.time.YearMonth.from(hire))) {
+            throw ApiException.badRequest("CLOSE_BEFORE_HIRE", "attendance.close.before-hire");
         }
     }
 

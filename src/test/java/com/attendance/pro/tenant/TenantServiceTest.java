@@ -11,7 +11,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
@@ -62,12 +61,14 @@ class TenantServiceTest {
     private HolidayService holidayService;
     @Mock
     private com.attendance.pro.leave.LeaveService leaveService;
+    @Mock
+    private com.attendance.pro.attendance.ScheduleAdminService scheduleAdminService;
 
     private TenantService service() {
         //레이트 리미터는 실물(테스트별 새 인스턴스 — 임계 3회/5분에 도달하지 않는다)
         return new TenantService(tenantMapper, userMapper, memberService, memberInviteService,
                 holidayService, leaveService, new com.attendance.pro.auth.PasswordResetRateLimiter(),
-                immediateTx());
+                immediateTx(), scheduleAdminService);
     }
 
     /** 콜백을 그 자리에서 실행하는 트랜잭션 템플릿(단위 테스트용 — 실 커밋 없음). */
@@ -94,7 +95,7 @@ class TenantServiceTest {
 
     private static User pendingAdmin(long userId) {
         return new User(userId, 10L, "admin@acme.co.kr", "hash", null, "김관리", null,
-                LocalTime.of(9, 0), LocalTime.of(18, 0), "1111100", null, null,
+                null, null,
                 Role.TENANT_ADMIN, UserStatus.PENDING, false, LocalDateTime.now(), LocalDateTime.now());
     }
 

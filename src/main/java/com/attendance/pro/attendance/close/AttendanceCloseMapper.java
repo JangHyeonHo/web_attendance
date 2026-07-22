@@ -33,22 +33,45 @@ public interface AttendanceCloseMapper {
     String findStatus(@Param("tenantId") long tenantId, @Param("userId") long userId,
             @Param("year") int year, @Param("month") int month);
 
-    /** 결재 대기 목록(테넌트 전체, 신청 순). 멤버 이름을 조인해 함께 반환. */
+    /**
+     * 결재 대기 목록 — REQUESTED만(승인/반려 대상). 상시 소수라 전건 조회해도 상한이 있다.
+     */
     @Select("""
             SELECT c.close_id AS closeId, c.user_id AS userId, u.name AS userName,
                    c.target_year AS targetYear, c.target_month AS targetMonth,
-                   c.requested_at AS requestedAt
+                   c.status AS status, c.requested_at AS requestedAt
             FROM attendance_close c
             JOIN users u ON u.user_id = c.user_id AND u.tenant_id = c.tenant_id
             WHERE c.tenant_id = #{tenantId} AND c.status = 'REQUESTED'
             ORDER BY c.requested_at ASC
             """)
-    List<PendingCloseRow> findPending(@Param("tenantId") long tenantId);
+    List<PendingCloseRow> findRequested(@Param("tenantId") long tenantId);
 
-    /** 결재 대기 목록 행(멤버 이름 포함). */
+    /**
+     * 마감 완료(APPROVED) 목록 — 선택한 대상 월만('마감 취소' 대상). 승인 이력 전체를 나열하지 않아
+     * 데이터가 쌓여도 목록이 무한정 길어지지 않는다.
+     */
+    @Select("""
+            SELECT c.close_id AS closeId, c.user_id AS userId, u.name AS userName,
+                   c.target_year AS targetYear, c.target_month AS targetMonth,
+                   c.status AS status, c.requested_at AS requestedAt
+            FROM attendance_close c
+            JOIN users u ON u.user_id = c.user_id AND u.tenant_id = c.tenant_id
+            WHERE c.tenant_id = #{tenantId} AND c.status = 'APPROVED'
+              AND c.target_year = #{year} AND c.target_month = #{month}
+            ORDER BY u.name ASC
+            """)
+    List<PendingCloseRow> findApprovedByMonth(@Param("tenantId") long tenantId,
+            @Param("year") int year, @Param("month") int month);
+
+    /** 관리자 마감 목록 행(멤버 이름·상태 포함). */
     record PendingCloseRow(long closeId, long userId, String userName,
-            int targetYear, int targetMonth, java.time.LocalDateTime requestedAt) {
+            int targetYear, int targetMonth, String status, java.time.LocalDateTime requestedAt) {
     }
+
+    /** 멤버 입사일 — 마감 신청 가능 하한(입사월 이전 달은 신청 불가). null 가능. */
+    @Select("SELECT hire_date FROM users WHERE tenant_id = #{tenantId} AND user_id = #{userId} AND deleted = FALSE")
+    java.time.LocalDate findHireDate(@Param("tenantId") long tenantId, @Param("userId") long userId);
 
     @Insert("""
             INSERT INTO attendance_close (tenant_id, user_id, target_year, target_month, status, requested_at)
@@ -86,6 +109,14 @@ public interface AttendanceCloseMapper {
     int decide(@Param("tenantId") long tenantId, @Param("closeId") long closeId,
             @Param("approverId") long approverId, @Param("status") String status,
             @Param("note") String note);
+
+    /** 마감 취소(관리자) — 승인된 마감을 다시 열린(REQUESTED) 상태로. 잠금 해제 + 결재 정보 초기화. */
+    @Update("""
+            UPDATE attendance_close
+            SET status = 'REQUESTED', approver_id = NULL, decided_at = NULL, decision_note = NULL
+            WHERE tenant_id = #{tenantId} AND close_id = #{closeId} AND status = 'APPROVED'
+            """)
+    int reopenApproved(@Param("tenantId") long tenantId, @Param("closeId") long closeId);
 
     /** INSERT 파라미터(자동 생성 키 회수용 가변 클래스). */
     class CloseInsert {

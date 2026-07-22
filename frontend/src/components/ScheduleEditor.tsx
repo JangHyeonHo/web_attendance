@@ -239,7 +239,7 @@ export function ScheduleEditor({
 
       {error && <p className="error" role="alert">{error}</p>}
 
-      {/* ① 정기 스케줄 */}
+      {/* ① 정기 스케줄 — 요일별 반복 근무. 개인 기본값 편집은 이걸로 대체(중복 제거) */}
       <section className="sched-section">
         <h3 className="section-head">{t('REGULAR_SCHEDULE')}</h3>
         <p className="hint">{t('REGULAR_HINT')}</p>

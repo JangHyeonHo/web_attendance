@@ -33,17 +33,6 @@ public interface ScheduleMapper {
             @Param("to") LocalDate to);
 
     /**
-     * 개인 기본 근무 시각 — users 테이블 SELECT지만 "그날의 스케줄 해석"이라는 근태 질의이므로
-     * 스케줄 매퍼 소유(attendance→user 패키지 의존 회피).
-     */
-    @Select("""
-            SELECT default_work_start AS `start`, default_work_end AS `end`, work_days
-            FROM users
-            WHERE tenant_id = #{tenantId} AND user_id = #{userId} AND deleted = FALSE
-            """)
-    WorkDefaults findWorkDefaults(@Param("tenantId") long tenantId, @Param("userId") long userId);
-
-    /**
      * 월 로타(일자 오버라이드) 범위 삭제 — 저장 시 그 달을 통째로 대체(#13).
      */
     @Delete("""
@@ -55,7 +44,7 @@ public interface ScheduleMapper {
             @Param("from") LocalDate from, @Param("to") LocalDate to);
 
     /**
-     * 월 로타 셀 벌크 삽입(#13) — 관리자가 지정한 날짜만. 미지정일은 개인 기본 스케줄로 폴백(행 없음).
+     * 월 로타 셀 벌크 삽입(#13) — 관리자가 지정한 날짜만. 미지정일은 정기 스케줄(패턴)로 폴백(행 없음).
      * uk(user_id, work_date) 중복은 최신값으로 갱신(같은 저장 내 중복 방어).
      */
     @Insert("""

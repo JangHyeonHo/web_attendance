@@ -4,7 +4,7 @@ import { tenantLeaveApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { Modal } from '../components/Modal'
-import { SelectField } from '../components/fields'
+import { SelectField, TextField, TextAreaField, ModalSubject } from '../components/fields'
 import { DateField } from '../components/DateField'
 import { formatLeaveAmount } from '../util/leaveFormat'
 import type {
@@ -154,11 +154,14 @@ function ApprovalsTab() {
 
       {rejectTarget && (
         <Modal title={t('REJECT')} onClose={() => setRejectTarget(null)} danger>
-          <p className="center">{rejectTarget.userName} — {rejectTarget.typeName}</p>
-          <label>
-            {t('DECISION_NOTE')}
-            <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} />
-          </label>
+          <ModalSubject primary={rejectTarget.userName} secondary={rejectTarget.typeName} />
+          <TextAreaField
+            label={t('DECISION_NOTE')}
+            value={note}
+            onChange={setNote}
+            maxLength={200}
+            autoFocus
+          />
           <div className="btn-row">
             <button
               className="primary"
@@ -222,7 +225,7 @@ function CancellationsTab() {
     <>
       {error && <p className="error" role="alert">{error}</p>}
 
-      <h3 className="section-head">{t('CANCEL_REQUESTS_TITLE')}</h3>
+      {/* 취소 신청 헤더는 바깥 TAB_CANCELS가 이미 표시하므로 중복 제거(#3) */}
       {rows.length === 0 ? (
         <p className="muted center">{t('NO_CANCELS')}</p>
       ) : (
@@ -320,11 +323,17 @@ function CancellationsTab() {
 
       {cancelTarget && (
         <Modal title={t('CANCEL_LEAVE')} onClose={() => setCancelTarget(null)} danger>
-          <p className="center">{cancelTarget.userName} — {cancelTarget.typeName} ({periodText(cancelTarget)})</p>
-          <label>
-            {t('CANCEL_REASON')}
-            <input value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} maxLength={200} autoFocus />
-          </label>
+          <ModalSubject
+            primary={cancelTarget.userName}
+            secondary={`${cancelTarget.typeName} · ${periodText(cancelTarget)}`}
+          />
+          <TextAreaField
+            label={t('CANCEL_REASON')}
+            value={cancelReason}
+            onChange={setCancelReason}
+            maxLength={200}
+            autoFocus
+          />
           <div className="btn-row">
             <button
               className="primary"
@@ -551,12 +560,7 @@ function BulkGrantModal({
           <DateField value={expiresOn} onChange={setExpiresOn} ariaLabel={t('EXPIRES')} />
         </label>
       </div>
-      <input
-        placeholder={t('MEMO')}
-        value={memo}
-        onChange={(e) => setMemo(e.target.value)}
-        maxLength={200}
-      />
+      <TextField label={t('MEMO')} value={memo} onChange={setMemo} maxLength={200} />
 
       {/* 대규모 인원 대비 이름 검색(#9) — 결과 안에서만 전체 선택/해제 */}
       <input

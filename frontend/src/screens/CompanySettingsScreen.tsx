@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
-import { tenantReportApi } from '../api/endpoints'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { tenantReportApi, tenantDefaultScheduleApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
-import type { ReportSetting } from '../api/types'
+import { TimeField } from '../components/fields'
+import { localeOf } from '../i18n/lang'
+import type { ReportSetting, DefaultScheduleDay } from '../api/types'
 
 /**
  * W020 회사 설정 — 근태 보고서 등 회사 공통 운영 설정. 총관리자+인사관리자.
@@ -14,8 +16,123 @@ export function CompanySettingsScreen() {
     <div className="panel">
       <h2>{t('COMPANY_SETTINGS_TITLE')}</h2>
       <p className="muted">{t('COMPANY_SETTINGS_NOTE')}</p>
+      <DefaultScheduleSection />
       <ReportSettingSection />
     </div>
+  )
+}
+
+/**
+ * 신규 멤버 기본 스케줄 — 요일별 근무/휴무·시간. 멤버 등록 시 이 스케줄이 그 멤버의 정기 스케줄로 복제된다.
+ * (근태 기대시간·연차 소정근로가 정기+상세 실효 스케줄에서 계산되므로, 등록 시 스케줄을 미리 세팅)
+ */
+function DefaultScheduleSection() {
+  const { t, lang } = useApp()
+  const [days, setDays] = useState<DefaultScheduleDay[]>([])
+  const [baseline, setBaseline] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const weekdayLabels = useMemo(() => {
+    const fmt = new Intl.DateTimeFormat(localeOf(lang), { weekday: 'short' })
+    return Array.from({ length: 7 }, (_, i) => fmt.format(new Date(2024, 0, 1 + i))) //2024-01-01=월
+  }, [lang])
+
+  useEffect(() => {
+    tenantDefaultScheduleApi
+      .get()
+      .then((d) => {
+        const sorted = [...d].sort((a, b) => a.dayOfWeek - b.dayOfWeek)
+        setDays(sorted)
+        setBaseline(JSON.stringify(sorted))
+      })
+      .catch((e) => setError(e instanceof ApiError ? e.message : String(e)))
+  }, [])
+
+  const dirty = JSON.stringify(days) !== baseline
+  const invalid = days.some((d) => !d.off && !d.crossesMidnight && d.start != null && d.end != null && d.end <= d.start)
+
+  function update(dow: number, patch: Partial<DefaultScheduleDay>) {
+    setDays((prev) => prev.map((d) => (d.dayOfWeek === dow ? { ...d, ...patch } : d)))
+    setSaved(false)
+  }
+
+  async function save() {
+    setBusy(true)
+    setSaved(false)
+    setError(null)
+    try {
+      const result = await tenantDefaultScheduleApi.save(days)
+      const sorted = [...result].sort((a, b) => a.dayOfWeek - b.dayOfWeek)
+      setDays(sorted)
+      setBaseline(JSON.stringify(sorted))
+      setSaved(true)
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="ci-section">
+      <h3 className="section-head">{t('DEFAULT_SCHEDULE_TITLE')}</h3>
+      <p className="hint">{t('DEFAULT_SCHEDULE_NOTE')}</p>
+      <div className="rota-grid">
+        {days.map((d) => {
+          const dowClass = d.dayOfWeek === 7 ? 'sun' : d.dayOfWeek === 6 ? 'sat' : ''
+          return (
+            <div key={d.dayOfWeek} className="rota-day">
+              <span className={`rota-day-date ${dowClass}`}>{weekdayLabels[d.dayOfWeek - 1]}</span>
+              <select
+                value={d.off ? 'off' : 'work'}
+                disabled={busy}
+                onChange={(e) =>
+                  update(d.dayOfWeek,
+                    e.target.value === 'off'
+                      ? { off: true }
+                      : { off: false, start: d.start ?? '09:00', end: d.end ?? '18:00' })
+                }
+              >
+                <option value="work">{t('SHIFT_WORK')}</option>
+                <option value="off">{t('SHIFT_OFF')}</option>
+              </select>
+              {!d.off && (
+                <span className="rota-day-times">
+                  <TimeField
+                    value={d.start ?? '09:00'}
+                    onChange={(v) => update(d.dayOfWeek, { start: v })}
+                    ariaLabel={t('WORK_START')}
+                  />
+                  <span aria-hidden="true">~</span>
+                  <TimeField
+                    value={d.end ?? '18:00'}
+                    onChange={(v) => update(d.dayOfWeek, { end: v })}
+                    ariaLabel={t('WORK_END')}
+                  />
+                  <label className="check-inline">
+                    <input
+                      type="checkbox"
+                      checked={d.crossesMidnight}
+                      onChange={(e) => update(d.dayOfWeek, { crossesMidnight: e.target.checked })}
+                    />
+                    {t('NIGHT_WORK')}
+                  </label>
+                </span>
+              )}
+            </div>
+          )
+        })}
+      </div>
+      <div className="ci-actions">
+        <button className="primary" onClick={() => void save()} disabled={busy || !dirty || invalid}>
+          {t('SAVE')}
+        </button>
+        {saved && !dirty && <span className="success" role="status">{t('SAVED')}</span>}
+      </div>
+      {error && <p className="error" role="alert">{error}</p>}
+    </section>
   )
 }
 

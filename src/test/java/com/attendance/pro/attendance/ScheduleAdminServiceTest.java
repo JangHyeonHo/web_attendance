@@ -40,14 +40,16 @@ class ScheduleAdminServiceTest {
     private SchedulePatternMapper patternMapper;
     @Mock
     private UserMapper userMapper;
+    @Mock
+    private TenantDefaultScheduleMapper tenantDefaultScheduleMapper;
 
     private ScheduleAdminService service() {
-        return new ScheduleAdminService(scheduleMapper, patternMapper, userMapper);
+        return new ScheduleAdminService(scheduleMapper, patternMapper, userMapper, tenantDefaultScheduleMapper);
     }
 
     private void stubMember() {
         when(userMapper.findById(TENANT, USER)).thenReturn(new User(USER, TENANT, "u@a.co", "hash",
-                null, "홍길동", "H", LocalTime.of(9, 0), LocalTime.of(18, 0), "1111100", null, null,
+                null, "홍길동", "H", null, null,
                 com.attendance.pro.user.Role.MEMBER, UserStatus.ACTIVE, false,
                 LocalDateTime.now(), LocalDateTime.now()));
     }

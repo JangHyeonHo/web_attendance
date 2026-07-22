@@ -5,9 +5,8 @@ import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { Modal } from '../components/Modal'
 import { ScheduleEditor } from '../components/ScheduleEditor'
-import { SelectField, TimeField } from '../components/fields'
+import { SelectField, TimeField, TextField, ModalSubject } from '../components/fields'
 import { DateField } from '../components/DateField'
-import { localeOf } from '../i18n/lang'
 import type { MemberSummary, Role, UserStatus } from '../api/types'
 
 const ROLE_LABEL_KEYS: Partial<Record<Role, string>> = {
@@ -29,24 +28,12 @@ const STATUS_LABEL_KEYS: Record<UserStatus, string> = {
   PENDING: 'STATUS_PENDING', //초대 대기 — 비밀번호 설정 전
 }
 
-const DEFAULT_WORK_START = '09:00'
-const DEFAULT_WORK_END = '18:00'
 
 /** 파괴적 조작(비활성/삭제)은 확인 모달 경유. 역할 지정은 인라인 SelectField(총관리자 전용) */
 interface PendingAction {
   userId: number
   name: string
   action: 'DISABLE' | 'DELETE'
-}
-
-/** 행별 스케줄 수정 모달 상태(PENDING 행 포함 — 입사 전 준비, CR3-6). workDays는 월~일 [01]{7} */
-interface ScheduleEdit {
-  userId: number
-  name: string
-  email: string
-  workStart: string
-  workEnd: string
-  workDays: string
 }
 
 /** 등록 결과 안내(초대 메일 발송됨 / 발송 실패 — 멤버는 PENDING으로 존재) */
@@ -63,15 +50,14 @@ interface CreatedNotice {
  * 행 아래 인라인 표시는 에러만 남긴다.
  */
 export function MembersScreen() {
-  const { t, lang, role: viewerRole } = useApp()
+  const { t, role: viewerRole } = useApp()
 
-  //요일 라벨(월~일)은 사전 없이 Intl로 생성 — 2024-01-01이 월요일
-  const weekdayLabels = (() => {
-    const format = new Intl.DateTimeFormat(localeOf(lang), { weekday: 'short' })
-    return Array.from({ length: 7 }, (_, i) => format.format(new Date(2024, 0, 1 + i)))
-  })()
   const [members, setMembers] = useState<MemberSummary[]>([])
   const [query, setQuery] = useState('') //이름·이메일·부서 검색(대규모 인원 대비, #9와 동일 패턴)
+  //근무 현황 검색(#6) — 특정 날짜·시각에 실제로 근무 중인 멤버(실효 스케줄 기준, 백엔드 판정).
+  //시각은 항상 유효한 HH:mm(선택 화면 폴백), 검색은 날짜를 지정해야 활성화된다.
+  const [searchDate, setSearchDate] = useState('')
+  const [searchTime, setSearchTime] = useState('09:00')
   const [listError, setListError] = useState<string | null>(null)
   /** 자기 자신 행의 강등/비활성/삭제 버튼은 렌더하지 않는다(세션 파괴 사고 방지) */
   const [myUserId, setMyUserId] = useState<number | null>(null)
@@ -81,8 +67,6 @@ export function MembersScreen() {
   const [email, setEmail] = useState('')
   const [name, setName] = useState('')
   const [departCd, setDepartCd] = useState('')
-  const [workStart, setWorkStart] = useState(DEFAULT_WORK_START)
-  const [workEnd, setWorkEnd] = useState(DEFAULT_WORK_END)
   const [hireDate, setHireDate] = useState('') //입사일(선택) — 연차 계산 기준(#11)
   const [salary, setSalary] = useState('') //월 기본급(선택) — 급여 정산 기준
   const [formError, setFormError] = useState<string | null>(null)
@@ -94,24 +78,37 @@ export function MembersScreen() {
 
   //행 조작
   const [pending, setPending] = useState<PendingAction | null>(null)
-  const [scheduleEdit, setScheduleEdit] = useState<ScheduleEdit | null>(null)
-  //월 기본급 수정 대상 — 급여 정산 기준값(멤버 관리에서 조정)
-  const [salaryEdit, setSalaryEdit] = useState<{ userId: number; name: string; value: string } | null>(null)
-  //통합 근무 스케줄 화면 대상(#13) — 반복 패턴 + 월 달력(예외)을 한 화면에서
-  const [scheduleMember, setScheduleMember] = useState<{ userId: number; name: string; email: string } | null>(null)
+  //멤버 관리 패널 — 목록은 표시만 하고, 역할·상태·급여를 한 번에(일괄 저장) 편집. 스케줄/삭제는 별도 조작
+  const [manageMember, setManageMember] = useState<MemberSummary | null>(null)
+  const [draftRole, setDraftRole] = useState<Role>('MEMBER')
+  const [draftStatus, setDraftStatus] = useState<UserStatus>('ACTIVE')
+  const [draftSalary, setDraftSalary] = useState('')
+  const [manageBusy, setManageBusy] = useState(false)
+  const [manageError, setManageError] = useState<string | null>(null)
+  //통합 근무 스케줄 화면 대상 — 정기(반복 패턴) + 월 달력(예외)을 한 화면에서
+  const [scheduleMember, setScheduleMember] = useState<
+    { userId: number; name: string; email: string } | null
+  >(null)
   const [rowError, setRowError] = useState<{ userId: number; message: string } | null>(null)
 
   const reload = useCallback(async () => {
     try {
-      setMembers(await tenantMemberApi.list())
+      //날짜를 지정하면 그 날짜·시각의 근무자만(실효 스케줄), 아니면 전체 목록에 텍스트 필터
+      const data =
+        searchDate && searchTime
+          ? await tenantMemberApi.working(searchDate, searchTime, query)
+          : await tenantMemberApi.list({ q: query })
+      setMembers(data)
       setListError(null)
     } catch (e) {
       setListError(e instanceof ApiError ? e.message : String(e))
     }
-  }, [])
+  }, [query, searchDate, searchTime])
 
+  //검색은 백엔드 필터(#6) — 입력 변화마다 디바운스로 재조회(대규모 인원 대비)
   useEffect(() => {
-    void reload()
+    const id = setTimeout(() => { void reload() }, 250)
+    return () => clearTimeout(id)
   }, [reload])
 
   useEffect(() => {
@@ -148,8 +145,6 @@ export function MembersScreen() {
         email: email.trim(),
         name: name.trim(),
         departCd: departCd.trim() || null,
-        workStart,
-        workEnd,
         hireDate: hireDate || null,
         baseMonthlySalary: salary.trim() ? Number(salary) : null,
       })
@@ -158,8 +153,6 @@ export function MembersScreen() {
       setEmail('')
       setName('')
       setDepartCd('')
-      setWorkStart(DEFAULT_WORK_START)
-      setWorkEnd(DEFAULT_WORK_END)
       setHireDate('')
       setSalary('')
       await reload()
@@ -180,20 +173,6 @@ export function MembersScreen() {
       }
     } finally {
       setSubmitting(false)
-    }
-  }
-
-  /** 재발송 — 파괴적 조작이 아니므로 즉시 실행(구 링크는 서버가 무효화) */
-  async function resendInvite(userId: number) {
-    setRowError(null)
-    try {
-      const response = await tenantMemberApi.invite(userId)
-      if (!response.mailSent) {
-        setRowError({ userId, message: t('MAIL_FAILED') })
-      }
-      await reload()
-    } catch (e) {
-      setRowError({ userId, message: e instanceof ApiError ? e.message : String(e) })
     }
   }
 
@@ -220,53 +199,59 @@ export function MembersScreen() {
     }
   }
 
-  async function updateRole(userId: number, role: Role) {
-    setPending(null)
-    setRowError(null)
+  //관리 패널을 열 때 편집 초안(역할·상태·급여)을 그 멤버 기준으로 초기화
+  useEffect(() => {
+    if (manageMember) {
+      setDraftRole(manageMember.role)
+      setDraftStatus(manageMember.status)
+      setDraftSalary(manageMember.baseMonthlySalary == null ? '' : String(manageMember.baseMonthlySalary))
+      setManageError(null)
+    }
+  }, [manageMember])
+
+  /**
+   * 관리 패널 일괄 저장 — 바뀐 항목(역할·상태·월 기본급)만 순서대로 반영한다.
+   * 하나라도 실패하면 패널 안에 오류를 남기고 유지, 전부 성공하면 목록 새로고침 후 닫는다.
+   */
+  async function saveManage() {
+    const m = manageMember
+    if (!m) return
+    setManageBusy(true)
+    setManageError(null)
     try {
-      await tenantMemberApi.updateRole(userId, { role })
+      if (draftRole !== m.role) {
+        await tenantMemberApi.updateRole(m.userId, { role: draftRole })
+      }
+      if (draftStatus !== m.status) {
+        await tenantMemberApi.updateStatus(m.userId, { status: draftStatus })
+      }
+      const salaryVal = draftSalary.trim() === '' ? null : Number(draftSalary)
+      if (salaryVal !== m.baseMonthlySalary) {
+        await tenantMemberApi.updateSalary(m.userId, salaryVal)
+      }
       await reload()
+      setManageMember(null)
     } catch (e) {
-      setRowError({ userId, message: e instanceof ApiError ? e.message : String(e) })
+      setManageError(e instanceof ApiError ? e.message : String(e))
+    } finally {
+      setManageBusy(false)
     }
   }
 
-  async function saveSchedule() {
-    if (!scheduleEdit) return
-    setRowError(null)
+  //관리 패널에서 초대 재발송 — 발송 실패(mailSent=false)도 멤버는 존재하므로 경고만 표시
+  async function manageResend(userId: number) {
+    setManageBusy(true)
+    setManageError(null)
     try {
-      await tenantMemberApi.updateSchedule(scheduleEdit.userId, {
-        workStart: scheduleEdit.workStart,
-        workEnd: scheduleEdit.workEnd,
-        workDays: scheduleEdit.workDays,
-      })
-      setScheduleEdit(null)
-      await reload()
+      const response = await tenantMemberApi.invite(userId)
+      const list = await tenantMemberApi.list({ q: query })
+      setMembers(list)
+      setManageMember(list.find((m) => m.userId === userId) ?? null)
+      if (!response.mailSent) setManageError(t('MAIL_FAILED'))
     } catch (e) {
-      //400 WORK_TIME_INVALID_RANGE 등 — 서버 메시지 그대로(모달은 닫고 행 아래 표시)
-      setRowError({
-        userId: scheduleEdit.userId,
-        message: e instanceof ApiError ? e.message : String(e),
-      })
-      setScheduleEdit(null)
-    }
-  }
-
-  async function saveSalary() {
-    if (!salaryEdit) return
-    setRowError(null)
-    const raw = salaryEdit.value.trim()
-    const value = raw === '' ? null : Number(raw)
-    try {
-      await tenantMemberApi.updateSalary(salaryEdit.userId, value)
-      setSalaryEdit(null)
-      await reload()
-    } catch (e) {
-      setRowError({
-        userId: salaryEdit.userId,
-        message: e instanceof ApiError ? e.message : String(e),
-      })
-      setSalaryEdit(null)
+      setManageError(e instanceof ApiError ? e.message : String(e))
+    } finally {
+      setManageBusy(false)
     }
   }
 
@@ -286,17 +271,7 @@ export function MembersScreen() {
     return t('INVITE_EXPIRED')
   }
 
-  const q = query.trim().toLowerCase()
-  const filtered = q
-    ? members.filter(
-        (m) =>
-          m.name.toLowerCase().includes(q) ||
-          m.email.toLowerCase().includes(q) ||
-          (m.departCd?.toLowerCase().includes(q) ?? false),
-      )
-    : members
-
-  //스케줄 화면은 모달이 아니라 전체 화면(패널)으로 — 목록을 밀어내고 그 자리를 채운다(#13)
+  //스케줄 화면은 모달이 아니라 전체 화면(패널)으로 — 목록을 밀어내고 그 자리를 채운다(#1,#13)
   if (scheduleMember) {
     return (
       <ScheduleEditor
@@ -349,18 +324,9 @@ export function MembersScreen() {
               <input value={departCd} onChange={(e) => setDepartCd(e.target.value)} />
               {fieldErrors.departCd && <span className="error">{fieldErrors.departCd}</span>}
             </label>
-            <div className="field-row">
-              <label>
-                {t('WORK_START')}
-                <TimeField value={workStart} onChange={setWorkStart} ariaLabel={t('WORK_START')} />
-                {fieldErrors.workStart && <span className="error">{fieldErrors.workStart}</span>}
-              </label>
-              <label>
-                {t('WORK_END')}
-                <TimeField value={workEnd} onChange={setWorkEnd} ariaLabel={t('WORK_END')} />
-                {fieldErrors.workEnd && <span className="error">{fieldErrors.workEnd}</span>}
-              </label>
-            </div>
+            {/* 근무시간은 등록 시 묻지 않는다 — 회사 기본 스케줄이 등록과 동시에 이 멤버의 정기 스케줄로
+                자동 생성되고, 개별 조정은 '관리 → 근무 스케줄'에서 한다(이중 설정 제거) */}
+            <p className="hint">{t('SCHEDULE_AUTO_HINT')}</p>
             {/* 입사일(선택) — 연차 계산 기준. 미입력 시 등록일(#11) */}
             <label>
               {t('HIRE_DATE')}
@@ -424,104 +390,107 @@ export function MembersScreen() {
         </Modal>
       )}
 
-      {scheduleEdit && (
-        <Modal title={`${scheduleEdit.name} — ${t('EDIT_SCHEDULE')}`} onClose={() => setScheduleEdit(null)}>
-          <div className="field-row">
-            <label>
-              {t('WORK_START')}
-              <TimeField
-                value={scheduleEdit.workStart}
-                onChange={(v) => setScheduleEdit({ ...scheduleEdit, workStart: v })}
-                ariaLabel={t('WORK_START')}
-              />
-            </label>
-            <label>
-              {t('WORK_END')}
-              <TimeField
-                value={scheduleEdit.workEnd}
-                onChange={(v) => setScheduleEdit({ ...scheduleEdit, workEnd: v })}
-                ariaLabel={t('WORK_END')}
-              />
-            </label>
-          </div>
-          {/* 근무 요일(월~일) — 토·일 근무 유무를 멤버별로 설정(manual-attendance §2) */}
-          <span className="field-label">{t('WORK_DAYS')}</span>
-          <div className="weekday-row" role="group" aria-label={t('WORK_DAYS')}>
-            {weekdayLabels.map((label, index) => {
-              const on = scheduleEdit.workDays.charAt(index) === '1'
-              return (
-                <label key={index} className={`weekday-chip${on ? ' on' : ''}`}>
-                  <input
-                    type="checkbox"
-                    checked={on}
-                    onChange={() => {
-                      const chars = scheduleEdit.workDays.split('')
-                      chars[index] = on ? '0' : '1'
-                      setScheduleEdit({ ...scheduleEdit, workDays: chars.join('') })
-                    }}
-                  />
-                  {label}
-                </label>
-              )
-            })}
-          </div>
-          {/* 기본(고정) 스케줄 위에 월 로타(일자별 예외·야간교대·휴무)를 얹는다(#13) */}
-          <p className="hint">{t('ROTA_HINT')}</p>
-          <div className="btn-row">
-            <button
-              className="primary"
-              onClick={() => void saveSchedule()}
-              disabled={
-                !scheduleEdit.workStart ||
-                !scheduleEdit.workEnd ||
-                !scheduleEdit.workDays.includes('1') //전 요일 휴무는 서버도 400
-              }
-            >
-              {t('SUBMIT')}
-            </button>
-            <button
-              onClick={() => {
-                //기본(고정) 스케줄 모달을 닫고 통합 근무 스케줄 화면(반복 패턴 + 월 달력)으로
-                setScheduleMember({ userId: scheduleEdit.userId, name: scheduleEdit.name, email: scheduleEdit.email })
-                setScheduleEdit(null)
-              }}
-            >
-              {t('SCHEDULE_MANAGE')}
-            </button>
-            <button onClick={() => setScheduleEdit(null)}>{t('CANCEL')}</button>
-          </div>
-        </Modal>
-      )}
+      {manageMember && (() => {
+        const m = manageMember
+        const self = myUserId !== null && m.userId === myUserId
+        const isPending = m.status === 'PENDING'
+        const canRole = viewerRole === 'TENANT_ADMIN' && !self && !isPending
+        const canStatus = !self && !isPending //ACTIVE↔DISABLED (초대 대기는 재발송으로만)
+        return (
+          <Modal title={t('MEMBER_MANAGE')} onClose={() => setManageMember(null)}>
+            <ModalSubject primary={m.name} secondary={m.email} />
+            {manageError && <p className="error" role="alert">{manageError}</p>}
 
-      {salaryEdit && (
-        <Modal title={`${salaryEdit.name} — ${t('SALARY')}`} onClose={() => setSalaryEdit(null)}>
-          <label className="salary-edit">
-            {t('SALARY')}
-            <input
+            {/* 역할·상태·월 기본급을 초안으로 편집하고 하단 '저장'으로 일괄 반영 */}
+            <div className="manage-field">
+              <span className="form-field-label">{t('ROLE')}</span>
+              {canRole ? (
+                <SelectField
+                  value={draftRole}
+                  options={ROLE_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) }))}
+                  ariaLabel={t('ROLE')}
+                  onChange={(v) => setDraftRole(v as Role)}
+                />
+              ) : (
+                <span className="manage-value">{t(ROLE_LABEL_KEYS[m.role] ?? m.role)}</span>
+              )}
+            </div>
+
+            <div className="manage-field">
+              <span className="form-field-label">{t('STATUS')}</span>
+              {canStatus ? (
+                <SelectField
+                  value={draftStatus}
+                  options={[
+                    { value: 'ACTIVE', label: t(STATUS_LABEL_KEYS.ACTIVE) },
+                    { value: 'DISABLED', label: t(STATUS_LABEL_KEYS.DISABLED) },
+                  ]}
+                  ariaLabel={t('STATUS')}
+                  onChange={(v) => setDraftStatus(v as UserStatus)}
+                />
+              ) : (
+                <div className="manage-value-row">
+                  <span className={`member-status member-status-${m.status.toLowerCase()}`}>
+                    {t(STATUS_LABEL_KEYS[m.status])}
+                  </span>
+                  {isPending && (
+                    <button disabled={manageBusy} onClick={() => void manageResend(m.userId)}>
+                      {t('RESEND')}
+                    </button>
+                  )}
+                </div>
+              )}
+              {isPending && <span className="hint">{inviteExpiryLabel(m)}</span>}
+            </div>
+
+            <TextField
+              label={t('SALARY')}
               type="number"
               min={0}
-              inputMode="numeric"
-              autoFocus
-              value={salaryEdit.value}
+              numeric
+              value={draftSalary}
               placeholder={t('SALARY_HINT')}
-              onChange={(e) => setSalaryEdit({ ...salaryEdit, value: e.target.value })}
+              onChange={setDraftSalary}
             />
-          </label>
-          <p className="hint">{t('SALARY_HINT')}</p>
-          <div className="btn-row">
-            <button className="primary" onClick={() => void saveSalary()}>
-              {t('SALARY_SAVE')}
-            </button>
-            <button onClick={() => setSalaryEdit(null)}>{t('CANCEL')}</button>
-          </div>
-        </Modal>
-      )}
+
+            {/* 일괄 저장 — 바뀐 항목만 반영 */}
+            <div className="btn-row">
+              <button className="primary" disabled={manageBusy} onClick={() => void saveManage()}>
+                {t('SAVE')}
+              </button>
+              <button disabled={manageBusy} onClick={() => setManageMember(null)}>{t('CANCEL')}</button>
+            </div>
+
+            {/* 근무 스케줄(별도 화면)·삭제(파괴적)는 저장과 분리 */}
+            <div className="manage-links">
+              <button
+                type="button"
+                className="link"
+                onClick={() => {
+                  setScheduleMember({ userId: m.userId, name: m.name, email: m.email })
+                  setManageMember(null)
+                }}
+              >
+                {t('EDIT_SCHEDULE')} →
+              </button>
+              {!self && (
+                <button
+                  type="button"
+                  className="link danger-link"
+                  disabled={manageBusy}
+                  onClick={() => { setManageMember(null); setPending({ userId: m.userId, name: m.name, action: 'DELETE' }) }}
+                >
+                  {t('DELETE')}
+                </button>
+              )}
+            </div>
+          </Modal>
+        )
+      })()}
 
       {pending && (
         <Modal title={confirmLabel(pending.action)} onClose={() => setPending(null)} danger>
-          <p className="center">
-            {pending.name} — {confirmLabel(pending.action)}
-          </p>
+          <ModalSubject primary={pending.name} secondary={confirmLabel(pending.action)} />
           {pending.action === 'DELETE' && <p className="hint center">{t('DELETE_CONFIRM')}</p>}
           <div className="btn-row">
             <button
@@ -541,14 +510,35 @@ export function MembersScreen() {
         </Modal>
       )}
 
-      {/* 대규모 인원 대비 검색 — 이름·이메일·부서(클라이언트 필터, 즉시) */}
-      <input
-        className="member-search"
-        placeholder={t('MEMBER_SEARCH')}
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        aria-label={t('MEMBER_SEARCH')}
-      />
+      {/* 검색 — 이름·이메일·부서(텍스트) + 특정 날짜·시각 근무자(실효 스케줄, 백엔드 판정, #6) */}
+      <div className="member-filter">
+        <input
+          className="member-search"
+          placeholder={t('MEMBER_SEARCH')}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          aria-label={t('MEMBER_SEARCH')}
+        />
+        <div className="member-filter-working">
+          <span className="field-label">{t('SEARCH_WORKING_AT')}</span>
+          <DateField value={searchDate} onChange={setSearchDate} ariaLabel={t('SEARCH_DATE')} placeholder={t('SEARCH_DATE')} />
+          <TimeField value={searchTime} onChange={setSearchTime} ariaLabel={t('SEARCH_TIME')} />
+          {searchDate && (
+            <button
+              type="button"
+              className="link"
+              onClick={() => { setSearchDate(''); setSearchTime('09:00') }}
+            >
+              {t('FILTER_RESET')}
+            </button>
+          )}
+        </div>
+      </div>
+      {searchDate && searchTime && (
+        <p className="muted working-hint">
+          {t('WORKING_RESULT').replace('{date}', searchDate).replace('{time}', searchTime)} · {members.length}
+        </p>
+      )}
 
       <div className="table-wrap">
         <table className="detail-table">
@@ -559,19 +549,17 @@ export function MembersScreen() {
               <th>{t('DEPART')}</th>
               <th>{t('ROLE')}</th>
               <th>{t('STATUS')}</th>
-              <th>{t('WORK_START')}</th>
-              <th>{t('WORK_END')}</th>
+              <th className="num">{t('SALARY')}</th>
               <th />
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 && (
+            {members.length === 0 && (
               <tr>
-                <td colSpan={8} className="muted center">{t('EMPTY')}</td>
+                <td colSpan={7} className="muted center">{t('EMPTY')}</td>
               </tr>
             )}
-            {filtered.map((member) => {
-              const self = myUserId !== null && member.userId === myUserId
+            {members.map((member) => {
               const isPending = member.status === 'PENDING'
               return (
                 <Fragment key={member.userId}>
@@ -579,92 +567,26 @@ export function MembersScreen() {
                     <td>{member.name}</td>
                     <td>{member.email}</td>
                     <td>{member.departCd ?? '-'}</td>
+                    {/* 목록은 표시만 — 편집(역할·상태·급여·스케줄·삭제)은 '관리' 패널에서 일괄 처리 */}
+                    <td>{t(ROLE_LABEL_KEYS[member.role] ?? member.role)}</td>
                     <td>
-                      {/* 역할 지정은 총관리자 전용(직권 분산). 그 외 뷰어·자기 자신·초대 대기는 정적 라벨 */}
-                      {viewerRole === 'TENANT_ADMIN' && !self && !isPending ? (
-                        <SelectField
-                          compact
-                          value={member.role}
-                          options={ROLE_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) }))}
-                          ariaLabel={t('ROLE')}
-                          onChange={(v) => void updateRole(member.userId, v as Role)}
-                        />
-                      ) : (
-                        t(ROLE_LABEL_KEYS[member.role] ?? member.role)
-                      )}
-                    </td>
-                    <td>
-                      {t(STATUS_LABEL_KEYS[member.status])}
+                      <span className={`member-status member-status-${member.status.toLowerCase()}`}>
+                        {t(STATUS_LABEL_KEYS[member.status])}
+                      </span>
                       {isPending && <span className="hint">{inviteExpiryLabel(member)}</span>}
                     </td>
-                    <td>{member.workStart}</td>
-                    <td>{member.workEnd}</td>
-                    <td>
-                      <div className="row-actions">
-                        {isPending ? (
-                          //초대 대기 행: 재발송(즉시)·삭제 — 상태 변경은 서버도 400으로 거부(§4.2)
-                          <button onClick={() => void resendInvite(member.userId)}>
-                            {t('RESEND')}
-                          </button>
-                        ) : (
-                          <>
-                            {/* 역할 변경은 역할 열의 SelectField(총관리자 전용)로 이동 */}
-                            {member.status === 'ACTIVE' && !self && (
-                              <button
-                                onClick={() =>
-                                  setPending({ userId: member.userId, name: member.name, action: 'DISABLE' })
-                                }
-                              >
-                                {t('DISABLE')}
-                              </button>
-                            )}
-                            {member.status === 'DISABLED' && (
-                              <button onClick={() => void updateStatus(member.userId, 'ACTIVE')}>
-                                {t('ENABLE')}
-                              </button>
-                            )}
-                          </>
-                        )}
-                        <button
-                          onClick={() =>
-                            setScheduleEdit({
-                              userId: member.userId,
-                              name: member.name,
-                              email: member.email,
-                              workStart: member.workStart,
-                              workEnd: member.workEnd,
-                              workDays: member.workDays,
-                            })
-                          }
-                        >
-                          {t('EDIT_SCHEDULE')}
-                        </button>
-                        <button
-                          onClick={() =>
-                            setSalaryEdit({
-                              userId: member.userId,
-                              name: member.name,
-                              value: member.baseMonthlySalary == null ? '' : String(member.baseMonthlySalary),
-                            })
-                          }
-                        >
-                          {t('SALARY')}
-                        </button>
-                        {!self && (
-                          <button
-                            onClick={() =>
-                              setPending({ userId: member.userId, name: member.name, action: 'DELETE' })
-                            }
-                          >
-                            {t('DELETE')}
-                          </button>
-                        )}
-                      </div>
+                    <td className="num">
+                      {member.baseMonthlySalary == null ? '—' : member.baseMonthlySalary.toLocaleString()}
+                    </td>
+                    <td className="row-actions-cell">
+                      <button className="ghost" onClick={() => setManageMember(member)}>
+                        {t('MEMBER_MANAGE')}
+                      </button>
                     </td>
                   </tr>
                   {rowError?.userId === member.userId && (
                     <tr>
-                      <td colSpan={8} className="row-note">
+                      <td colSpan={7} className="row-note">
                         <p className="error" role="alert">
                           {rowError.message}
                         </p>

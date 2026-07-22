@@ -95,6 +95,9 @@ body {
   -webkit-font-smoothing: antialiased;
   line-height: 1.6;
   transition: background-color 0.4s ease;
+  /* 한글 줄바꿈: 어절(공백) 단위로만 끊고, 음절 중간에서 깨지 않게. 아주 긴 토큰만 예외적으로 분할. */
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 
 h1, h2, h3 {
@@ -742,6 +745,87 @@ form button.primary {
   border-color: var(--accent);
   color: var(--accent-dark);
 }
+
+/* 목록은 표시 전용 — 행 오른쪽 '관리' 버튼 하나로 편집 패널을 연다 */
+.row-actions-cell {
+  text-align: right;
+  white-space: nowrap;
+}
+/* 부드러운 보조 버튼(목록의 '관리') */
+button.ghost {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 16px;
+  min-height: 32px;
+  font-size: 13px;
+}
+button.ghost:hover {
+  border-color: var(--accent);
+  color: var(--accent-dark);
+  background: var(--surface-alt);
+}
+
+/* 상태 배지(목록·관리 패널 공용) */
+.member-status {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+.member-status-active {
+  color: var(--success);
+  background: rgba(37, 110, 60, 0.1);
+}
+.member-status-disabled {
+  color: var(--muted);
+  background: var(--surface-alt);
+}
+.member-status-pending {
+  color: var(--info);
+  background: rgba(59, 98, 181, 0.1);
+}
+
+/* 멤버 관리 패널 — 라벨 + 값/조작을 한 규격으로 나열 */
+.manage-field {
+  margin-bottom: 16px;
+}
+.manage-field > .form-field-label {
+  display: block;
+  margin-bottom: 6px;
+}
+/* 관리 패널은 폼이 아니라서 셀렉트가 기본 폭 — 목록/입력과 맞춰 100%로 */
+.manage-field .field-select {
+  width: 100%;
+}
+.manage-value {
+  font-size: 15px;
+  color: var(--text);
+}
+.manage-value-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+/* 저장과 분리된 보조 조작(스케줄 이동·삭제) — 하단에 옅은 링크 줄로 */
+.manage-links {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.manage-links .danger-link {
+  color: var(--error);
+}
+.manage-links .danger-link:hover {
+  color: var(--error);
+  text-decoration: underline;
+}
 /* 전체 화면 편집기(모달 대신 목록을 밀어내고 채우는 서브스크린, #13) */
 .subscreen-head {
   display: flex;
@@ -891,7 +975,8 @@ form button.primary {
   flex-wrap: wrap;
   gap: 8px;
 }
-.rota-actions {
+/* .btn-row와 함께 쓰이므로 특이도를 높여 뒤에 선언된 .btn-row{justify-content:center}를 이긴다(좌측 정렬 유지) */
+.btn-row.rota-actions {
   margin-top: 12px;
   align-items: center;
   justify-content: flex-start;
@@ -1085,6 +1170,87 @@ form button.primary {
 
 .modal-body form button.primary {
   margin-top: 24px;
+}
+
+/*
+ * 모달 필드 통일(#4) — 폼(<form>)을 쓰지 않는 모달도 폼 모달과 동일한 필드 레이아웃으로.
+ * 클래스 없는 순수 <label>만 대상(체크박스 .check-inline·요일칩 .weekday-chip·.salary-edit 등은 각자 유지).
+ * 라벨은 블록(필드 위), 입력은 100% 폭 — 인라인 라벨로 제각각이던 모달을 한 규격으로 맞춘다.
+ */
+.modal-body label:not([class]) {
+  display: block;
+  margin-bottom: 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.modal-body label:not([class]) > input,
+.modal-body label:not([class]) > select,
+.modal-body label:not([class]) > textarea,
+.modal-body label:not([class]) > .field-select,
+.modal-body label:not([class]) > .time-picker,
+.modal-body label:not([class]) > .date-field {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  font-weight: 400;
+  color: var(--text);
+}
+/* field-group은 가로 배치라 안쪽 라벨의 하단 마진만 제거(이중 간격 방지) */
+.modal-body .field-group > label:not([class]) {
+  margin-bottom: 0;
+}
+/* 폼을 쓰지 않는 모달의 단독 주요 버튼도 폼 모달처럼 꽉 찬 바 형태로(예: 일괄 부여) */
+.modal-body > button.primary {
+  width: 100%;
+  margin-top: 16px;
+}
+
+/*
+ * 공통 필드 컴포넌트(TextField/TextAreaField) — 폼/비폼 무관 동일 규격.
+ * 라벨은 항상 필드 위(누락 없이), 입력/텍스트영역은 100% 폭. 필드마다 제각각이던 모달을 한 규격으로.
+ */
+.form-field {
+  display: block;
+  margin-bottom: 16px;
+}
+.form-field-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.form-field-input {
+  display: block;
+  width: 100%;
+  font-weight: 400;
+  color: var(--text);
+}
+textarea.form-field-input {
+  min-height: 82px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+/* 모달 대상 표시 — "이름 — 유형" 떠 있던 가운데 텍스트를 정돈된 헤더 블록으로 */
+.modal-subject {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  background: var(--surface-alt);
+  border-radius: var(--radius-sm);
+}
+.modal-subject strong {
+  font-size: 15px;
+  color: var(--text);
+}
+.modal-subject span {
+  font-size: 13px;
+  color: var(--muted);
 }
 
 @keyframes overlay-in {
@@ -1494,6 +1660,7 @@ button.link:hover {
   font-size: 13px;
   font-weight: 600;
   color: var(--muted);
+  white-space: nowrap; /* '대상 월' '근무 시점' 등 라벨이 공백에서 개행되지 않게 */
 }
 
 .weekday-row {
@@ -3245,6 +3412,11 @@ form label .pw-field input {
   min-width: 72px;
   height: 26px;
 }
+/* 도장 날인칸: 최소 2행 높이 확보(도장이 눌려 작게 보이지 않게) */
+.tsr-stamp td.tsr-seal-cell {
+  height: 54px;
+  vertical-align: middle;
+}
 .tsr-stamp th,
 .tsr-stamp-label {
   background: #f2f2f2;
@@ -3462,6 +3634,47 @@ form label .pw-field input {
   width: 100%;
   max-width: 320px;
   margin: 4px 0 12px;
+}
+
+/*
+ * 멤버 검색 필터(#6) — 텍스트 검색 + 근무 시점(날짜·시각).
+ * 앞뒤 컨트롤의 높이(입력 vs 커스텀 셀렉트 버튼)를 42px로 통일하고 세로 중앙 정렬해 라인이 맞도록.
+ */
+.member-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  margin: 4px 0 12px;
+}
+.member-filter .member-search {
+  margin: 0;
+  height: 42px;
+}
+.member-filter-working {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.member-filter-working .field-label {
+  margin: 0 4px 0 0;
+}
+/* 날짜·시각 셀렉트 트리거 높이를 텍스트 검색과 동일하게(버튼 기본 min-height 40 → 42로 통일) */
+.member-filter-working .field-select-trigger {
+  min-height: 42px;
+  height: 42px;
+}
+/* 날짜를 고르기 전/후 폭이 튀지 않게 최소 폭 확보 */
+.member-filter-working .date-field {
+  min-width: 148px;
+}
+.member-filter-working .time-picker {
+  min-width: 104px;
+}
+.working-hint {
+  margin: -4px 0 14px;
+  font-size: 0.9rem;
 }
 
 .lv-bal-box {
@@ -3740,6 +3953,7 @@ form label .pw-field input {
 .payroll-table td.num.plus { color: var(--success); }
 .payroll-table td.num.minus { color: var(--error); }
 .payroll-table td.muted { color: var(--muted); font-size: 0.86rem; }
+.payroll-formula { opacity: 0.75; font-size: 0.82em; }
 .payroll-table tr.payroll-net {
   border-top: 2px solid var(--border-strong);
 }

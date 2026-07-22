@@ -37,7 +37,6 @@ import type {
   MemberCreateRequest,
   MemberCreateResponse,
   MemberRoleUpdateRequest,
-  MemberScheduleUpdateRequest,
   MemberStatusUpdateRequest,
   MemberSummary,
   MonthlyResponse,
@@ -46,6 +45,7 @@ import type {
   PatternResponse,
   PatternSaveRequest,
   EffectiveDay,
+  DefaultScheduleDay,
   NavigateRequest,
   NavigateResponse,
   InvoiceEntry,
@@ -191,7 +191,19 @@ export const tenantMailTemplateApi = {
 
 /** TENANT_ADMIN 전용 — 멤버 (tenantId는 항상 서버 세션에서 — 파라미터로 보내지 않는다) */
 export const tenantMemberApi = {
-  list: () => get<MemberSummary[]>('/api/v1/tenant/members'),
+  /** 멤버 목록/검색 — 이름·이메일·부서 텍스트(q) */
+  list: (params?: { q?: string }) => {
+    const qs = new URLSearchParams()
+    if (params?.q?.trim()) qs.set('q', params.q.trim())
+    const s = qs.toString()
+    return get<MemberSummary[]>(`/api/v1/tenant/members${s ? `?${s}` : ''}`)
+  },
+  /** 특정 날짜·시각 근무 중인 멤버(#6) — 실효 스케줄로 서버가 판정. date=YYYY-MM-DD, time=HH:mm */
+  working: (date: string, time: string, q?: string) => {
+    const qs = new URLSearchParams({ date, time })
+    if (q?.trim()) qs.set('q', q.trim())
+    return get<MemberSummary[]>(`/api/v1/tenant/members/working?${qs.toString()}`)
+  },
   create: (request: MemberCreateRequest) =>
     post<MemberCreateResponse>('/api/v1/tenant/members', request),
   /** 초대 재발송 — 구 토큰 무효 + 신규 발급(PENDING 대상 한정) */
@@ -203,8 +215,6 @@ export const tenantMemberApi = {
     put<MemberSummary>(`/api/v1/tenant/members/${userId}/status`, request),
   updateRole: (userId: number, request: MemberRoleUpdateRequest) =>
     put<MemberSummary>(`/api/v1/tenant/members/${userId}/role`, request),
-  updateSchedule: (userId: number, request: MemberScheduleUpdateRequest) =>
-    put<MemberSummary>(`/api/v1/tenant/members/${userId}/schedule`, request),
   /** 월 기본급 수정(급여 정산 기준) — null이면 미입력으로 저장 */
   updateSalary: (userId: number, baseMonthlySalary: number | null) =>
     put<MemberSummary>(`/api/v1/tenant/members/${userId}/salary`, { baseMonthlySalary }),
@@ -223,8 +233,14 @@ export const attendanceCloseApi = {
 /** 근태 마감 결재(HR_ADMIN/TENANT_ADMIN) — 대기 목록 + 승인/반려 + 급여 정산(참고, 관리자만)(W021) */
 export const tenantCloseApi = {
   pending: () => get<PendingCloseResponse[]>('/api/v1/tenant/attendance-close/pending'),
+  /** 마감 완료(선택 월) — '마감 취소' 대상. 승인 이력 전체가 아니라 대상 월만 */
+  approved: (year: number, month: number) =>
+    get<PendingCloseResponse[]>(`/api/v1/tenant/attendance-close/approved?year=${year}&month=${month}`),
   decide: (closeId: number, approve: boolean, note?: string) =>
     post<void>(`/api/v1/tenant/attendance-close/${closeId}/decision`, { approve, note }),
+  /** 마감 취소 — 승인된 마감을 열린(REQUESTED) 상태로 되돌려 잠금 해제 */
+  reopen: (closeId: number) =>
+    post<void>(`/api/v1/tenant/attendance-close/${closeId}/reopen`, {}),
   /** 멤버 급여 정산(참고) — 관리자 전용. 마감 검토 시 확인 */
   payroll: (userId: number, year: number, month: number) =>
     get<PayrollResponse>(`/api/v1/tenant/attendance-close/${userId}/payroll?year=${year}&month=${month}`),
@@ -244,6 +260,13 @@ export const tenantScheduleApi = {
     get<PatternResponse | null>(`/api/v1/tenant/schedule/${userId}/pattern`),
   savePattern: (userId: number, request: PatternSaveRequest) =>
     put<void>(`/api/v1/tenant/schedule/${userId}/pattern`, request),
+}
+
+/** TENANT_ADMIN+HR_ADMIN — 회사 신규 멤버 기본 스케줄(W020). 등록 시 정기 스케줄로 복제됨 */
+export const tenantDefaultScheduleApi = {
+  get: () => get<DefaultScheduleDay[]>('/api/v1/tenant/default-schedule'),
+  save: (days: DefaultScheduleDay[]) =>
+    put<DefaultScheduleDay[]>('/api/v1/tenant/default-schedule', days),
 }
 
 /** TENANT_ADMIN 전용 — 공휴일(W013). 읽기전용 목록 + 회사 공휴일 등록 + 국가 공휴일 동기화(#7) */
