@@ -678,6 +678,14 @@ form button.primary {
   border-bottom: 1px solid var(--border-strong);
 }
 
+/* 테이블 안 버튼은 아이콘 버튼과 같은 스케일 — 전역 버튼(min-height 40px)이
+   행 높이를 부풀리지 않게. 라벨 버튼(승인/반려 등)도 행 안에서는 컴팩트하게 통일. */
+.detail-table td button {
+  min-height: 28px;
+  padding: 3px 10px;
+  font-size: 13px;
+}
+
 .detail-table tbody tr:last-child td {
   border-bottom: none;
 }
