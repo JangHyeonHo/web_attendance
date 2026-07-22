@@ -7,6 +7,7 @@ import { Modal } from '../components/Modal'
 import { ScheduleEditor } from '../components/ScheduleEditor'
 import { SelectField, TimeField, TextField, ModalSubject } from '../components/fields'
 import { DateField } from '../components/DateField'
+import { Pagination } from '../components/Pagination'
 import type { MemberSummary, Role, UserStatus } from '../api/types'
 
 const ROLE_LABEL_KEYS: Partial<Record<Role, string>> = {
@@ -53,6 +54,10 @@ export function MembersScreen() {
   const { t, role: viewerRole } = useApp()
 
   const [members, setMembers] = useState<MemberSummary[]>([])
+  //페이지 번호 방식(#9) — 회사 규모가 커져도 목록이 무한정 길어지지 않게. 근무 시점 검색 결과는 비페이지.
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
   const [query, setQuery] = useState('') //이름·이메일·부서 검색(대규모 인원 대비, #9와 동일 패턴)
   //근무 현황 검색(#6) — 특정 날짜·시각에 실제로 근무 중인 멤버(실효 스케줄 기준, 백엔드 판정).
   //시각은 항상 유효한 HH:mm(선택 화면 폴백), 검색은 날짜를 지정해야 활성화된다.
@@ -93,16 +98,30 @@ export function MembersScreen() {
 
   const reload = useCallback(async () => {
     try {
-      //날짜를 지정하면 그 날짜·시각의 근무자만(실효 스케줄), 아니면 전체 목록에 텍스트 필터
-      const data =
-        searchDate && searchTime
-          ? await tenantMemberApi.working(searchDate, searchTime, query)
-          : await tenantMemberApi.list({ q: query })
-      setMembers(data)
+      //날짜를 지정하면 그 날짜·시각의 근무자만(실효 스케줄 — 근무 인원으로 자연 축소되므로 비페이지),
+      //아니면 텍스트 필터 + 페이지 조회(#9)
+      if (searchDate && searchTime) {
+        const data = await tenantMemberApi.working(searchDate, searchTime, query)
+        setMembers(data)
+        setTotalPages(1)
+        setTotalCount(data.length)
+      } else {
+        const data = await tenantMemberApi.list({ q: query, page })
+        setMembers(data.items)
+        setTotalPages(data.totalPages)
+        setTotalCount(data.totalCount)
+        //검색 결과가 줄어 현재 페이지가 범위를 벗어나면 마지막 페이지로 보정
+        if (page > data.totalPages) setPage(data.totalPages)
+      }
       setListError(null)
     } catch (e) {
       setListError(e instanceof ApiError ? e.message : String(e))
     }
+  }, [query, searchDate, searchTime, page])
+
+  //검색 조건이 바뀌면 1페이지부터 다시
+  useEffect(() => {
+    setPage(1)
   }, [query, searchDate, searchTime])
 
   //검색은 백엔드 필터(#6) — 입력 변화마다 디바운스로 재조회(대규모 인원 대비)
@@ -244,9 +263,11 @@ export function MembersScreen() {
     setManageError(null)
     try {
       const response = await tenantMemberApi.invite(userId)
-      const list = await tenantMemberApi.list({ q: query })
-      setMembers(list)
-      setManageMember(list.find((m) => m.userId === userId) ?? null)
+      const data = await tenantMemberApi.list({ q: query, page })
+      setMembers(data.items)
+      setTotalPages(data.totalPages)
+      setTotalCount(data.totalCount)
+      setManageMember(data.items.find((m) => m.userId === userId) ?? null)
       if (!response.mailSent) setManageError(t('MAIL_FAILED'))
     } catch (e) {
       setManageError(e instanceof ApiError ? e.message : String(e))
@@ -324,9 +345,6 @@ export function MembersScreen() {
               <input value={departCd} onChange={(e) => setDepartCd(e.target.value)} />
               {fieldErrors.departCd && <span className="error">{fieldErrors.departCd}</span>}
             </label>
-            {/* 근무시간은 등록 시 묻지 않는다 — 회사 기본 스케줄이 등록과 동시에 이 멤버의 정기 스케줄로
-                자동 생성되고, 개별 조정은 '관리 → 근무 스케줄'에서 한다(이중 설정 제거) */}
-            <p className="hint">{t('SCHEDULE_AUTO_HINT')}</p>
             {/* 입사일(선택) — 연차 계산 기준. 미입력 시 등록일(#11) */}
             <label>
               {t('HIRE_DATE')}
@@ -354,6 +372,9 @@ export function MembersScreen() {
               )}
             </label>
             {formError && <p className="error" role="alert">{formError}</p>}
+            {/* 등록 행위의 결과 안내(폼 단위) — 특정 필드 설명이 아니므로 등록 버튼 직전에 배치.
+                근무시간은 등록 시 묻지 않는다: 회사 기본 스케줄이 정기 스케줄로 자동 생성(이중 설정 제거) */}
+            <p className="hint">{t('SCHEDULE_AUTO_HINT')}</p>
             <button type="submit" className="primary" disabled={submitting}>
               {t('MEMBER_CREATE')}
             </button>
@@ -461,18 +482,8 @@ export function MembersScreen() {
               <button disabled={manageBusy} onClick={() => setManageMember(null)}>{t('CANCEL')}</button>
             </div>
 
-            {/* 근무 스케줄(별도 화면)·삭제(파괴적)는 저장과 분리 */}
+            {/* 삭제(파괴적)는 저장과 분리 — 스케줄 진입은 목록 행의 스케줄 아이콘으로 단일화 */}
             <div className="manage-links">
-              <button
-                type="button"
-                className="link"
-                onClick={() => {
-                  setScheduleMember({ userId: m.userId, name: m.name, email: m.email })
-                  setManageMember(null)
-                }}
-              >
-                {t('EDIT_SCHEDULE')} →
-              </button>
               {!self && (
                 <button
                   type="button"
@@ -579,9 +590,45 @@ export function MembersScreen() {
                       {member.baseMonthlySalary == null ? '—' : member.baseMonthlySalary.toLocaleString()}
                     </td>
                     <td className="row-actions-cell">
-                      <button className="ghost" onClick={() => setManageMember(member)}>
-                        {t('MEMBER_MANAGE')}
-                      </button>
+                      {/* 행 액션은 아이콘+툴팁(공휴일 화면 패턴) — 관리·스케줄을 행에서 한 번에 진입 */}
+                      <div className="row-actions">
+                        <button
+                          type="button"
+                          className="icon-btn"
+                          title={t('MEMBER_MANAGE')}
+                          aria-label={t('MEMBER_MANAGE')}
+                          onClick={() => setManageMember(member)}
+                        >
+                          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                            <path
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm7.4-3a7.4 7.4 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7.4 7.4 0 0 0-2-1.2L14.5 3h-5l-.4 2.6a7.4 7.4 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6a7.4 7.4 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a7.4 7.4 0 0 0 2 1.2l.4 2.6h5l.4-2.6a7.4 7.4 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.07-.4.1-.8.1-1.2Z"
+                            />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          className="icon-btn"
+                          title={t('EDIT_SCHEDULE')}
+                          aria-label={t('EDIT_SCHEDULE')}
+                          onClick={() => setScheduleMember({ userId: member.userId, name: member.name, email: member.email })}
+                        >
+                          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                            <path
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M7 3v3m10-3v3M4 8h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Zm3 7h2m3 0h2m-7 4h2m3 0h2"
+                            />
+                          </svg>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                   {rowError?.userId === member.userId && (
@@ -599,6 +646,10 @@ export function MembersScreen() {
           </tbody>
         </table>
       </div>
+      {/* 근무 시점 검색은 결과가 근무 인원으로 자연 축소 — 페이지네이션은 일반 목록에서만(#9) */}
+      {!(searchDate && searchTime) && (
+        <Pagination page={page} totalPages={totalPages} totalCount={totalCount} onChange={setPage} />
+      )}
     </div>
   )
 }

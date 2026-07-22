@@ -347,4 +347,19 @@ class LeaveServiceTest {
         verify(grantMapper).insert(eq(TENANT), eq(user2), eq(ANNUAL_ID), eq(1440),
                 any(), any(), eq(LeaveSource.MANUAL), any(), eq("여름 특별"), eq(9L));
     }
+
+    @Test
+    @DisplayName("내 신청 내역(#9): 페이지 번호 방식 — LIMIT/OFFSET 전달 + 전체 건수 페이지 계산")
+    void myRequestsPaged() {
+        when(requestMapper.countByUser(TENANT, USER)).thenReturn(41L);
+        when(requestMapper.findViewPageByUser(TENANT, USER, 20, 20)).thenReturn(List.of());
+
+        var page = service().myRequests(TENANT, USER, 2, null);
+
+        assertThat(page.page()).isEqualTo(2);
+        assertThat(page.size()).isEqualTo(20);
+        assertThat(page.totalCount()).isEqualTo(41L);
+        assertThat(page.totalPages()).isEqualTo(3); //41건 / 20 = 3페이지
+        verify(requestMapper).findViewPageByUser(TENANT, USER, 20, 20); //2페이지 = offset 20
+    }
 }

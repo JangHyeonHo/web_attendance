@@ -70,12 +70,25 @@ public interface LeaveRequestMapper {
             + " JOIN users u ON u.user_id = r.user_id"
             + " JOIN leave_type t ON t.leave_type_id = r.leave_type_id";
 
-    /** 본인 신청 내역(최신순). */
+    /** 본인 신청 전건(최신순) — 잔여/사용량 합산 등 내부 계산용(전체 필요). 화면 목록은 페이지 조회로. */
     @Select("SELECT " + VIEW_COLS + VIEW_FROM
             + " WHERE r.tenant_id = #{tenantId} AND r.user_id = #{userId}"
             + " ORDER BY r.start_at DESC, r.leave_request_id DESC")
     List<LeaveRequestView> findViewByUser(@Param("tenantId") long tenantId,
             @Param("userId") long userId);
+
+    /** 본인 신청 내역(최신순) — 페이지 조회(#9: 해가 갈수록 무한 증가하는 목록이라 전건 반환하지 않는다). */
+    @Select("SELECT " + VIEW_COLS + VIEW_FROM
+            + " WHERE r.tenant_id = #{tenantId} AND r.user_id = #{userId}"
+            + " ORDER BY r.start_at DESC, r.leave_request_id DESC"
+            + " LIMIT #{size} OFFSET #{offset}")
+    List<LeaveRequestView> findViewPageByUser(@Param("tenantId") long tenantId,
+            @Param("userId") long userId, @Param("size") int size, @Param("offset") int offset);
+
+    /** 본인 신청 내역 전체 건수(#9 페이지 계산용). */
+    @Select("SELECT COUNT(*) FROM leave_request r"
+            + " WHERE r.tenant_id = #{tenantId} AND r.user_id = #{userId}")
+    long countByUser(@Param("tenantId") long tenantId, @Param("userId") long userId);
 
     /** 승인 대기 목록(관리자) — 오래된 신청 먼저. */
     @Select("SELECT " + VIEW_COLS + VIEW_FROM

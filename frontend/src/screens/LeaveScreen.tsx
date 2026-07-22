@@ -7,6 +7,7 @@ import { useApp } from '../app/AppContext'
 import { Modal } from '../components/Modal'
 import { SelectField, TimeField, TextAreaField, ModalSubject } from '../components/fields'
 import { DateField } from '../components/DateField'
+import { Pagination } from '../components/Pagination'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { formatLeaveAmount } from '../util/leaveFormat'
 import type { LeaveBalance, LeaveBalanceRow, LeaveRequestItem, LeaveStatus, LeaveType, LeaveUnit } from '../api/types'
@@ -124,7 +125,7 @@ function endDateOf(iso: string): string {
 
 /**
  * W015 휴가 — 멤버 본인 잔여·신청·취소.
- * 잔여 카드(종류별) + 신청 모달(일/반차/시간) + 신청 내역(취소).
+ * 잔여 카드(종류별) + 신청 모달(일/시간) + 신청 내역(취소).
  */
 export function LeaveScreen() {
   const { t } = useApp()
@@ -133,6 +134,10 @@ export function LeaveScreen() {
   const [balanceRows, setBalanceRows] = useState<LeaveBalanceRow[]>([])
   const [types, setTypes] = useState<LeaveType[]>([])
   const [requests, setRequests] = useState<LeaveRequestItem[]>([])
+  //내 신청 내역 페이지(#9) — 해가 갈수록 늘어나는 목록이라 페이지 번호 방식
+  const [reqPage, setReqPage] = useState(1)
+  const [reqTotalPages, setReqTotalPages] = useState(1)
+  const [reqTotalCount, setReqTotalCount] = useState(0)
   const [listError, setListError] = useState<string | null>(null)
 
   const [formOpen, setFormOpen] = useState(false)
@@ -149,17 +154,21 @@ export function LeaveScreen() {
         leaveApi.balances(),
         leaveApi.balanceRows(),
         leaveApi.types(),
-        leaveApi.myRequests(),
+        leaveApi.myRequests(reqPage),
       ])
       setBalances(b)
       setBalanceRows(rows)
       setTypes(ty)
-      setRequests(rq)
+      setRequests(rq.items)
+      setReqTotalPages(rq.totalPages)
+      setReqTotalCount(rq.totalCount)
+      //취소 등으로 건수가 줄어 현재 페이지가 범위를 벗어나면 마지막 페이지로 보정
+      if (reqPage > rq.totalPages) setReqPage(rq.totalPages)
       setListError(null)
     } catch (e) {
       setListError(e instanceof ApiError ? e.message : String(e))
     }
-  }, [])
+  }, [reqPage])
 
   useEffect(() => {
     void reload()
@@ -254,8 +263,7 @@ export function LeaveScreen() {
     }
     const start = dateOf(r.startAt)
     const end = endDateOf(r.endAt)
-    const base = start === end ? start : `${start} ~ ${end}`
-    return r.halfDay ? `${base} (${t('HALF_DAY')})` : base
+    return start === end ? start : `${start} ~ ${end}`
   }
 
   return (
@@ -395,6 +403,8 @@ export function LeaveScreen() {
       )}
 
       <h3 className="section-head">{t('MY_REQUESTS')}</h3>
+      {/* 취소 규칙 안내는 행 데이터가 아니라 섹션 공통 규칙 — 행마다 반복하면 열 폭이 늘어 가로 스크롤이 생긴다 */}
+      {requests.length > 0 && <p className="hint">{t('CANCEL_SAME_DAY')}</p>}
       {requests.length === 0 ? (
         <p className="muted center">{t('EMPTY')}</p>
       ) : isMobile ? (
@@ -403,7 +413,6 @@ export function LeaveScreen() {
           {requests.map((r) => {
             const canCancelPending = r.status === 'PENDING'
             const canRequestCancel = r.status === 'APPROVED' && startsInFuture(r.startAt)
-            const approvedSameDay = r.status === 'APPROVED' && !startsInFuture(r.startAt)
             return (
               <details className="lv-acc" key={r.leaveRequestId}>
                 <summary className="lv-acc-sum">
@@ -422,7 +431,7 @@ export function LeaveScreen() {
                   {r.status === 'CANCEL_REQUESTED' && r.cancelReason && (
                     <p className="hint">{r.cancelReason}</p>
                   )}
-                  {(canCancelPending || canRequestCancel || approvedSameDay) && (
+                  {(canCancelPending || canRequestCancel) && (
                     <div className="lv-req-actions">
                       {canCancelPending && (
                         <button onClick={() => setCancelTarget(r)}>{t('CANCEL')}</button>
@@ -432,7 +441,6 @@ export function LeaveScreen() {
                           {t('REQUEST_CANCEL')}
                         </button>
                       )}
-                      {approvedSameDay && <span className="hint">{t('CANCEL_SAME_DAY')}</span>}
                     </div>
                   )}
                   {rowError?.id === r.leaveRequestId && (
@@ -458,10 +466,9 @@ export function LeaveScreen() {
             </thead>
             <tbody>
               {requests.map((r) => {
-                //대기(PENDING)는 본인 직접 취소, 승인건은 시작 전이면 취소 신청(당일·시작 후는 관리자에게)
+                //대기(PENDING)는 본인 직접 취소, 승인건은 시작 전이면 취소 신청(당일·시작 후는 관리자에게 — 섹션 상단 안내)
                 const canCancelPending = r.status === 'PENDING'
                 const canRequestCancel = r.status === 'APPROVED' && startsInFuture(r.startAt)
-                const approvedSameDay = r.status === 'APPROVED' && !startsInFuture(r.startAt)
                 return (
                   <tr key={r.leaveRequestId}>
                     <td>{r.typeName}</td>
@@ -490,7 +497,6 @@ export function LeaveScreen() {
                           {t('REQUEST_CANCEL')}
                         </button>
                       )}
-                      {approvedSameDay && <span className="hint">{t('CANCEL_SAME_DAY')}</span>}
                       {rowError?.id === r.leaveRequestId && (
                         <span className="error"> {rowError.message}</span>
                       )}
@@ -502,6 +508,12 @@ export function LeaveScreen() {
           </table>
         </div>
       )}
+      <Pagination
+        page={reqPage}
+        totalPages={reqTotalPages}
+        totalCount={reqTotalCount}
+        onChange={setReqPage}
+      />
     </div>
   )
 }
@@ -523,7 +535,6 @@ function ApplyModal({
   const [mode, setMode] = useState<'day' | 'hour'>('day')
   const [startDate, setStartDate] = useState(today)
   const [endDate, setEndDate] = useState(today)
-  const [halfDay, setHalfDay] = useState(false)
   //시간 모드 — 같은 날 시작~종료 시각
   const [hourDate, setHourDate] = useState(today)
   const [startTime, setStartTime] = useState('09:00')
@@ -536,7 +547,6 @@ function ApplyModal({
   const canHour = selectedType?.hourlyEnabled ?? false
   //시간 미허용 종류로 바꾸면 날짜 모드로 강제(토글 자체가 사라지므로 상태만 정리)
   const effectiveMode = canHour ? mode : 'day'
-  const singleDay = startDate === endDate
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -557,7 +567,6 @@ function ApplyModal({
           dayUnit: true,
           startDate,
           endDate,
-          halfDay: singleDay && halfDay,
           reason: reason.trim() || null,
         })
       }
@@ -625,13 +634,6 @@ function ApplyModal({
                 <DateField value={endDate} min={startDate} onChange={setEndDate} ariaLabel={t('END_DATE')} />
               </label>
             </div>
-            {/* 반차는 하루짜리일 때만 */}
-            {singleDay && (
-              <label className="check-inline">
-                <input type="checkbox" checked={halfDay} onChange={(e) => setHalfDay(e.target.checked)} />
-                {t('HALF_DAY')}
-              </label>
-            )}
           </>
         ) : (
           <>

@@ -49,9 +49,12 @@ public class MemberController {
 
     @Operation(summary = "api.member.list.summary")
     @GetMapping
-    public List<MemberResponse> list(@LoginUser SessionUser user,
-            @RequestParam(value = "q", required = false) String q) {
-        return memberService.list(user.tenantId(), q);
+    public com.attendance.pro.common.PageResponse<MemberResponse> list(@LoginUser SessionUser user,
+            @RequestParam(value = "q", required = false) String q,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        //페이지 번호 방식(#9) — 회사 규모가 커져도 목록 응답이 무한정 길어지지 않게
+        return memberService.page(user.tenantId(), q, page, size);
     }
 
     /**

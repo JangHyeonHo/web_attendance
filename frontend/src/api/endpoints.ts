@@ -39,6 +39,7 @@ import type {
   MemberRoleUpdateRequest,
   MemberStatusUpdateRequest,
   MemberSummary,
+  PageResponse,
   MonthlyResponse,
   RotaCell,
   RotaSaveRequest,
@@ -191,12 +192,14 @@ export const tenantMailTemplateApi = {
 
 /** TENANT_ADMIN 전용 — 멤버 (tenantId는 항상 서버 세션에서 — 파라미터로 보내지 않는다) */
 export const tenantMemberApi = {
-  /** 멤버 목록/검색 — 이름·이메일·부서 텍스트(q) */
-  list: (params?: { q?: string }) => {
+  /** 멤버 목록/검색 — 이름·이메일·부서 텍스트(q) + 페이지 번호 방식(#9) */
+  list: (params?: { q?: string; page?: number; size?: number }) => {
     const qs = new URLSearchParams()
     if (params?.q?.trim()) qs.set('q', params.q.trim())
+    if (params?.page) qs.set('page', String(params.page))
+    if (params?.size) qs.set('size', String(params.size))
     const s = qs.toString()
-    return get<MemberSummary[]>(`/api/v1/tenant/members${s ? `?${s}` : ''}`)
+    return get<PageResponse<MemberSummary>>(`/api/v1/tenant/members${s ? `?${s}` : ''}`)
   },
   /** 특정 날짜·시각 근무 중인 멤버(#6) — 실효 스케줄로 서버가 판정. date=YYYY-MM-DD, time=HH:mm */
   working: (date: string, time: string, q?: string) => {
@@ -309,7 +312,14 @@ export const leaveApi = {
   types: () => get<LeaveType[]>('/api/v1/attendance/leave/types'),
   balances: () => get<LeaveBalance[]>('/api/v1/attendance/leave/balances'),
   balanceRows: () => get<LeaveBalanceRow[]>('/api/v1/attendance/leave/balances/rows'),
-  myRequests: () => get<LeaveRequestItem[]>('/api/v1/attendance/leave/requests'),
+  /** 내 신청 내역 — 페이지 번호 방식(#9: 해가 갈수록 늘어나는 목록) */
+  myRequests: (page?: number, size?: number) => {
+    const qs = new URLSearchParams()
+    if (page) qs.set('page', String(page))
+    if (size) qs.set('size', String(size))
+    const s = qs.toString()
+    return get<PageResponse<LeaveRequestItem>>(`/api/v1/attendance/leave/requests${s ? `?${s}` : ''}`)
+  },
   apply: (request: LeaveApplyRequest) =>
     post<LeaveRequestItem>('/api/v1/attendance/leave/requests', request),
   cancel: (requestId: number) =>

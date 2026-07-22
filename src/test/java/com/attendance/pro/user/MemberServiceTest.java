@@ -527,6 +527,39 @@ class MemberServiceTest {
             assertThat(members).hasSize(1);
             verify(userMapper).searchByTenant(TENANT_ID, "김");
         }
+
+        @Test
+        @DisplayName("페이지 조회(#9): page/size 정규화 + LIMIT/OFFSET 전달 + 전체건수로 totalPages 계산")
+        void pageNormalizesAndPropagates() {
+            when(userMapper.countSearchByTenant(TENANT_ID, null)).thenReturn(45L);
+            when(userMapper.searchPageByTenant(TENANT_ID, null, 20, 20))
+                    .thenReturn(java.util.List.of(user(3L, Role.MEMBER, UserStatus.ACTIVE)));
+            when(userTokenService.findActiveInviteExpiries(TENANT_ID)).thenReturn(Map.of());
+
+            var pageResponse = service().page(TENANT_ID, "  ", 2, null);
+
+            assertThat(pageResponse.page()).isEqualTo(2);
+            assertThat(pageResponse.size()).isEqualTo(20);
+            assertThat(pageResponse.totalCount()).isEqualTo(45L);
+            assertThat(pageResponse.totalPages()).isEqualTo(3); //45건 / 20 = 3페이지
+            assertThat(pageResponse.items()).hasSize(1);
+            verify(userMapper).searchPageByTenant(TENANT_ID, null, 20, 20); //2페이지 = offset 20
+        }
+
+        @Test
+        @DisplayName("페이지 조회(#9): size 상한 100 클램프 + page 1 미만은 1로")
+        void pageClampsSize() {
+            when(userMapper.countSearchByTenant(TENANT_ID, null)).thenReturn(0L);
+            when(userMapper.searchPageByTenant(TENANT_ID, null, 100, 0))
+                    .thenReturn(java.util.List.of());
+            when(userTokenService.findActiveInviteExpiries(TENANT_ID)).thenReturn(Map.of());
+
+            var pageResponse = service().page(TENANT_ID, null, 0, 9999);
+
+            assertThat(pageResponse.page()).isEqualTo(1);
+            assertThat(pageResponse.size()).isEqualTo(100);
+            assertThat(pageResponse.totalPages()).isEqualTo(1); //빈 목록도 1페이지
+        }
     }
 
 }

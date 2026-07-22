@@ -129,7 +129,7 @@ function ApprovalsTab() {
                   <td>{r.typeName}</td>
                   <td className="wrap">
                     {r.dayUnit
-                      ? `${dateOf(r.startAt)}${r.halfDay ? ` (${t('HALF_DAY')})` : ''}`
+                      ? dateOf(r.startAt)
                       : `${dateOf(r.startAt)} ${r.startAt.slice(11, 16)}~${r.endAt.slice(11, 16)}`}
                   </td>
                   <td className="num">{amt(r.minutes, r.unit, 480)}</td>
@@ -218,7 +218,7 @@ function CancellationsTab() {
 
   const periodText = (r: LeaveRequestItem) =>
     r.dayUnit
-      ? `${dateOf(r.startAt)}${r.halfDay ? ` (${t('HALF_DAY')})` : ''}`
+      ? dateOf(r.startAt)
       : `${dateOf(r.startAt)} ${r.startAt.slice(11, 16)}~${r.endAt.slice(11, 16)}`
 
   return (

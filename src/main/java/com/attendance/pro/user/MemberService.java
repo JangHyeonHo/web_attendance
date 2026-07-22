@@ -60,16 +60,41 @@ public class MemberService {
     }
 
     /**
-     * 멤버 검색 목록 — 이름·이메일·부서 텍스트(q). 대규모 인원 대비 서버에서 걸러 응답한다.
-     * (특정 날짜·시각 근무자 검색은 실효 스케줄 기반 별도 엔드포인트 /members/working)
-     * PENDING 행은 유효 INVITE 토큰의 만료시각을 동봉한다.
+     * 멤버 검색 목록(전건) — 근무 시점 검색(/members/working)의 내부 모집단 용도.
+     * 화면 목록 API는 페이지 조회(page)를 쓴다(#9 — 회사 규모가 커져도 응답이 무한정 길어지지 않게).
      */
     public List<MemberResponse> list(long tenantId, String q) {
-        String query = (q == null || q.isBlank()) ? null : q.trim();
+        String query = normalizeQuery(q);
         Map<Long, LocalDateTime> inviteExpiries = userTokenService.findActiveInviteExpiries(tenantId);
         return userMapper.searchByTenant(tenantId, query).stream()
                 .map(user -> MemberResponse.from(user, inviteExpiries.get(user.userId())))
                 .toList();
+    }
+
+    /** 페이지 크기 기본/상한(#9) — 과대 요청 방어. */
+    static final int PAGE_SIZE_DEFAULT = 20;
+    static final int PAGE_SIZE_MAX = 100;
+
+    /**
+     * 멤버 검색 페이지 목록(#9) — 이름·이메일·부서 텍스트(q) + 페이지 번호 방식.
+     * PENDING 행은 유효 INVITE 토큰의 만료시각을 동봉한다.
+     */
+    public com.attendance.pro.common.PageResponse<MemberResponse> page(long tenantId, String q,
+            Integer page, Integer size) {
+        String query = normalizeQuery(q);
+        int p = com.attendance.pro.common.PageResponse.normalizePage(page);
+        int s = com.attendance.pro.common.PageResponse.normalizeSize(size, PAGE_SIZE_DEFAULT, PAGE_SIZE_MAX);
+        long total = userMapper.countSearchByTenant(tenantId, query);
+        Map<Long, LocalDateTime> inviteExpiries = userTokenService.findActiveInviteExpiries(tenantId);
+        List<MemberResponse> items = userMapper.searchPageByTenant(tenantId, query, s, (p - 1) * s)
+                .stream()
+                .map(user -> MemberResponse.from(user, inviteExpiries.get(user.userId())))
+                .toList();
+        return com.attendance.pro.common.PageResponse.of(items, p, s, total);
+    }
+
+    private static String normalizeQuery(String q) {
+        return (q == null || q.isBlank()) ? null : q.trim();
     }
 
     /**
