@@ -339,9 +339,19 @@ public class LeaveService {
         return findRequestResponse(tenantId, userId, requestId);
     }
 
-    public List<LeaveRequestResponse> myRequests(long tenantId, long userId) {
-        return requestMapper.findViewByUser(tenantId, userId).stream()
+    /** 페이지 크기 기본/상한(#9) — 내 신청 내역은 해가 갈수록 무한 증가하므로 페이지 번호 방식. */
+    static final int PAGE_SIZE_DEFAULT = 20;
+    static final int PAGE_SIZE_MAX = 100;
+
+    public com.attendance.pro.common.PageResponse<LeaveRequestResponse> myRequests(
+            long tenantId, long userId, Integer page, Integer size) {
+        int p = com.attendance.pro.common.PageResponse.normalizePage(page);
+        int s = com.attendance.pro.common.PageResponse.normalizeSize(size, PAGE_SIZE_DEFAULT, PAGE_SIZE_MAX);
+        long total = requestMapper.countByUser(tenantId, userId);
+        List<LeaveRequestResponse> items = requestMapper
+                .findViewPageByUser(tenantId, userId, s, (p - 1) * s).stream()
                 .map(LeaveRequestResponse::of).toList();
+        return com.attendance.pro.common.PageResponse.of(items, p, s, total);
     }
 
     @Transactional

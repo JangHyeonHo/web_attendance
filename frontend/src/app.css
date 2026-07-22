@@ -87,6 +87,30 @@
   box-sizing: border-box;
 }
 
+/* 세로 스크롤바 자리를 항상 예약 — 스크롤바가 생겼다 없어질 때마다 본문 폭이 변해
+   화면 전체가 좌우로 흔들리는 현상 방지. 스크롤바 자체는 내용이 넘칠 때만 나타난다. */
+html {
+  scrollbar-gutter: stable;
+  /* 파이어폭스 — 페이지 스크롤바를 얇게(시각적 존재감 완화) */
+  scrollbar-width: thin;
+}
+
+/* 크로미움/웹킷 — 페이지 스크롤바를 얇고 조용하게 */
+html::-webkit-scrollbar {
+  width: 10px;
+}
+
+html::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+html::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
@@ -654,6 +678,14 @@ form button.primary {
   border-bottom: 1px solid var(--border-strong);
 }
 
+/* 테이블 안 버튼은 아이콘 버튼과 같은 스케일 — 전역 버튼(min-height 40px)이
+   행 높이를 부풀리지 않게. 라벨 버튼(승인/반려 등)도 행 안에서는 컴팩트하게 통일. */
+.detail-table td button {
+  min-height: 28px;
+  padding: 3px 10px;
+  font-size: 13px;
+}
+
 .detail-table tbody tr:last-child td {
   border-bottom: none;
 }
@@ -1086,6 +1118,30 @@ button.ghost:hover {
   color: var(--danger, #c0392b);
 }
 
+/* 아이콘 버튼 툴팁(#2) — 네이티브 title은 1초+ 호버해야 떠서 사실상 안 보인다.
+   aria-label을 그대로 말풍선으로 즉시 표시(호버/키보드 포커스 공통). */
+.row-actions .icon-btn {
+  position: relative;
+}
+
+.row-actions .icon-btn:hover::after,
+.row-actions .icon-btn:focus-visible::after {
+  content: attr(aria-label);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 30;
+}
+
 .detail-table td.row-note {
   text-align: left;
   white-space: normal;
@@ -1312,7 +1368,10 @@ textarea.form-field-input {
 
 /* ---- 9. 출결(W005) ---- */
 
-.today {
+/* 출결 화면의 '오늘 날짜/시계' 헤딩 전용.
+   전역 .today였을 때 달력 셀(.date-cell.today) 등 다른 today 표시에 margin·폰트가 오염돼
+   오늘 셀만 내려앉는 문제가 있었다 — 화면 전용 이름으로 격리. */
+.att-today {
   font-size: 15px;
   font-weight: 600;
   color: var(--muted);
@@ -4033,4 +4092,51 @@ form label .pw-field input {
 }
 @media print {
   .tsr-seal-circle { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+
+/* ---- 페이지네이션(#9 리스트 상한 정책) — 무한 증가 리스트 공통 ---- */
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: 10px;
+}
+
+.pagination button {
+  min-width: 30px;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pagination button:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+.pagination button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+  font-weight: 700;
+}
+
+.pagination button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.pagination-gap {
+  padding: 0 2px;
+}
+
+.pagination-total {
+  margin-right: auto;
+  font-size: 12px;
 }

@@ -59,8 +59,12 @@ public class MemberLeaveController {
 
     @Operation(summary = "api.leave.requests")
     @GetMapping("/requests")
-    public List<LeaveRequestResponse> myRequests(@LoginUser SessionUser user) {
-        return leaveService.myRequests(user.tenantId(), user.userId());
+    public com.attendance.pro.common.PageResponse<LeaveRequestResponse> myRequests(
+            @LoginUser SessionUser user,
+            @org.springframework.web.bind.annotation.RequestParam(value = "page", required = false) Integer page,
+            @org.springframework.web.bind.annotation.RequestParam(value = "size", required = false) Integer size) {
+        //페이지 번호 방식(#9) — 신청 내역은 해가 갈수록 늘어나므로 전건 반환하지 않는다
+        return leaveService.myRequests(user.tenantId(), user.userId(), page, size);
     }
 
     @Operation(summary = "api.leave.apply")

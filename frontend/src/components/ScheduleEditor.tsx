@@ -191,7 +191,13 @@ export function ScheduleEditor({
     setQuery('')
     setPickOpen(true)
     try {
-      setMemberList(await tenantMemberApi.list())
+      //일괄 적용 대상 선택은 전 멤버가 모집단 — 목록 API가 페이지 방식(#9)이라 전 페이지를 합친다(절단 금지)
+      const first = await tenantMemberApi.list({ size: 100 })
+      const all = [...first.items]
+      for (let p = 2; p <= first.totalPages; p++) {
+        all.push(...(await tenantMemberApi.list({ page: p, size: 100 })).items)
+      }
+      setMemberList(all)
     } catch (e) {
       setError(e instanceof ApiError ? e.message : String(e))
     }

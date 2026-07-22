@@ -385,32 +385,35 @@ export function DetailsScreen() {
           />
         </div>
       </div>
-      {/* 근태 마감 바 — 지난달 종료 후 마감 신청, 승인되면 정정 잠금(참고 정산 확정) */}
-      <div className={`close-bar${locked ? ' locked' : ''}`}>
-        <div className="close-state">
-          {closeStatus?.status === 'APPROVED' && (
-            <span className="close-badge done">🔒 {t('CLOSE_DONE')}</span>
-          )}
-          {closeStatus?.status === 'REQUESTED' && (
-            <span className="close-badge pending">⏳ {t('CLOSE_PENDING')}</span>
-          )}
-          {closeStatus?.status === 'REJECTED' && (
-            <span className="close-badge rejected">↩ {t('CLOSE_REJECTED')}</span>
-          )}
+      {/* 근태 마감 바 — 지난달 종료 후 마감 신청, 승인되면 정정 잠금(참고 정산 확정).
+          표시할 내용(상태 배지·신청/취소 버튼)이 하나도 없으면 바 자체를 그리지 않는다(빈 껍데기 방지). */}
+      {closeStatus && (closeStatus.status || closeStatus.canRequest) && (
+        <div className={`close-bar${locked ? ' locked' : ''}`}>
+          <div className="close-state">
+            {closeStatus.status === 'APPROVED' && (
+              <span className="close-badge done">🔒 {t('CLOSE_DONE')}</span>
+            )}
+            {closeStatus.status === 'REQUESTED' && (
+              <span className="close-badge pending">⏳ {t('CLOSE_PENDING')}</span>
+            )}
+            {closeStatus.status === 'REJECTED' && (
+              <span className="close-badge rejected">↩ {t('CLOSE_REJECTED')}</span>
+            )}
+          </div>
+          <div className="close-actions no-print">
+            {closeStatus.status === 'REQUESTED' && (
+              <button disabled={closeBusy} onClick={() => void cancelClose()}>
+                {t('CLOSE_CANCEL')}
+              </button>
+            )}
+            {closeStatus.canRequest && (
+              <button className="primary" disabled={closeBusy} onClick={() => setCloseConfirm(true)}>
+                {t('CLOSE_REQUEST')}
+              </button>
+            )}
+          </div>
         </div>
-        <div className="close-actions no-print">
-          {closeStatus?.status === 'REQUESTED' && (
-            <button disabled={closeBusy} onClick={() => void cancelClose()}>
-              {t('CLOSE_CANCEL')}
-            </button>
-          )}
-          {closeStatus?.canRequest && (
-            <button className="primary" disabled={closeBusy} onClick={() => setCloseConfirm(true)}>
-              {t('CLOSE_REQUEST')}
-            </button>
-          )}
-        </div>
-      </div>
+      )}
       {/* 정정 진입은 날짜 버튼 → 일자 상세 → [정정 등록]/[수정] 단일 동선 */}
       {manualNotice && (
         <div className="banner" role="status">
@@ -499,7 +502,7 @@ export function DetailsScreen() {
                       {date.getDate()}({weekdayOf(date)})
                     </button>
                     {day.manual && <span className="mini-badge">{t('SOURCE_MANUAL')}</span>}
-                    {/* 부분 휴가(반차/시간 — 스탬프 있는 날)는 근무 행 유지 + 휴가 뱃지 */}
+                    {/* 부분 휴가(시간 휴가 — 스탬프 있는 날)는 근무 행 유지 + 휴가 뱃지 */}
                     {onLeave && hasStamps && <span className="mini-badge leave">{day.leaveName}</span>}
                   </td>
                   {spanOff ? (

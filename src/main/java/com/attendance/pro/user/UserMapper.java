@@ -58,7 +58,7 @@ public interface UserMapper {
 
     /**
      * 멤버 관리 검색 목록 — 이름·이메일·부서 텍스트 필터(q). null이면 전체.
-     * (근무 시간대 검색은 실효 스케줄 기반 별도 엔드포인트 /members/working로 이동)
+     * 근무 시점 검색(/members/working)의 내부 모집단 용도 — 화면 목록은 페이지 조회(searchPageByTenant)로.
      */
     @Select("""
             SELECT user_id, tenant_id, email, password_hash, password_changed_at, name, depart_cd,
@@ -74,6 +74,39 @@ public interface UserMapper {
             ORDER BY name ASC, user_id ASC
             """)
     List<User> searchByTenant(@Param("tenantId") long tenantId, @Param("q") String q);
+
+    /**
+     * 멤버 검색 페이지 조회(#9) — 회사 규모가 커져도 목록이 무한정 길어지지 않게 페이지 번호 방식.
+     */
+    @Select("""
+            SELECT user_id, tenant_id, email, password_hash, password_changed_at, name, depart_cd,
+                   hire_date, base_monthly_salary,
+                   role, status, deleted, created_at, updated_at
+            FROM users
+            WHERE tenant_id = #{tenantId} AND deleted = FALSE
+              AND role <> 'SYSTEM_ADMIN'
+              AND (#{q} IS NULL
+                   OR name LIKE CONCAT('%', #{q}, '%')
+                   OR email LIKE CONCAT('%', #{q}, '%')
+                   OR depart_cd LIKE CONCAT('%', #{q}, '%'))
+            ORDER BY name ASC, user_id ASC
+            LIMIT #{size} OFFSET #{offset}
+            """)
+    List<User> searchPageByTenant(@Param("tenantId") long tenantId, @Param("q") String q,
+            @Param("size") int size, @Param("offset") int offset);
+
+    /** 멤버 검색 전체 건수(#9 페이지 계산용) — searchPageByTenant와 동일 조건. */
+    @Select("""
+            SELECT COUNT(*)
+            FROM users
+            WHERE tenant_id = #{tenantId} AND deleted = FALSE
+              AND role <> 'SYSTEM_ADMIN'
+              AND (#{q} IS NULL
+                   OR name LIKE CONCAT('%', #{q}, '%')
+                   OR email LIKE CONCAT('%', #{q}, '%')
+                   OR depart_cd LIKE CONCAT('%', #{q}, '%'))
+            """)
+    long countSearchByTenant(@Param("tenantId") long tenantId, @Param("q") String q);
 
     @Insert("""
             INSERT INTO users (tenant_id, email, password_hash, name, depart_cd,

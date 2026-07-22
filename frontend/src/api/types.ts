@@ -76,6 +76,19 @@ export type NavigationReason =
   | 'LOGGED_OUT'
   | 'UNKNOWN_SCREEN'
 
+// ---- 목록 공통 ----
+
+/** 페이지 번호 방식 목록 응답(#9) — 무한 증가 리스트(멤버·휴가 내역 등)의 공통 계약 */
+export interface PageResponse<T> {
+  items: T[]
+  /** 현재 페이지(1부터) */
+  page: number
+  size: number
+  totalCount: number
+  /** 최소 1 — 빈 목록도 1페이지 */
+  totalPages: number
+}
+
 // ---- tenancy 공통 ----
 
 export type Role = 'SYSTEM_ADMIN' | 'TENANT_ADMIN' | 'HR_ADMIN' | 'MEMBER'
@@ -443,7 +456,7 @@ export interface DailyAttendance {
   manual: boolean
   /** 정정 사유(비고) — 없으면 null */
   note: string | null
-  /** 승인된 휴가 명칭(#9) — 그 날 유효 휴가(반차/시간은 접미 표기). 없으면 null */
+  /** 승인된 휴가 명칭(#9) — 그 날 유효 휴가(시간 휴가는 시각 접미 표기). 없으면 null */
   leaveName: string | null
 }
 
@@ -729,7 +742,6 @@ export interface LeaveApplyRequest {
   dayUnit: boolean
   startDate?: string | null
   endDate?: string | null
-  halfDay?: boolean
   startTime?: string | null
   endTime?: string | null
   reason?: string | null
@@ -746,7 +758,6 @@ export interface LeaveRequestItem {
   endAt: string
   minutes: number
   dayUnit: boolean
-  halfDay: boolean
   reason: string | null
   status: LeaveStatus
   decidedAt: string | null

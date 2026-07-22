@@ -485,7 +485,7 @@ public class AttendanceService {
         //공휴일은 명칭 포함 Map(판정은 containsKey — 정본: holiday-plan §6, CR3-2)
         Map<LocalDate, String> holidays = holidayMapper.findHolidaysBetween(tenantId, from, to).stream()
                 .collect(Collectors.toMap(Holiday::holidayDate, Holiday::holidayName));
-        //승인된 휴가(APPROVED/CANCEL_REQUESTED) → 날짜별 표시 명칭(#9). 반차/시간은 접미 표기.
+        //승인된 휴가(APPROVED/CANCEL_REQUESTED) → 날짜별 표시 명칭(#9). 시간 휴가는 시각 접미 표기.
         Map<LocalDate, String> leaves = buildLeaveNames(tenantId, userId, from, to);
         //야근(자정 넘긴 퇴근) 판정을 위해 다음달 1일치 스탬프까지 함께 조회(BREAK 포함)
         List<AttendanceStamp> stamps = attendanceMapper.findBetween(tenantId, userId, from, to.plusDays(1));
@@ -504,7 +504,7 @@ public class AttendanceService {
     }
 
     /**
-     * 승인된(또는 취소 신청 중) 휴가를 날짜별 표시 명칭으로(#9). 종일=명칭, 반차=명칭+" ½",
+     * 승인된(또는 취소 신청 중) 휴가를 날짜별 표시 명칭으로(#9). 종일=명칭,
      * 시간=명칭+" (HH:mm~HH:mm)". 같은 날 여러 휴가면 먼저 시작한 것(putIfAbsent). 창 밖 날짜는 제외.
      */
     private Map<LocalDate, String> buildLeaveNames(long tenantId, long userId, LocalDate from, LocalDate to) {
@@ -518,9 +518,6 @@ public class AttendanceService {
             if (v.dayUnit()) {
                 //일 단위 end_at은 반열림(다음날 0시) — 마지막 포함일 = end_at 하루 전
                 last = v.endAt().toLocalDate().minusDays(1);
-                if (v.halfDay()) {
-                    label = label + " ½"; //½
-                }
             } else {
                 //시간 단위 — 같은 날. 시각 범위를 접미로
                 last = v.startAt().toLocalDate();

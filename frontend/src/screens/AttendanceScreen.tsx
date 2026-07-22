@@ -169,7 +169,7 @@ export function AttendanceScreen() {
   return (
     <div className="panel">
       <div className="center">
-        <div className="today">
+        <div className="att-today">
           <span className="today-date">
             {now.getMonth() + 1}/{now.getDate()} ({weekdayFmt.format(now)})
           </span>
