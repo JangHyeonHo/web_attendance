@@ -98,7 +98,7 @@ public class ScheduleAdminService {
     }
 
     /**
-     * 그 달의 <b>실효 스케줄</b> — 우선순위(오버라이드 > 반복 패턴 > 개인 기본값)를 적용해 날짜별 결과 + 출처(#13).
+     * 그 달의 <b>실효 스케줄</b> — 우선순위(오버라이드 > 반복 패턴, 미설정=휴무)를 적용해 날짜별 결과 + 출처(#13).
      * 통합 스케줄 화면의 달력이 "패턴이 적용된 실제 모습"을 보여주고 예외만 덮어쓰게 한다.
      */
     @Transactional(readOnly = true)
@@ -376,7 +376,7 @@ public class ScheduleAdminService {
             LocalTime start, LocalTime end, boolean crossesMidnight) {
     }
 
-    /** 실효 스케줄 한 날 — source: OVERRIDE(로타)/PATTERN(반복)/DEFAULT(개인 기본). */
+    /** 실효 스케줄 한 날 — source: OVERRIDE(로타)/PATTERN(반복)/DEFAULT(미설정=휴무). */
     public record EffectiveDay(LocalDate date, String source, boolean off,
             LocalTime start, LocalTime end, boolean crossesMidnight) {
 

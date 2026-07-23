@@ -8,7 +8,7 @@ import java.util.Map;
 /**
  * 반복 패턴 → 특정 날짜의 근무 스케줄 투영(#13).
  * weekIndex = floor((date - anchorMonday)/7) mod cycleWeeks, dow = 1..7(월..일).
- * 슬롯이 있으면 그 날의 {@link WorkSchedule}(휴무 or 근무)로 투영, 없으면 null(개인 기본값으로 폴백).
+ * 슬롯이 있으면 그 날의 {@link WorkSchedule}(휴무 or 근무)로 투영, 없으면 null(호출부에서 미설정=휴무 처리).
  * 모든 스케줄은 시작시간 기준(야간 교대는 crossesMidnight로 종업이 익일).
  */
 public final class SchedulePatternResolver {
