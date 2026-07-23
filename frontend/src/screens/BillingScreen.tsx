@@ -3,6 +3,7 @@ import { tenantBillingApi, tenantProfileApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { SelectField } from '../components/fields'
+import { EmptyState } from '../components/EmptyState'
 import { InvoiceDocument } from '../components/InvoiceDocument'
 import type { InvoiceEntry, TenantProfileResponse } from '../api/types'
 
@@ -59,7 +60,7 @@ export function BillingScreen() {
       {error && <p className="error" role="alert">{error}</p>}
 
       {rows.length === 0 && !error ? (
-        <p className="muted center">{t('EMPTY')}</p>
+        <EmptyState>{t('EMPTY')}</EmptyState>
       ) : (
         <>
           {/* 달 선택 — 드롭다운(글자 안 깨지게). 마감월은 (확정) 표기 */}

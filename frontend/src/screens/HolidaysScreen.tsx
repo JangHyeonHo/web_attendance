@@ -5,6 +5,9 @@ import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { Modal } from '../components/Modal'
 import { DateField } from '../components/DateField'
+import { IconButton } from '../components/IconButton'
+import { ConfirmModal } from '../components/ConfirmModal'
+import { EmptyState } from '../components/EmptyState'
 import { localeOf } from '../i18n/lang'
 import type { HolidayEntry, HolidaySyncResult } from '../api/types'
 
@@ -220,15 +223,16 @@ export function HolidaysScreen() {
       </div>
 
       {syncConfirm && (
-        <Modal title={t('SYNC')} onClose={() => setSyncConfirm(false)} danger>
+        <ConfirmModal
+          title={t('SYNC')}
+          danger
+          confirmLabel={t('SYNC')}
+          cancelLabel={t('CANCEL')}
+          onConfirm={() => void runSync()}
+          onClose={() => setSyncConfirm(false)}
+        >
           <p className="center">{t('SYNC_CONFIRM')}</p>
-          <div className="btn-row">
-            <button className="primary" onClick={() => void runSync()}>
-              {t('SUBMIT')}
-            </button>
-            <button onClick={() => setSyncConfirm(false)}>{t('CANCEL')}</button>
-          </div>
-        </Modal>
+        </ConfirmModal>
       )}
       {syncResult && (
         <p className="success center" role="status">
@@ -298,24 +302,23 @@ export function HolidaysScreen() {
       )}
 
       {deleteTarget && (
-        <Modal title={t('DELETE')} onClose={() => setDeleteTarget(null)} danger>
-          <p className="center">
-            {deleteTarget.holidayDate} {deleteTarget.holidayName} — {t('DELETE_CONFIRM')}
-          </p>
-          <div className="btn-row">
-            <button className="primary" onClick={() => void runDelete(deleteTarget.holidayId)}>
-              {t('SUBMIT')}
-            </button>
-            <button onClick={() => setDeleteTarget(null)}>{t('CANCEL')}</button>
-          </div>
-        </Modal>
+        <ConfirmModal
+          title={t('DELETE')}
+          subject={`${deleteTarget.holidayDate} ${deleteTarget.holidayName}`}
+          hint={t('DELETE_CONFIRM')}
+          danger
+          confirmLabel={t('DELETE')}
+          cancelLabel={t('CANCEL')}
+          onConfirm={() => void runDelete(deleteTarget.holidayId)}
+          onClose={() => setDeleteTarget(null)}
+        />
       )}
 
       {listError && <p className="error" role="alert">{listError}</p>}
       {rowError && <p className="error" role="alert">{rowError}</p>}
 
       {holidays.length === 0 && !listError ? (
-        <p className="muted center">{t('EMPTY')}</p>
+        <EmptyState>{t('EMPTY')}</EmptyState>
       ) : (
         <div className="table-wrap">
           <table className="detail-table">
@@ -354,42 +357,13 @@ export function HolidaysScreen() {
                           flex는 div에만 — td에 직접 걸면 table-cell이 깨져 테두리가 어긋난다(#10). */}
                       {!national && (
                         <div className="row-actions">
-                          <button
-                            type="button"
-                            className="icon-btn"
-                            title={t('EDIT')}
-                            aria-label={t('EDIT')}
-                            onClick={() => openEdit(holiday)}
-                          >
-                            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                              <path
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M4 20h4L18.5 9.5a1.5 1.5 0 0 0 0-2.1l-1.9-1.9a1.5 1.5 0 0 0-2.1 0L4 16v4Z"
-                              />
-                            </svg>
-                          </button>
-                          <button
-                            type="button"
-                            className="icon-btn danger"
-                            title={t('DELETE')}
-                            aria-label={t('DELETE')}
+                          <IconButton icon="edit" label={t('EDIT')} onClick={() => openEdit(holiday)} />
+                          <IconButton
+                            icon="delete"
+                            label={t('DELETE')}
+                            danger
                             onClick={() => setDeleteTarget(holiday)}
-                          >
-                            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                              <path
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M5 7h14M10 7V5h4v2M6 7l1 13h10l1-13"
-                              />
-                            </svg>
-                          </button>
+                          />
                         </div>
                       )}
                     </td>

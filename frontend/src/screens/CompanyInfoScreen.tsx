@@ -4,6 +4,7 @@ import { tenantBillingApi, tenantProfileApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { SelectField } from '../components/fields'
+import { SectionHead } from '../components/SectionHead'
 import type {
   BillingMethod,
   ContractSummaryResponse,
@@ -146,7 +147,7 @@ function BusinessProfileSection() {
 
   return (
     <section className="ci-section">
-      <h3 className="section-head">{t('BIZ_INFO')}</h3>
+      <SectionHead title={t('BIZ_INFO')} />
       {/* 현재 등록값은 읽기전용 박스로만 보여준다(캡션 명시). 입력칸엔 마스킹값을 넣지 않아 '빈 칸처럼' 보이지 않게(S1-2·S1-4) */}
       {profile && (
         <div className="info-box">
@@ -259,7 +260,7 @@ function PaymentSection() {
 
   return (
     <section className="ci-section">
-      <h3 className="section-head">{t('PAYMENT_SETTINGS')}</h3>
+      <SectionHead title={t('PAYMENT_SETTINGS')} />
       <form onSubmit={save}>
         <div className="field-row">
           <label>
@@ -306,7 +307,7 @@ function ContractSection() {
 
   return (
     <section className="ci-section">
-      <h3 className="section-head">{t('CONTRACT_SUMMARY')}</h3>
+      <SectionHead title={t('CONTRACT_SUMMARY')} />
       <p className="hint">{t('CONTRACT_READONLY_HINT')}</p>
       {error && <p className="error" role="alert">{error}</p>}
       {contract && (

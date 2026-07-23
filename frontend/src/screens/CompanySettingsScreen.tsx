@@ -3,6 +3,7 @@ import { tenantReportApi, tenantDefaultScheduleApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { TimeField } from '../components/fields'
+import { SectionHead } from '../components/SectionHead'
 import { localeOf } from '../i18n/lang'
 import type { ReportSetting, DefaultScheduleDay } from '../api/types'
 
@@ -77,7 +78,7 @@ function DefaultScheduleSection() {
 
   return (
     <section className="ci-section">
-      <h3 className="section-head">{t('DEFAULT_SCHEDULE_TITLE')}</h3>
+      <SectionHead title={t('DEFAULT_SCHEDULE_TITLE')} />
       <p className="hint">{t('DEFAULT_SCHEDULE_NOTE')}</p>
       <div className="rota-grid">
         {days.map((d) => {
@@ -223,7 +224,7 @@ function ReportSettingSection() {
 
   return (
     <section className="ci-section">
-      <h3 className="section-head">{t('REPORT_SETTINGS')}</h3>
+      <SectionHead title={t('REPORT_SETTINGS')} />
 
       <p className="hint">{t('REPORT_STAMP_HINT')}</p>
       <label className="check-inline">

@@ -2464,6 +2464,11 @@ button.day-link:hover {
   font-size: 15px;
   font-weight: 700;
 }
+
+/* 연속 섹션의 2번째부터 — 위 간격 표준값(화면별 inline margin 금지) */
+.section-head.spaced {
+  margin-top: 28px;
+}
 .check-inline {
   display: flex;
   flex-direction: row;

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { adminAuditApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
+import { EmptyState } from '../components/EmptyState'
 import type { AuditLogEntry } from '../api/types'
 
 type Filter = '' | 'AUTH' | 'ERROR'
@@ -57,7 +58,7 @@ export function AuditLogScreen() {
       {error && <p className="error" role="alert">{error}</p>}
 
       {rows.length === 0 && !error ? (
-        <p className="muted center">{t('EMPTY')}</p>
+        <EmptyState>{t('EMPTY')}</EmptyState>
       ) : (
         <div className="table-wrap">
           <table className="detail-table">

@@ -6,6 +6,8 @@ import { useApp } from '../app/AppContext'
 import { Modal } from '../components/Modal'
 import { SelectField, TextField, TextAreaField, ModalSubject } from '../components/fields'
 import { DateField } from '../components/DateField'
+import { SectionHead } from '../components/SectionHead'
+import { EmptyState } from '../components/EmptyState'
 import { formatLeaveAmount } from '../util/leaveFormat'
 import type {
   LeaveRequestItem,
@@ -56,9 +58,9 @@ export function AdminLeaveScreen() {
       {/* 결재: 신규 신청 승인 + 취소 신청 승인을 한 곳에서(#10 탭 통합) */}
       {tab === 'decide' && (
         <>
-          <h3 className="section-head">{t('TAB_APPROVALS')}</h3>
+          <SectionHead title={t('TAB_APPROVALS')} />
           <ApprovalsTab />
-          <h3 className="section-head">{t('TAB_CANCELS')}</h3>
+          <SectionHead title={t('TAB_CANCELS')} spaced />
           <CancellationsTab />
         </>
       )}
@@ -108,7 +110,7 @@ function ApprovalsTab() {
     <>
       {error && <p className="error" role="alert">{error}</p>}
       {pending.length === 0 ? (
-        <p className="muted center">{t('NO_PENDING')}</p>
+        <EmptyState>{t('NO_PENDING')}</EmptyState>
       ) : (
         <div className="table-wrap">
           <table className="detail-table">
@@ -227,7 +229,7 @@ function CancellationsTab() {
 
       {/* 취소 신청 헤더는 바깥 TAB_CANCELS가 이미 표시하므로 중복 제거(#3) */}
       {rows.length === 0 ? (
-        <p className="muted center">{t('NO_CANCELS')}</p>
+        <EmptyState>{t('NO_CANCELS')}</EmptyState>
       ) : (
         <div className="table-wrap">
           <table className="detail-table">
@@ -282,9 +284,9 @@ function CancellationsTab() {
       )}
 
       {/* 현재/예정 휴가자 — 당일이라 멤버가 취소 신청을 못 만든 경우에도 관리자가 직접 취소(#11) */}
-      <h3 className="section-head" style={{ marginTop: '1.5rem' }}>{t('CURRENT_LEAVES')}</h3>
+      <SectionHead title={t('CURRENT_LEAVES')} spaced />
       {approved.length === 0 ? (
-        <p className="muted center">{t('NO_CURRENT_LEAVES')}</p>
+        <EmptyState>{t('NO_CURRENT_LEAVES')}</EmptyState>
       ) : (
         <div className="table-wrap">
           <table className="detail-table">
@@ -408,7 +410,7 @@ function MembersTab() {
       )}
       {error && <p className="error" role="alert">{error}</p>}
       {members.length === 0 ? (
-        <p className="muted center">{t('EMPTY')}</p>
+        <EmptyState>{t('EMPTY')}</EmptyState>
       ) : (
         <div className="table-wrap">
           <table className="detail-table">
@@ -576,7 +578,7 @@ function BulkGrantModal({
       </label>
       <div className="checklist">
         {filtered.length === 0 ? (
-          <p className="muted center" style={{ margin: '0.5rem 0' }}>{t('EMPTY')}</p>
+          <EmptyState>{t('EMPTY')}</EmptyState>
         ) : (
           filtered.map((m) => (
             <label key={m.userId} className="check-inline">

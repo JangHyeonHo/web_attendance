@@ -6,6 +6,7 @@ import { useApp } from '../app/AppContext'
 import { Modal } from '../components/Modal'
 import { TimesheetPrintReport } from '../components/TimesheetPrintReport'
 import { SelectField, TimeField } from '../components/fields'
+import { EmptyState } from '../components/EmptyState'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { localeOf } from '../i18n/lang'
 import type {
@@ -553,7 +554,7 @@ export function DetailsScreen() {
         <Modal title={`${detailDate} — ${t('DAY_DETAIL')}`} onClose={() => setDetailDate(null)}>
           {detailError && <p className="error" role="alert">{detailError}</p>}
           {detailStamps && detailStamps.length === 0 && (
-            <p className="muted center">{t('EMPTY')}</p>
+            <EmptyState>{t('EMPTY')}</EmptyState>
           )}
           {detailStamps && detailStamps.length > 0 && (
             <ul className="stamp-list">
