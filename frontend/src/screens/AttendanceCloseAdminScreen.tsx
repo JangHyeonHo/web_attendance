@@ -233,6 +233,7 @@ export function AttendanceCloseAdminScreen() {
             primary={rejecting.userName}
             secondary={`${rejecting.year}. ${String(rejecting.month).padStart(2, '0')}`}
           />
+          <p className="hint center">{t('REJECT_HINT')}</p>
           <TextAreaField
             label={commonT('REASON')}
             value={rejectNote}

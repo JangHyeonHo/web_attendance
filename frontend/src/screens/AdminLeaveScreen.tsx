@@ -157,6 +157,7 @@ function ApprovalsTab() {
       {rejectTarget && (
         <Modal title={t('REJECT')} onClose={() => setRejectTarget(null)} danger>
           <ModalSubject primary={rejectTarget.userName} secondary={rejectTarget.typeName} />
+          <p className="hint center">{t('REJECT_HINT')}</p>
           <TextAreaField
             label={t('DECISION_NOTE')}
             value={note}
@@ -329,6 +330,7 @@ function CancellationsTab() {
             primary={cancelTarget.userName}
             secondary={`${cancelTarget.typeName} · ${periodText(cancelTarget)}`}
           />
+          <p className="hint center">{t('ADMIN_CANCEL_HINT')}</p>
           <TextAreaField
             label={t('CANCEL_REASON')}
             value={cancelReason}

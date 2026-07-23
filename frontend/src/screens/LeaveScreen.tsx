@@ -372,6 +372,7 @@ export function LeaveScreen() {
         <ConfirmModal
           title={t('CANCEL')}
           subject={periodText(cancelTarget)}
+          hint={t('CANCEL_CONFIRM')}
           danger
           confirmLabel={t('CANCEL')}
           cancelLabel={t('CLOSE')}
@@ -383,6 +384,7 @@ export function LeaveScreen() {
       {cancelReqTarget && (
         <Modal title={t('REQUEST_CANCEL')} onClose={() => setCancelReqTarget(null)} danger>
           <ModalSubject primary={periodText(cancelReqTarget)} />
+          <p className="hint center">{t('REQUEST_CANCEL_HINT')}</p>
           <TextAreaField
             label={t('CANCEL_REASON')}
             value={cancelReqReason}

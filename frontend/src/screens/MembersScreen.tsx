@@ -498,7 +498,7 @@ export function MembersScreen() {
           title={confirmLabel(pending.action)}
           subject={pending.name}
           secondary={confirmLabel(pending.action)}
-          hint={pending.action === 'DELETE' ? t('DELETE_CONFIRM') : undefined}
+          hint={pending.action === 'DELETE' ? t('DELETE_CONFIRM') : t('DISABLE_CONFIRM')}
           danger
           confirmLabel={confirmLabel(pending.action)}
           cancelLabel={t('CANCEL')}

@@ -4,6 +4,7 @@ import { systemTenantApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { Modal } from '../components/Modal'
+import { ConfirmModal } from '../components/ConfirmModal'
 import { TenantDetailScreen } from './TenantDetailScreen'
 import type { ProfileCountry, TenantCreateResponse, TenantStatus, TenantSummary } from '../api/types'
 
@@ -221,20 +222,16 @@ export function TenantsScreen() {
       )}
 
       {confirmSuspend && (
-        <Modal title={t('SUSPEND')} onClose={() => setConfirmSuspend(null)} danger>
-          <p className="center">
-            {confirmSuspend.name} — {t('SUSPEND')}
-          </p>
-          <div className="btn-row">
-            <button
-              className="primary"
-              onClick={() => void updateStatus(confirmSuspend.tenantId, 'SUSPENDED')}
-            >
-              {t('SUBMIT')}
-            </button>
-            <button onClick={() => setConfirmSuspend(null)}>{t('CANCEL')}</button>
-          </div>
-        </Modal>
+        <ConfirmModal
+          title={t('SUSPEND')}
+          subject={confirmSuspend.name}
+          hint={t('SUSPEND_CONFIRM')}
+          danger
+          confirmLabel={t('SUSPEND')}
+          cancelLabel={t('CANCEL')}
+          onConfirm={() => void updateStatus(confirmSuspend.tenantId, 'SUSPENDED')}
+          onClose={() => setConfirmSuspend(null)}
+        />
       )}
 
       <div className="table-wrap">
