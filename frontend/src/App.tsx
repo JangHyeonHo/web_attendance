@@ -32,20 +32,20 @@ const LANG_LABEL: Record<Lang, string> = { KOR: '한국어', ENG: 'English', JPN
 
 /** 화면 코드 → 헤더 라벨 키(t로 해석). */
 const LABEL_KEY: Partial<Record<ScreenCode, string>> = {
-  W005: 'ATTEND',
-  W015: 'LEAVE',
-  W009: 'MEMBERS',
-  W013: 'HOLIDAYS',
-  W016: 'LEAVE_ADMIN',
-  W014: 'MAIL_TEMPLATES',
-  W018: 'BILLING',
-  W019: 'COMPANY_INFO',
-  W020: 'COMPANY_SETTINGS',
-  W021: 'CLOSE_NAV',
-  W007: 'TENANTS',
-  W012: 'MAIL_TEMPLATES',
-  W017: 'AUDIT_LOG',
-  W004: 'ADMIN',
+  M001: 'ATTEND',
+  M003: 'LEAVE',
+  T001: 'MEMBERS',
+  T002: 'HOLIDAYS',
+  T003: 'LEAVE_ADMIN',
+  T005: 'MAIL_TEMPLATES',
+  T006: 'BILLING',
+  T007: 'COMPANY_INFO',
+  T008: 'COMPANY_SETTINGS',
+  T004: 'CLOSE_NAV',
+  A001: 'TENANTS',
+  A004: 'MAIL_TEMPLATES',
+  A003: 'AUDIT_LOG',
+  A005: 'ADMIN',
 }
 
 /**
@@ -58,7 +58,7 @@ function topTabs(role: Role | null): ScreenCode[] {
     case 'MEMBER':
     case 'HR_ADMIN':
     case 'TENANT_ADMIN':
-      return ['W005', 'W015']
+      return ['M001', 'M003']
     default:
       return []
   }
@@ -76,21 +76,21 @@ function adminSections(role: Role | null): NavSection[] {
   switch (role) {
     case 'HR_ADMIN':
       return [
-        { key: 'NAV_SEC_ORG', items: ['W009', 'W013'] },
-        { key: 'NAV_SEC_LEAVE', items: ['W016', 'W021'] },
-        //회사 설정(W020)만 인사관리자에게 노출 — 정보/결제(W019)는 총관리자 전용
-        { key: 'NAV_SEC_SETTINGS', items: ['W020'] },
+        { key: 'NAV_SEC_ORG', items: ['T001', 'T002'] },
+        { key: 'NAV_SEC_LEAVE', items: ['T003', 'T004'] },
+        //회사 설정(T008)만 인사관리자에게 노출 — 정보/결제(T007)는 총관리자 전용
+        { key: 'NAV_SEC_SETTINGS', items: ['T008'] },
       ]
     case 'TENANT_ADMIN':
       return [
-        { key: 'NAV_SEC_ORG', items: ['W009', 'W013'] },
-        { key: 'NAV_SEC_LEAVE', items: ['W016', 'W021'] },
-        { key: 'NAV_SEC_SETTINGS', items: ['W014', 'W018', 'W019', 'W020'] },
+        { key: 'NAV_SEC_ORG', items: ['T001', 'T002'] },
+        { key: 'NAV_SEC_LEAVE', items: ['T003', 'T004'] },
+        { key: 'NAV_SEC_SETTINGS', items: ['T005', 'T006', 'T007', 'T008'] },
       ]
     case 'SYSTEM_ADMIN':
       return [
-        { key: 'NAV_SEC_OPS', items: ['W007', 'W017'] },
-        { key: 'NAV_SEC_SETTINGS', items: ['W012', 'W004'] },
+        { key: 'NAV_SEC_OPS', items: ['A001', 'A003'] },
+        { key: 'NAV_SEC_SETTINGS', items: ['A004', 'A005'] },
       ]
     default:
       return []
@@ -99,10 +99,10 @@ function adminSections(role: Role | null): NavSection[] {
 
 /**
  * 관리자 밀집 화면 — 표/다중 컬럼이 많아 모바일에서 억지로 욱여넣지 않고 PC 전용으로 안내(#4).
- * 멤버 본인용(출근 W005·휴가 W015·상세 W006)만 모바일 네이티브로 제공한다.
+ * 멤버 본인용(출근 M001·휴가 M003·상세 M002)만 모바일 네이티브로 제공한다.
  */
 const PC_ONLY_SCREENS = new Set<ScreenCode>([
-  'W004', 'W007', 'W008', 'W009', 'W012', 'W013', 'W014', 'W016', 'W017', 'W018', 'W019', 'W020', 'W021',
+  'A005', 'A001', 'A002', 'T001', 'A004', 'T002', 'T005', 'T003', 'A003', 'T006', 'T007', 'T008', 'T004',
 ])
 
 /** 모바일 하단 탭 — 멤버 본인용 화면만(관리 화면은 PC 전용, #4). SYSTEM_ADMIN은 하단탭 없음. */
@@ -111,7 +111,7 @@ function mobileTabs(role: Role | null): ScreenCode[] {
     case 'MEMBER':
     case 'HR_ADMIN':
     case 'TENANT_ADMIN':
-      return ['W005', 'W015']
+      return ['M001', 'M003']
     default:
       return []
   }
@@ -133,7 +133,7 @@ function MobilePcOnlyNotice() {
           'この画面はPC（広い画面）専用です。',
         )}
       </p>
-      <button type="button" className="primary" onClick={() => void navigate('W005')}>
+      <button type="button" className="primary" onClick={() => void navigate('M001')}>
         {L('출결 화면으로 이동', 'Go to attendance', '出勤画面へ移動')}
       </button>
     </div>
@@ -148,42 +148,42 @@ function ScreenBody({ screen }: { screen: ScreenCode }) {
   switch (screen) {
     case 'W001':
       return <LoginScreen />
-    case 'W004':
+    case 'A005':
       return <AdminScreen />
-    case 'W005':
+    case 'M001':
       return <AttendanceScreen />
-    case 'W006':
+    case 'M002':
       return <DetailsScreen />
-    case 'W007':
+    case 'A001':
       return <TenantsScreen />
-    case 'W008':
-      //테넌트 상세는 W007에 임베드 전개된다(W005→W006 패턴). 단독 전개 요청은 목록으로.
+    case 'A002':
+      //테넌트 상세는 A001에 임베드 전개된다(M001→M002 패턴). 단독 전개 요청은 목록으로.
       return <TenantsScreen />
-    case 'W009':
+    case 'T001':
       return <MembersScreen />
     case 'W010':
       return <PasswordSetupScreen />
     case 'W011':
       return <PasswordResetRequestScreen />
-    case 'W012':
+    case 'A004':
       return <MailTemplatesScreen />
-    case 'W013':
+    case 'T002':
       return <HolidaysScreen />
-    case 'W014':
+    case 'T005':
       return <TenantMailTemplatesScreen />
-    case 'W015':
+    case 'M003':
       return <LeaveScreen />
-    case 'W016':
+    case 'T003':
       return <AdminLeaveScreen />
-    case 'W017':
+    case 'A003':
       return <AuditLogScreen />
-    case 'W018':
+    case 'T006':
       return <BillingScreen />
-    case 'W019':
+    case 'T007':
       return <CompanyInfoScreen />
-    case 'W020':
+    case 'T008':
       return <CompanySettingsScreen />
-    case 'W021':
+    case 'T004':
       return <AttendanceCloseAdminScreen />
     case 'W000':
     default:
@@ -212,7 +212,7 @@ function LanguageSelect() {
 function DesktopNav() {
   const { screen, userName, role, navigate, t } = useApp()
   const current = (code: ScreenCode) =>
-    screen === code || (code === 'W007' && screen === 'W008') ? 'page' : undefined
+    screen === code || (code === 'A001' && screen === 'A002') ? 'page' : undefined
   return (
     <nav>
       {!userName && (
@@ -240,7 +240,7 @@ function DesktopNav() {
  */
 function AdminSidebar() {
   const { screen, role, navigate, t } = useApp()
-  const isActive = (code: ScreenCode) => screen === code || (code === 'W007' && screen === 'W008')
+  const isActive = (code: ScreenCode) => screen === code || (code === 'A001' && screen === 'A002')
   return (
     <aside className="sidebar" aria-label={t('NAV_ADMIN')}>
       {adminSections(role).map((sec) => (
@@ -264,14 +264,14 @@ function AdminSidebar() {
 
 /** 하단 탭 아이콘 — 텍스트만이면 탭 타깃이 작아 누르기 어려움. 출근=시계, 휴가=달력(라인 아이콘). */
 const TAB_ICON: Partial<Record<ScreenCode, ReactNode>> = {
-  W005: (
+  M001: (
     <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor"
       strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="9" />
       <path d="M12 7v5l3 2" />
     </svg>
   ),
-  W015: (
+  M003: (
     <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor"
       strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="3" y="4.5" width="18" height="16.5" rx="2" />

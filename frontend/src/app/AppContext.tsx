@@ -26,7 +26,7 @@ interface AppState {
   lang: Lang
   /** 화면 적용 확정 테마(navigation 응답 — 첫 응답 전에는 null=기본 토큰) */
   theme: UiTheme | null
-  /** 테마 즉시 반영(W004 설정 저장 직후 — 다음 navigation 응답이 오면 서버값으로 재동기화) */
+  /** 테마 즉시 반영(A005 설정 저장 직후 — 다음 navigation 응답이 오면 서버값으로 재동기화) */
   applyTheme: (theme: UiTheme) => void
   /** 화면 초기 데이터(출결 화면이면 StatusResponse) */
   data: unknown

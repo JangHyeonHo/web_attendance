@@ -18,7 +18,7 @@ public final class ReportSettingDtos {
             String stampSize, String stampImageUrl) {
     }
 
-    /** 갱신 요청 — 토글 2종 + 도장 크기(W020 [저장] 시 함께 전송). 이미지는 별도 엔드포인트. */
+    /** 갱신 요청 — 토글 2종 + 도장 크기(T008 [저장] 시 함께 전송). 이미지는 별도 엔드포인트. */
     public record ReportSettingRequest(@NotNull Boolean stampEnabled, @NotNull Boolean premiumEnabled,
             String stampSize) {
     }

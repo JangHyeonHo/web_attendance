@@ -18,7 +18,7 @@ public final class NavigationDtos {
 
     @Schema(description = "schema.navigate-request")
     public record NavigateRequest(
-            @Schema(description = "schema.navigate-request.screen", example = "W005")
+            @Schema(description = "schema.navigate-request.screen", example = "M001")
             String screen,
 
             @Schema(description = "schema.navigate-request.lang", example = "KOR")
@@ -42,7 +42,7 @@ public final class NavigationDtos {
 
     @Schema(description = "schema.navigate-response")
     public record NavigateResponse(
-            @Schema(description = "schema.navigate-response.screen", example = "W005") String screen,
+            @Schema(description = "schema.navigate-response.screen", example = "M001") String screen,
             @Schema(description = "schema.navigate-response.lang", example = "KOR") String lang,
             @Schema(description = "schema.navigate-response.reason") NavigationReason reason,
             @Schema(description = "schema.navigate-response.user-name", example = "홍길동") String userName,

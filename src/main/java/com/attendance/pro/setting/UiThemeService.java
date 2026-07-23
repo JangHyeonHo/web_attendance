@@ -10,7 +10,7 @@ import com.attendance.pro.common.ApiException;
 
 /**
  * 시스템 전역 UI 테마 설정 서비스.
- * 저장값(AUTO 포함)은 SYSTEM_ADMIN 설정 화면(W004)이, 확정값은 화면 전개(navigation)가 쓴다.
+ * 저장값(AUTO 포함)은 SYSTEM_ADMIN 설정 화면(A005)이, 확정값은 화면 전개(navigation)가 쓴다.
  */
 @Service
 public class UiThemeService {

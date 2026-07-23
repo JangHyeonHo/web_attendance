@@ -6,6 +6,7 @@ import { useApp } from '../app/AppContext'
 import { Modal } from '../components/Modal'
 import { TimesheetPrintReport } from '../components/TimesheetPrintReport'
 import { SelectField, TimeField } from '../components/fields'
+import { EmptyState } from '../components/EmptyState'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { localeOf } from '../i18n/lang'
 import type {
@@ -61,8 +62,8 @@ interface EditingStamp {
 }
 
 /**
- * W006 출결 상세(월별). 출결 화면(W005)에서 확장 표시로도 사용되므로
- * 자신의 화면 텍스트(W006)를 언어 마스터에서 직접 취득한다(공통 텍스트는 컨텍스트 사용).
+ * M002 출결 상세(월별). 출결 화면(M001)에서 확장 표시로도 사용되므로
+ * 자신의 화면 텍스트(M002)를 언어 마스터에서 직접 취득한다(공통 텍스트는 컨텍스트 사용).
  * Phase 5.2:
  * - 정정 모달: 날짜 고정, 출근·퇴근 행을 한 그룹으로(시각은 "HH:mm" 단일 필드 — 통합 타임피커)
  * - 조퇴 UI 폐지(출근/퇴근만) — 과거 조퇴 데이터는 이력 표기만 유지
@@ -115,11 +116,11 @@ export function DetailsScreen() {
   const [submitting, setSubmitting] = useState(false)
   const [manualNotice, setManualNotice] = useState<string | null>(null)
 
-  //W006 화면 텍스트 취득(언어 변경시 재취득)
+  //M002 화면 텍스트 취득(언어 변경시 재취득)
   useEffect(() => {
     let cancelled = false
     languageApi
-      .texts('W006', lang)
+      .texts('M002', lang)
       .then((response) => {
         if (!cancelled) setTexts(response)
       })
@@ -553,7 +554,7 @@ export function DetailsScreen() {
         <Modal title={`${detailDate} — ${t('DAY_DETAIL')}`} onClose={() => setDetailDate(null)}>
           {detailError && <p className="error" role="alert">{detailError}</p>}
           {detailStamps && detailStamps.length === 0 && (
-            <p className="muted center">{t('EMPTY')}</p>
+            <EmptyState>{t('EMPTY')}</EmptyState>
           )}
           {detailStamps && detailStamps.length > 0 && (
             <ul className="stamp-list">

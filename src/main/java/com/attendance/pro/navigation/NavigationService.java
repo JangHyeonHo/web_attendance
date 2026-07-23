@@ -19,7 +19,7 @@ import com.attendance.pro.setting.UiThemeService;
  * <ul>
  *   <li>보호 화면 + 미로그인 → 로그인 화면</li>
  *   <li>허용 role 집합 미포함 → 각자의 홈 화면 + ROLE_DENIED</li>
- *   <li>로그인 상태에서 로그인/홈 요청 → 각자의 홈 화면(SYSTEM_ADMIN=W007, 그 외=W005)</li>
+ *   <li>로그인 상태에서 로그인/홈 요청 → 각자의 홈 화면(SYSTEM_ADMIN=A001, 그 외=M001)</li>
  *   <li>로그아웃 요청 → (컨트롤러에서 세션 무효화 후) 로그인 화면</li>
  *   <li>알 수 없는 화면 코드 → 인덱스(로그인 상태면 홈)</li>
  * </ul>
@@ -99,14 +99,14 @@ public class NavigationService {
 
     /**
      * 로그인 유저의 홈 화면.
-     * TENANT_ADMIN의 일상 업무는 출결(W005) — 멤버 관리(W009)는 헤더 메뉴로 진입.
+     * TENANT_ADMIN의 일상 업무는 출결(M001) — 멤버 관리(T001)는 헤더 메뉴로 진입.
      */
     private Screen homeOf(SessionUser user) {
         return switch (user.role()) {
-        case SYSTEM_ADMIN -> Screen.SYSTEM_TENANTS;   //W007
-        case TENANT_ADMIN -> Screen.ATTENDANCE;       //W005
-        case HR_ADMIN -> Screen.ATTENDANCE;           //W005 — 인사관리자도 일상은 본인 출결
-        case MEMBER -> Screen.ATTENDANCE;             //W005
+        case SYSTEM_ADMIN -> Screen.SYSTEM_TENANTS;   //A001
+        case TENANT_ADMIN -> Screen.ATTENDANCE;       //M001
+        case HR_ADMIN -> Screen.ATTENDANCE;           //M001 — 인사관리자도 일상은 본인 출결
+        case MEMBER -> Screen.ATTENDANCE;             //M001
         };
     }
 
@@ -133,7 +133,7 @@ public class NavigationService {
 
     /**
      * 화면별 초기 데이터. v1의 "화면 전개시 데이터 동봉" 컨셉 계승.
-     * W007/W008/W009는 초기 데이터 없이 시작(프론트가 각 API를 호출) — 화면 전개 응답 비대화 방지.
+     * A001/A002/T001는 초기 데이터 없이 시작(프론트가 각 API를 호출) — 화면 전개 응답 비대화 방지.
      */
     private Object loadScreenData(Screen target, SessionUser user) {
         if (target == Screen.ATTENDANCE && user != null) {

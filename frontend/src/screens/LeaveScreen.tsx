@@ -8,6 +8,9 @@ import { Modal } from '../components/Modal'
 import { SelectField, TimeField, TextAreaField, ModalSubject } from '../components/fields'
 import { DateField } from '../components/DateField'
 import { Pagination } from '../components/Pagination'
+import { ConfirmModal } from '../components/ConfirmModal'
+import { SectionHead } from '../components/SectionHead'
+import { EmptyState } from '../components/EmptyState'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { formatLeaveAmount } from '../util/leaveFormat'
 import type { LeaveBalance, LeaveBalanceRow, LeaveRequestItem, LeaveStatus, LeaveType, LeaveUnit } from '../api/types'
@@ -124,7 +127,7 @@ function endDateOf(iso: string): string {
 }
 
 /**
- * W015 휴가 — 멤버 본인 잔여·신청·취소.
+ * M003 휴가 — 멤버 본인 잔여·신청·취소.
  * 잔여 카드(종류별) + 신청 모달(일/시간) + 신청 내역(취소).
  */
 export function LeaveScreen() {
@@ -366,20 +369,22 @@ export function LeaveScreen() {
       )}
 
       {cancelTarget && (
-        <Modal title={t('CANCEL')} onClose={() => setCancelTarget(null)} danger>
-          <ModalSubject primary={periodText(cancelTarget)} />
-          <div className="btn-row">
-            <button className="primary" onClick={() => void runCancel(cancelTarget.leaveRequestId)}>
-              {t('SUBMIT')}
-            </button>
-            <button onClick={() => setCancelTarget(null)}>{t('CANCEL')}</button>
-          </div>
-        </Modal>
+        <ConfirmModal
+          title={t('CANCEL')}
+          subject={periodText(cancelTarget)}
+          hint={t('CANCEL_CONFIRM')}
+          danger
+          confirmLabel={t('CANCEL')}
+          cancelLabel={t('CLOSE')}
+          onConfirm={() => void runCancel(cancelTarget.leaveRequestId)}
+          onClose={() => setCancelTarget(null)}
+        />
       )}
 
       {cancelReqTarget && (
         <Modal title={t('REQUEST_CANCEL')} onClose={() => setCancelReqTarget(null)} danger>
           <ModalSubject primary={periodText(cancelReqTarget)} />
+          <p className="hint center">{t('REQUEST_CANCEL_HINT')}</p>
           <TextAreaField
             label={t('CANCEL_REASON')}
             value={cancelReqReason}
@@ -395,18 +400,20 @@ export function LeaveScreen() {
                 void runCancelRequest(cancelReqTarget.leaveRequestId, cancelReqReason.trim())
               }
             >
-              {t('SUBMIT')}
+              {t('REQUEST_CANCEL')}
             </button>
-            <button onClick={() => setCancelReqTarget(null)}>{t('CANCEL')}</button>
+            <button onClick={() => setCancelReqTarget(null)}>{t('CLOSE')}</button>
           </div>
         </Modal>
       )}
 
-      <h3 className="section-head">{t('MY_REQUESTS')}</h3>
-      {/* 취소 규칙 안내는 행 데이터가 아니라 섹션 공통 규칙 — 행마다 반복하면 열 폭이 늘어 가로 스크롤이 생긴다 */}
-      {requests.length > 0 && <p className="hint">{t('CANCEL_SAME_DAY')}</p>}
+      {/* 취소 규칙 안내는 행 데이터가 아니라 섹션 공통 규칙(SectionHead hint) — 행 반복 표기 금지 */}
+      <SectionHead
+        title={t('MY_REQUESTS')}
+        hint={requests.length > 0 ? t('CANCEL_SAME_DAY') : undefined}
+      />
       {requests.length === 0 ? (
-        <p className="muted center">{t('EMPTY')}</p>
+        <EmptyState>{t('EMPTY')}</EmptyState>
       ) : isMobile ? (
         /* 모바일: 신청 1건=한 줄(요약), 펼치면 기간·사유·조치(#4 아코디언) */
         <div className="lv-acc-list">

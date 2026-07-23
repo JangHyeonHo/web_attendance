@@ -6,6 +6,8 @@ import { languageApi } from '../api/endpoints'
 import { localeOf } from '../i18n/lang'
 import { Modal } from '../components/Modal'
 import { TextAreaField, ModalSubject, SelectField } from '../components/fields'
+import { SectionHead } from '../components/SectionHead'
+import { EmptyState } from '../components/EmptyState'
 import type { PayrollSettlement, PendingCloseResponse } from '../api/types'
 
 //기본 조회 월 = 지난달(가장 최근에 마감이 일어났을 달)
@@ -17,7 +19,7 @@ const LAST_MONTH = (() => {
 })()
 
 /**
- * W021 근태 마감 관리 — 멤버가 신청한 월 마감을 인사관리자가 승인/반려한다.
+ * T004 근태 마감 관리 — 멤버가 신청한 월 마감을 인사관리자가 승인/반려한다.
  * 승인되면 그 (멤버, 월)의 근태 정정이 잠기고, 보고서에 도장이 날인된다.
  */
 export function AttendanceCloseAdminScreen() {
@@ -58,7 +60,7 @@ export function AttendanceCloseAdminScreen() {
   }
 
   useEffect(() => {
-    languageApi.texts('W021', lang).then(setTexts).catch(() => {})
+    languageApi.texts('T004', lang).then(setTexts).catch(() => {})
   }, [lang])
 
   const loadApproved = useCallback(async () => {
@@ -181,9 +183,9 @@ export function AttendanceCloseAdminScreen() {
       {error && <p className="error" role="alert">{error}</p>}
 
       {/* 결재 대기 — REQUESTED만(상시 소수) */}
-      <h3 className="section-head">{t('CLOSE_PENDING_SECTION')}</h3>
+      <SectionHead title={t('CLOSE_PENDING_SECTION')} />
       {rows.length === 0 ? (
-        <p className="muted center">{t('CLOSE_PENDING_NONE')}</p>
+        <EmptyState>{t('CLOSE_PENDING_NONE')}</EmptyState>
       ) : (
         <div className="table-wrap">
           <table className="detail-table">
@@ -194,7 +196,7 @@ export function AttendanceCloseAdminScreen() {
       )}
 
       {/* 마감 완료 — 선택한 대상 월만(승인 이력 전체를 나열하지 않아 목록이 무한정 길어지지 않음) */}
-      <h3 className="section-head" style={{ marginTop: '1.75rem' }}>{t('CLOSE_APPROVED_SECTION')}</h3>
+      <SectionHead title={t('CLOSE_APPROVED_SECTION')} spaced />
       <div className="member-filter-working" style={{ marginBottom: '12px' }}>
         <span className="field-label">{t('CLOSE_TARGET')}</span>
         <SelectField
@@ -211,7 +213,7 @@ export function AttendanceCloseAdminScreen() {
         />
       </div>
       {approvedRows.length === 0 ? (
-        <p className="muted center">{t('CLOSE_APPROVED_NONE')}</p>
+        <EmptyState>{t('CLOSE_APPROVED_NONE')}</EmptyState>
       ) : (
         <div className="table-wrap">
           <table className="detail-table">
@@ -231,6 +233,7 @@ export function AttendanceCloseAdminScreen() {
             primary={rejecting.userName}
             secondary={`${rejecting.year}. ${String(rejecting.month).padStart(2, '0')}`}
           />
+          <p className="hint center">{t('REJECT_HINT')}</p>
           <TextAreaField
             label={commonT('REASON')}
             value={rejectNote}

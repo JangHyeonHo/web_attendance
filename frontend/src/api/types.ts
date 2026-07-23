@@ -8,24 +8,24 @@ export type ScreenCode =
   | 'W000' // 랜딩(비로그인 홈)
   | 'W001' // 로그인
   | 'W002' // 로그아웃(액션)
-  | 'W004' // 언어 마스터 관리 (SYSTEM_ADMIN)
-  | 'W005' // 출결
-  | 'W006' // 출결 상세
-  | 'W007' // 테넌트 관리 (SYSTEM_ADMIN)
-  | 'W008' // 테넌트 상세(기업/결제, SYSTEM_ADMIN) — W007에 임베드 전개
-  | 'W009' // 멤버 관리 (TENANT_ADMIN)
+  | 'A005' // 언어 마스터 관리 (SYSTEM_ADMIN)
+  | 'M001' // 출결
+  | 'M002' // 출결 상세
+  | 'A001' // 테넌트 관리 (SYSTEM_ADMIN)
+  | 'A002' // 테넌트 상세(기업/결제, SYSTEM_ADMIN) — A001에 임베드 전개
+  | 'T001' // 멤버 관리 (TENANT_ADMIN)
   | 'W010' // 비밀번호 설정 (공개 — 토큰 필요)
   | 'W011' // 비밀번호 재설정 요청 (공개)
-  | 'W012' // 메일 템플릿 관리 (SYSTEM_ADMIN)
-  | 'W013' // 공휴일 관리 (TENANT_ADMIN)
-  | 'W014' // 회사 메일 템플릿 (TENANT_ADMIN — 오버라이드, 기본은 전역)
-  | 'W015' // 휴가 (멤버 — 잔여·신청)
-  | 'W016' // 휴가 관리 (인사관리자+총관리자 — 결재·부여·종류)
-  | 'W017' // 감사 로그 조회 (SYSTEM_ADMIN)
-  | 'W018' // 청구서 (TENANT_ADMIN — 자사 월별 청구서)
-  | 'W019' // 회사 정보/결제 (TENANT_ADMIN — 사업자정보·결제 + 계약 요약)
-  | 'W020' // 회사 설정 (TENANT_ADMIN+HR_ADMIN — 근태 보고서 등 운영 설정)
-  | 'W021' // 근태 마감 관리 (HR_ADMIN+TENANT_ADMIN — 월 마감 결재)
+  | 'A004' // 메일 템플릿 관리 (SYSTEM_ADMIN)
+  | 'T002' // 공휴일 관리 (TENANT_ADMIN)
+  | 'T005' // 회사 메일 템플릿 (TENANT_ADMIN — 오버라이드, 기본은 전역)
+  | 'M003' // 휴가 (멤버 — 잔여·신청)
+  | 'T003' // 휴가 관리 (인사관리자+총관리자 — 결재·부여·종류)
+  | 'A003' // 감사 로그 조회 (SYSTEM_ADMIN)
+  | 'T006' // 청구서 (TENANT_ADMIN — 자사 월별 청구서)
+  | 'T007' // 회사 정보/결제 (TENANT_ADMIN — 사업자정보·결제 + 계약 요약)
+  | 'T008' // 회사 설정 (TENANT_ADMIN+HR_ADMIN — 근태 보고서 등 운영 설정)
+  | 'T004' // 근태 마감 관리 (HR_ADMIN+TENANT_ADMIN — 월 마감 결재)
   | 'W999' // 공통(헤더)
 
 export type Lang = 'KOR' | 'ENG' | 'JPN'
@@ -180,7 +180,7 @@ export interface PasswordResetRequest {
   email: string
 }
 
-// ---- system: 테넌트 (W007) ----
+// ---- system: 테넌트 (A001) ----
 
 export interface TenantSummary {
   tenantId: number
@@ -219,7 +219,7 @@ export interface TenantCreateResponse {
   adminStatus: UserStatus
   /** 초대 메일 발송 결과 — false면 [관리자 초대 재발송]으로 수습 */
   mailSent: boolean
-  /** 당해·익년 공휴일 자동 동기화 결과 — false면 W013 수동 동기화 안내 */
+  /** 당해·익년 공휴일 자동 동기화 결과 — false면 T002 수동 동기화 안내 */
   holidaysSynced: boolean
 }
 
@@ -227,7 +227,7 @@ export interface TenantStatusUpdateRequest {
   status: TenantStatus
 }
 
-// ---- system: 기업/결제 정보 (W008) ----
+// ---- system: 기업/결제 정보 (A002) ----
 
 /** 소재국 — 사업자 식별번호 체계·공휴일 동기화·메일 언어 결정(KR=사업자등록번호, JP=法人番号) */
 export type ProfileCountry = 'KR' | 'JP'
@@ -329,7 +329,7 @@ export interface InvoiceEntry {
   issuedAt: string | null
 }
 
-// ---- tenant: 멤버 (W009) ----
+// ---- tenant: 멤버 (T001) ----
 
 /** MemberResponse — 통합 최종 필드 집합(이메일 온보딩 × 스케줄 병합, CR3-3) */
 export interface MemberSummary {
@@ -515,7 +515,7 @@ export interface MonthlyResponse {
   totalWorkMinutes: number
 }
 
-// ---- admin: 메일 템플릿 (W012 — SYSTEM_ADMIN 글로벌 자산) ----
+// ---- admin: 메일 템플릿 (A004 — SYSTEM_ADMIN 글로벌 자산) ----
 
 /** 행 집합은 시드 6행(purpose×lang) 고정 — 생성/삭제 없음, 수정·미리보기만 */
 export interface MailTemplateResponse {
@@ -544,7 +544,7 @@ export interface MailTemplatePreviewResponse {
   body: string
 }
 
-// ---- tenant: 회사별 메일 템플릿 오버라이드 (W014 — TENANT_ADMIN) ----
+// ---- tenant: 회사별 메일 템플릿 오버라이드 (T005 — TENANT_ADMIN) ----
 
 /** 유효 템플릿(전역 6행 기준) — overridden=true면 회사 설정이 발송에 쓰인다 */
 export interface TenantMailTemplateResponse {
@@ -556,7 +556,7 @@ export interface TenantMailTemplateResponse {
   updatedAt: string
 }
 
-// ---- tenant: 공휴일 (W013 — TENANT_ADMIN 전용) ----
+// ---- tenant: 공휴일 (T002 — TENANT_ADMIN 전용) ----
 
 /** NATIONAL=국가 공휴일(동기화 대상) / COMPANY=회사 지정(동기화 불가침) */
 export type HolidayType = 'NATIONAL' | 'COMPANY'
@@ -844,7 +844,7 @@ export interface ErrorResponse {
   fieldErrors: FieldErrorDetail[] | null
 }
 
-// ---- 회사 설정 (W020 — 결재/도장란·가산 적용·도장 이미지) ----
+// ---- 회사 설정 (T008 — 결재/도장란·가산 적용·도장 이미지) ----
 
 export interface ReportSetting {
   /** 근태 보고서(Excel·인쇄)에 결재(도장)란 표시 여부 */

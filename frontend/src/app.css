@@ -1224,6 +1224,16 @@ button.ghost:hover {
   overflow-y: auto;
 }
 
+/* 모달 안의 안내문 — 주변부 힌트(12px)와 달리 모달에서는 본문 역할이라 한 단계 크게.
+   가운데 정렬이 두 줄이 될 때 '긴 줄+꼬리 한 단어'로 깨지지 않게 줄 길이 균형(balance) +
+   줄 폭 제한. text-wrap 미지원 브라우저는 무시(현행과 동일). */
+.modal .hint.center {
+  font-size: 13px;
+  text-wrap: balance;
+  max-width: 36ch;
+  margin-inline: auto;
+}
+
 .modal-body form button.primary {
   margin-top: 24px;
 }
@@ -2463,6 +2473,11 @@ button.day-link:hover {
   margin: 20px 0 8px;
   font-size: 15px;
   font-weight: 700;
+}
+
+/* 연속 섹션의 2번째부터 — 위 간격 표준값(화면별 inline margin 금지) */
+.section-head.spaced {
+  margin-top: 28px;
 }
 .check-inline {
   display: flex;

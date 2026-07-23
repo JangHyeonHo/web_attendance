@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { adminAuditApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
+import { EmptyState } from '../components/EmptyState'
 import type { AuditLogEntry } from '../api/types'
 
 type Filter = '' | 'AUTH' | 'ERROR'
@@ -12,7 +13,7 @@ function timeText(iso: string): string {
 }
 
 /**
- * W017 감사 로그 조회 — SYSTEM_ADMIN 전용(운영사).
+ * A003 감사 로그 조회 — SYSTEM_ADMIN 전용(운영사).
  * 전역(모든 테넌트 + 비인증 이벤트) 최신순. 분류(인증/에러) 필터 + 새로고침.
  */
 export function AuditLogScreen() {
@@ -57,7 +58,7 @@ export function AuditLogScreen() {
       {error && <p className="error" role="alert">{error}</p>}
 
       {rows.length === 0 && !error ? (
-        <p className="muted center">{t('EMPTY')}</p>
+        <EmptyState>{t('EMPTY')}</EmptyState>
       ) : (
         <div className="table-wrap">
           <table className="detail-table">

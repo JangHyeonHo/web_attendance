@@ -76,7 +76,7 @@ public class MailTemplateService {
     }
 
     /**
-     * 미리보기(전역/W012) — 저장하지 않고 대표 샘플 값으로 치환. 저장과 같은 검증을 먼저 통과.
+     * 미리보기(전역/A004) — 저장하지 않고 대표 샘플 값으로 치환. 저장과 같은 검증을 먼저 통과.
      */
     public MailTemplatePreviewResponse preview(String purpose, String lang, String subject, String body) {
         TokenPurpose resolved = resolvePurpose(purpose);
@@ -87,7 +87,7 @@ public class MailTemplateService {
     }
 
     /**
-     * 회사 미리보기(W014, #11) — 실제 회사명·미리보는 관리자 이름으로 치환해 실제 발송 결과에 가깝게 보여준다.
+     * 회사 미리보기(T005, #11) — 실제 회사명·미리보는 관리자 이름으로 치환해 실제 발송 결과에 가깝게 보여준다.
      */
     public MailTemplatePreviewResponse previewForTenant(long tenantId, String actorName,
             String purpose, String lang, String subject, String body) {

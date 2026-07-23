@@ -7,7 +7,10 @@ import { Modal } from '../components/Modal'
 import { ScheduleEditor } from '../components/ScheduleEditor'
 import { SelectField, TimeField, TextField, ModalSubject } from '../components/fields'
 import { DateField } from '../components/DateField'
+import { IconButton } from '../components/IconButton'
 import { Pagination } from '../components/Pagination'
+import { ConfirmModal } from '../components/ConfirmModal'
+import { EmptyState } from '../components/EmptyState'
 import type { MemberSummary, Role, UserStatus } from '../api/types'
 
 const ROLE_LABEL_KEYS: Partial<Record<Role, string>> = {
@@ -44,7 +47,7 @@ interface CreatedNotice {
 }
 
 /**
- * W009 멤버 관리 — TENANT_ADMIN 전용.
+ * T001 멤버 관리 — TENANT_ADMIN 전용.
  * 등록은 초대 플로우(email-onboarding §8.3): 등록 모달 → 발송 전 이메일 재확인 모달 →
  * [발송]에서 비로소 POST(근무 스케줄 필드 동봉). 초기 비밀번호 방식은 폐지.
  * Phase 4: 등록 폼·스케줄 수정·파괴적 확인을 전부 모달로 이전(테이블 내 확장 행 폐지),
@@ -383,32 +386,23 @@ export function MembersScreen() {
       )}
 
       {confirmSend && (
-        <Modal
+        <ConfirmModal
           title={t('MEMBER_CREATE')}
+          danger
+          busy={submitting}
+          confirmLabel={t('SEND_INVITE')}
+          cancelLabel={t('CANCEL')}
+          onConfirm={() => void sendInvite()}
           onClose={() => {
             //취소 = 등록 모달로 복귀(폼 값 유지 — 오타 수정)
             setConfirmSend(false)
             setFormOpen(true)
           }}
-          danger
         >
           {/* 오송신 방지 — 입력 이메일을 강조 재표시하고 발송 여부를 재확인한다 */}
           <strong className="confirm-email">{email.trim()}</strong>
           <p className="center">{t('CONFIRM_SEND_DESC')}</p>
-          <div className="btn-row">
-            <button className="primary" onClick={() => void sendInvite()} disabled={submitting}>
-              {t('SEND_INVITE')}
-            </button>
-            <button
-              onClick={() => {
-                setConfirmSend(false)
-                setFormOpen(true)
-              }}
-            >
-              {t('CANCEL')}
-            </button>
-          </div>
-        </Modal>
+        </ConfirmModal>
       )}
 
       {manageMember && (() => {
@@ -500,25 +494,23 @@ export function MembersScreen() {
       })()}
 
       {pending && (
-        <Modal title={confirmLabel(pending.action)} onClose={() => setPending(null)} danger>
-          <ModalSubject primary={pending.name} secondary={confirmLabel(pending.action)} />
-          {pending.action === 'DELETE' && <p className="hint center">{t('DELETE_CONFIRM')}</p>}
-          <div className="btn-row">
-            <button
-              className="primary"
-              onClick={() => {
-                if (pending.action === 'DISABLE') {
-                  void updateStatus(pending.userId, 'DISABLED')
-                } else {
-                  void removeMember(pending.userId)
-                }
-              }}
-            >
-              {t('SUBMIT')}
-            </button>
-            <button onClick={() => setPending(null)}>{t('CANCEL')}</button>
-          </div>
-        </Modal>
+        <ConfirmModal
+          title={confirmLabel(pending.action)}
+          subject={pending.name}
+          secondary={confirmLabel(pending.action)}
+          hint={pending.action === 'DELETE' ? t('DELETE_CONFIRM') : t('DISABLE_CONFIRM')}
+          danger
+          confirmLabel={confirmLabel(pending.action)}
+          cancelLabel={t('CANCEL')}
+          onConfirm={() => {
+            if (pending.action === 'DISABLE') {
+              void updateStatus(pending.userId, 'DISABLED')
+            } else {
+              void removeMember(pending.userId)
+            }
+          }}
+          onClose={() => setPending(null)}
+        />
       )}
 
       {/* 검색 — 이름·이메일·부서(텍스트) + 특정 날짜·시각 근무자(실효 스케줄, 백엔드 판정, #6) */}
@@ -567,7 +559,7 @@ export function MembersScreen() {
           <tbody>
             {members.length === 0 && (
               <tr>
-                <td colSpan={7} className="muted center">{t('EMPTY')}</td>
+                <td colSpan={7}><EmptyState>{t('EMPTY')}</EmptyState></td>
               </tr>
             )}
             {members.map((member) => {
@@ -590,44 +582,18 @@ export function MembersScreen() {
                       {member.baseMonthlySalary == null ? '—' : member.baseMonthlySalary.toLocaleString()}
                     </td>
                     <td className="row-actions-cell">
-                      {/* 행 액션은 아이콘+툴팁(공휴일 화면 패턴) — 관리·스케줄을 행에서 한 번에 진입 */}
+                      {/* 행 액션은 아이콘+툴팁(IconButton 공용) — 관리·스케줄을 행에서 한 번에 진입 */}
                       <div className="row-actions">
-                        <button
-                          type="button"
-                          className="icon-btn"
-                          title={t('MEMBER_MANAGE')}
-                          aria-label={t('MEMBER_MANAGE')}
+                        <IconButton
+                          icon="manage"
+                          label={t('MEMBER_MANAGE')}
                           onClick={() => setManageMember(member)}
-                        >
-                          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                            <path
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm7.4-3a7.4 7.4 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7.4 7.4 0 0 0-2-1.2L14.5 3h-5l-.4 2.6a7.4 7.4 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6a7.4 7.4 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a7.4 7.4 0 0 0 2 1.2l.4 2.6h5l.4-2.6a7.4 7.4 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.07-.4.1-.8.1-1.2Z"
-                            />
-                          </svg>
-                        </button>
-                        <button
-                          type="button"
-                          className="icon-btn"
-                          title={t('EDIT_SCHEDULE')}
-                          aria-label={t('EDIT_SCHEDULE')}
+                        />
+                        <IconButton
+                          icon="schedule"
+                          label={t('EDIT_SCHEDULE')}
                           onClick={() => setScheduleMember({ userId: member.userId, name: member.name, email: member.email })}
-                        >
-                          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                            <path
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M7 3v3m10-3v3M4 8h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Zm3 7h2m3 0h2m-7 4h2m3 0h2"
-                            />
-                          </svg>
-                        </button>
+                        />
                       </div>
                     </td>
                   </tr>

@@ -29,7 +29,7 @@ import com.attendance.pro.user.UserStatus;
  *
  * 생성 플로우(CR3-5): Tx(tenant INSERT + 관리자 PENDING INSERT) 커밋
  * → ① INVITE 메일 발송(mailSent) → ② 당해·익년 공휴일 sync(holidaysSynced) → 응답.
- * 두 후처리는 상호 독립(각자 예외 삼킴·플래그·수습 경로 분리: 메일=admin-invite, 공휴일=W013 수동 동기화).
+ * 두 후처리는 상호 독립(각자 예외 삼킴·플래그·수습 경로 분리: 메일=admin-invite, 공휴일=T002 수동 동기화).
  * 메일이 먼저인 이유: 외부 API 대기가 초대 발송을 지연시키지 않게.
  */
 @Service
@@ -94,7 +94,7 @@ public class TenantService {
         //① INVITE 메일({inviterName}=SA 세션 name) — 실패해도 생성은 성공(admin-invite 재발송이 수습)
         InviteOutcome mail = memberInviteService.sendInvite(provisioned.tenantId(),
                 provisioned.adminUserId(), request.adminEmail(), request.adminName(), actor.name());
-        //② 당해·익년 공휴일 동기화 — 실패 허용(W013 수동 동기화가 수습)
+        //② 당해·익년 공휴일 동기화 — 실패 허용(T002 수동 동기화가 수습)
         boolean holidaysSynced = holidayService.syncInitialYears(provisioned.tenantId());
         return new TenantCreateResponse(provisioned.tenantId(), request.tenantCode(), request.name(),
                 country.name(), TenantStatus.ACTIVE, provisioned.adminUserId(), request.adminEmail(),

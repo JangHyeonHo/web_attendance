@@ -4,6 +4,7 @@ import { tenantBillingApi, tenantProfileApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { SelectField } from '../components/fields'
+import { SectionHead } from '../components/SectionHead'
 import type {
   BillingMethod,
   ContractSummaryResponse,
@@ -48,10 +49,10 @@ function fmtPhone(raw: string, jp: boolean): string {
 }
 
 /**
- * W019 회사 정보/결제 설정 — 회사 총관리자(TENANT_ADMIN) 전용(#14).
+ * T007 회사 정보/결제 설정 — 회사 총관리자(TENANT_ADMIN) 전용(#14).
  * 운영사가 '계약(요금제·단가·무료좌석)'을 관리한다면, 회사는 자기 '사업자 정보'와 '결제 수단'을 스스로 관리한다.
  * 3섹션: ① 사업자 정보(수정) ② 결제 설정(수정) ③ 계약 요약(읽기전용 — 운영사가 정한 값).
- * 운영 설정(근태 보고서 등)은 회사 설정(W020, 인사관리자도 접근)으로 분리했다.
+ * 운영 설정(근태 보고서 등)은 회사 설정(T008, 인사관리자도 접근)으로 분리했다.
  */
 export function CompanyInfoScreen() {
   const { t } = useApp()
@@ -146,7 +147,7 @@ function BusinessProfileSection() {
 
   return (
     <section className="ci-section">
-      <h3 className="section-head">{t('BIZ_INFO')}</h3>
+      <SectionHead title={t('BIZ_INFO')} />
       {/* 현재 등록값은 읽기전용 박스로만 보여준다(캡션 명시). 입력칸엔 마스킹값을 넣지 않아 '빈 칸처럼' 보이지 않게(S1-2·S1-4) */}
       {profile && (
         <div className="info-box">
@@ -259,7 +260,7 @@ function PaymentSection() {
 
   return (
     <section className="ci-section">
-      <h3 className="section-head">{t('PAYMENT_SETTINGS')}</h3>
+      <SectionHead title={t('PAYMENT_SETTINGS')} />
       <form onSubmit={save}>
         <div className="field-row">
           <label>
@@ -306,7 +307,7 @@ function ContractSection() {
 
   return (
     <section className="ci-section">
-      <h3 className="section-head">{t('CONTRACT_SUMMARY')}</h3>
+      <SectionHead title={t('CONTRACT_SUMMARY')} />
       <p className="hint">{t('CONTRACT_READONLY_HINT')}</p>
       {error && <p className="error" role="alert">{error}</p>}
       {contract && (
