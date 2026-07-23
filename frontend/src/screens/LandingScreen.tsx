@@ -16,7 +16,7 @@ export function LandingScreen() {
 
   //방어 분기: 로그인 상태로 랜딩이 렌더되면 주 CTA를 출결 화면 이동으로 대체(헤더 ATTEND 키 재사용)
   const primaryCta = userName ? (
-    <button className="cta" onClick={() => void navigate('W005')}>
+    <button className="cta" onClick={() => void navigate('M001')}>
       {t('ATTEND')}
     </button>
   ) : (

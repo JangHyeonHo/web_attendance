@@ -127,7 +127,7 @@ function endDateOf(iso: string): string {
 }
 
 /**
- * W015 휴가 — 멤버 본인 잔여·신청·취소.
+ * M003 휴가 — 멤버 본인 잔여·신청·취소.
  * 잔여 카드(종류별) + 신청 모달(일/시간) + 신청 내역(취소).
  */
 export function LeaveScreen() {

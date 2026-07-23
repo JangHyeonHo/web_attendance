@@ -365,7 +365,7 @@ public class AttendanceService {
      */
     @Transactional(readOnly = true)
     public StatusResponse status(long tenantId, long userId) {
-        //오늘의 해석된 스케줄(W005 "오늘 근무" 표시 — work-schedule §5-3)
+        //오늘의 해석된 스케줄(M001 "오늘 근무" 표시 — work-schedule §5-3)
         TodaySchedule today = resolveTodaySchedule(tenantId, userId);
         AttendanceStamp latest = attendanceMapper.findLatest(tenantId, userId);
         if (latest == null) {

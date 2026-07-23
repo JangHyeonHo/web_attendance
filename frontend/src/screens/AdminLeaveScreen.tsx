@@ -31,7 +31,7 @@ function dateOf(iso: string) {
 }
 
 /**
- * W016 휴가 관리 — 인사관리자+총관리자.
+ * T003 휴가 관리 — 인사관리자+총관리자.
  * 탭: 승인 대기(결재) / 멤버 잔여(재계산·부여·입사일) / 휴가 종류(CRUD).
  */
 export function AdminLeaveScreen() {

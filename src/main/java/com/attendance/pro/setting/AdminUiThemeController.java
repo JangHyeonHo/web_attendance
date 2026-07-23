@@ -17,7 +17,7 @@ import jakarta.validation.Valid;
 
 /**
  * 시스템 전역 UI 테마 설정 API (SYSTEM_ADMIN 전용 — RoleInterceptor /api/v1/admin/** 규칙).
- * 확정 테마의 배포는 navigation 응답이 담당 — 이 API는 W004 설정 화면 전용이다.
+ * 확정 테마의 배포는 navigation 응답이 담당 — 이 API는 A005 설정 화면 전용이다.
  */
 @Tag(name = "AdminUiTheme", description = "api.admin-ui-theme.tag")
 @RestController

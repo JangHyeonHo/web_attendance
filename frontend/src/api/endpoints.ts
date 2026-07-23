@@ -134,7 +134,7 @@ export const tenantBillingApi = {
   contract: () => get<ContractSummaryResponse>('/api/v1/tenant/billing/contract'),
 }
 
-/** 회사(TENANT_ADMIN) 전용 — 자사 사업자 정보 자율 관리(W019, #14) */
+/** 회사(TENANT_ADMIN) 전용 — 자사 사업자 정보 자율 관리(T007, #14) */
 export const tenantProfileApi = {
   //미등록이면 서버가 200 빈 응답(null) — 404 콘솔 노이즈 없이 '미등록'을 표현
   get: () => get<TenantProfileResponse | null>('/api/v1/tenant/profile'),
@@ -153,7 +153,7 @@ export const tenantReportApi = {
   removeStamp: () => del<void>('/api/v1/tenant/report-setting/stamp-image'),
 }
 
-/** SYSTEM_ADMIN 전용 — 감사 로그 조회(W017). 전역 최신순 + category 필터 */
+/** SYSTEM_ADMIN 전용 — 감사 로그 조회(A003). 전역 최신순 + category 필터 */
 export const adminAuditApi = {
   list: (category?: string, limit = 100) => {
     const p = new URLSearchParams()
@@ -163,14 +163,14 @@ export const adminAuditApi = {
   },
 }
 
-/** SYSTEM_ADMIN 전용 — 시스템 전역 UI 테마(W004). 확정 테마의 배포는 navigation 응답이 담당 */
+/** SYSTEM_ADMIN 전용 — 시스템 전역 UI 테마(A005). 확정 테마의 배포는 navigation 응답이 담당 */
 export const adminUiThemeApi = {
   get: () => get<UiThemeResponse>('/api/v1/admin/ui-theme'),
   update: (request: UiThemeUpdateRequest) =>
     put<UiThemeResponse>('/api/v1/admin/ui-theme', request),
 }
 
-/** SYSTEM_ADMIN 전용 — 메일 템플릿(W012, 글로벌 제품 자산) */
+/** SYSTEM_ADMIN 전용 — 메일 템플릿(A004, 글로벌 제품 자산) */
 export const mailTemplateApi = {
   list: () => get<MailTemplateResponse[]>('/api/v1/admin/mail-templates'),
   update: (purpose: TokenPurpose, lang: Lang, request: MailTemplateUpdateRequest) =>
@@ -179,7 +179,7 @@ export const mailTemplateApi = {
     post<MailTemplatePreviewResponse>('/api/v1/admin/mail-templates/preview', request),
 }
 
-/** TENANT_ADMIN 전용 — 회사별 메일 템플릿 오버라이드(W014, 없으면 기본 템플릿 폴백) */
+/** TENANT_ADMIN 전용 — 회사별 메일 템플릿 오버라이드(T005, 없으면 기본 템플릿 폴백) */
 export const tenantMailTemplateApi = {
   list: () => get<TenantMailTemplateResponse[]>('/api/v1/tenant/mail-templates'),
   update: (purpose: TokenPurpose, lang: Lang, request: MailTemplateUpdateRequest) =>
@@ -233,7 +233,7 @@ export const attendanceCloseApi = {
     del<CloseStatusResponse>(`/api/v1/attendance/close?year=${year}&month=${month}`),
 }
 
-/** 근태 마감 결재(HR_ADMIN/TENANT_ADMIN) — 대기 목록 + 승인/반려 + 급여 정산(참고, 관리자만)(W021) */
+/** 근태 마감 결재(HR_ADMIN/TENANT_ADMIN) — 대기 목록 + 승인/반려 + 급여 정산(참고, 관리자만)(T004) */
 export const tenantCloseApi = {
   pending: () => get<PendingCloseResponse[]>('/api/v1/tenant/attendance-close/pending'),
   /** 마감 완료(선택 월) — '마감 취소' 대상. 승인 이력 전체가 아니라 대상 월만 */
@@ -265,14 +265,14 @@ export const tenantScheduleApi = {
     put<void>(`/api/v1/tenant/schedule/${userId}/pattern`, request),
 }
 
-/** TENANT_ADMIN+HR_ADMIN — 회사 신규 멤버 기본 스케줄(W020). 등록 시 정기 스케줄로 복제됨 */
+/** TENANT_ADMIN+HR_ADMIN — 회사 신규 멤버 기본 스케줄(T008). 등록 시 정기 스케줄로 복제됨 */
 export const tenantDefaultScheduleApi = {
   get: () => get<DefaultScheduleDay[]>('/api/v1/tenant/default-schedule'),
   save: (days: DefaultScheduleDay[]) =>
     put<DefaultScheduleDay[]>('/api/v1/tenant/default-schedule', days),
 }
 
-/** TENANT_ADMIN 전용 — 공휴일(W013). 읽기전용 목록 + 회사 공휴일 등록 + 국가 공휴일 동기화(#7) */
+/** TENANT_ADMIN 전용 — 공휴일(T002). 읽기전용 목록 + 회사 공휴일 등록 + 국가 공휴일 동기화(#7) */
 export const tenantHolidayApi = {
   list: (year: number) => get<HolidayEntry[]>(`/api/v1/tenant/holidays?year=${year}`),
   sync: (year: number) =>

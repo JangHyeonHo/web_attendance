@@ -38,8 +38,8 @@ function fieldErrorMap(e: ApiError): Record<string, string> {
 }
 
 /**
- * W008 테넌트 상세(기업 정보/결제 정보) — SYSTEM_ADMIN 전용, W007에 임베드 전개.
- * W006과 동일하게 자기 화면 텍스트(W008)를 언어 마스터에서 직접 취득한다.
+ * A002 테넌트 상세(기업 정보/결제 정보) — SYSTEM_ADMIN 전용, A001에 임베드 전개.
+ * M002과 동일하게 자기 화면 텍스트(A002)를 언어 마스터에서 직접 취득한다.
  *
  * - 조회 뷰: 서버가 내려준 마스킹 문자열을 그대로 표시(가공·복원 시도 금지).
  *   빌링키는 값이 어떤 API로도 오지 않으며 hasBillingKey로 존재 여부만 표시.
@@ -50,11 +50,11 @@ export function TenantDetailScreen({ tenantId, country }: { tenantId: number; co
   const { t: commonT, lang } = useApp()
   const [texts, setTexts] = useState<Record<string, string>>({})
 
-  //W008 화면 텍스트 취득(언어 변경시 재취득)
+  //A002 화면 텍스트 취득(언어 변경시 재취득)
   useEffect(() => {
     let cancelled = false
     languageApi
-      .texts('W008', lang)
+      .texts('A002', lang)
       .then((response) => {
         if (!cancelled) setTexts(response)
       })

@@ -90,7 +90,7 @@ public class HolidayService {
     /**
      * 테넌트 생성 시 당해·익년 자동 동기화 — 동기 호출 + 실패 허용(예외 삼킴 + WARN, §2-5).
      *
-     * @return 두 해 모두 성공하면 true(false면 W007이 수동 동기화 안내)
+     * @return 두 해 모두 성공하면 true(false면 A001이 수동 동기화 안내)
      */
     public boolean syncInitialYears(long tenantId) {
         int year = Year.now(clock).getValue();
@@ -99,7 +99,7 @@ public class HolidayService {
             sync(tenantId, year + 1);
             return true;
         } catch (RuntimeException e) {
-            log.warn("initial holiday sync failed: tenantId={} — W013 수동 동기화로 수습", tenantId, e);
+            log.warn("initial holiday sync failed: tenantId={} — T002 수동 동기화로 수습", tenantId, e);
             return false;
         }
     }

@@ -8,7 +8,7 @@ import type { Lang, LanguageEntry, UiThemeSetting } from '../api/types'
 
 const LANGS: Lang[] = ['KOR', 'ENG', 'JPN']
 
-/** 테마 선택지 — 라벨 키(W004 시드)와 스와치 클래스(색으로만 계절 표현). AUTO가 기본 권장이라 선두 */
+/** 테마 선택지 — 라벨 키(A005 시드)와 스와치 클래스(색으로만 계절 표현). AUTO가 기본 권장이라 선두 */
 const THEME_OPTIONS: { value: UiThemeSetting; labelKey: string; swatch: string }[] = [
   { value: 'AUTO', labelKey: 'THEME_AUTO', swatch: 'auto' },
   { value: 'SPRING', labelKey: 'THEME_SPRING', swatch: 'spring' },
@@ -17,7 +17,7 @@ const THEME_OPTIONS: { value: UiThemeSetting; labelKey: string; swatch: string }
   { value: 'WINTER', labelKey: 'THEME_WINTER', swatch: 'winter' },
 ]
 
-/** W004 관리자 — 테마 설정(Phase 4) + 언어 마스터 관리(v1의 /lang_mst 화면 계승) */
+/** A005 관리자 — 테마 설정(Phase 4) + 언어 마스터 관리(v1의 /lang_mst 화면 계승) */
 export function AdminScreen() {
   const { t, applyTheme } = useApp()
 

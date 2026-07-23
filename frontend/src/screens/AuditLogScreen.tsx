@@ -13,7 +13,7 @@ function timeText(iso: string): string {
 }
 
 /**
- * W017 감사 로그 조회 — SYSTEM_ADMIN 전용(운영사).
+ * A003 감사 로그 조회 — SYSTEM_ADMIN 전용(운영사).
  * 전역(모든 테넌트 + 비인증 이벤트) 최신순. 분류(인증/에러) 필터 + 새로고침.
  */
 export function AuditLogScreen() {

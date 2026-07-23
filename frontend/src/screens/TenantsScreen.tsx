@@ -18,12 +18,12 @@ const COUNTRY_LABEL_KEYS: Record<ProfileCountry, string> = {
 }
 
 /**
- * W007 테넌트 관리 — SYSTEM_ADMIN 전용.
+ * A001 테넌트 관리 — SYSTEM_ADMIN 전용.
  * 목록/생성(소재국 필수)/정지·재개/관리자 초대 재발송.
  * 생성은 초대 플로우(CR3-5): initialPassword 없음 — 관리자 초대 메일 발송(mailSent)과
  * 당해·익년 공휴일 동기화(holidaysSynced) 결과를 결과 모달에 표시한다.
  * Phase 4: 생성 폼·정지 확인·생성 결과를 모달로 이전(테이블 내 확장 행 폐지).
- * 행의 상세 버튼으로 W008(기업/결제)을 임베드 전개한다(W005→W006 패턴).
+ * 행의 상세 버튼으로 A002(기업/결제)을 임베드 전개한다(M001→M002 패턴).
  */
 export function TenantsScreen() {
   const { t } = useApp()
@@ -212,7 +212,7 @@ export function TenantsScreen() {
           ) : (
             <p className="error">{t('MAIL_FAILED')}</p>
           )}
-          {/* 공휴일 자동 동기화 실패 — 고객사 관리자의 W013 수동 동기화 안내 */}
+          {/* 공휴일 자동 동기화 실패 — 고객사 관리자의 T002 수동 동기화 안내 */}
           {!created.holidaysSynced && <p className="error">{t('HOLIDAY_SYNC_FAILED_NOTICE')}</p>}
           <div className="btn-row">
             <button onClick={() => setCreated(null)}>{t('CLOSE')}</button>

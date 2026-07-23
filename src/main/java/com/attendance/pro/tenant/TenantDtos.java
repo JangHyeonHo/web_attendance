@@ -62,7 +62,7 @@ public final class TenantDtos {
             long adminUserId, String adminEmail,
             @Schema(description = "schema.field.member-status") com.attendance.pro.user.UserStatus adminStatus, //항상 PENDING
             @Schema(description = "schema.field.mail-sent") boolean mailSent,           //false면 admin-invite 재발송
-            @Schema(description = "schema.field.holidays-synced") boolean holidaysSynced) { //false면 W013 수동 동기화
+            @Schema(description = "schema.field.holidays-synced") boolean holidaysSynced) { //false면 T002 수동 동기화
     }
 
     @Schema(description = "schema.tenant-response")

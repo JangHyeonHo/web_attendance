@@ -8,7 +8,7 @@ import { InvoiceDocument } from '../components/InvoiceDocument'
 import type { InvoiceEntry, TenantProfileResponse } from '../api/types'
 
 /**
- * W018 청구서 — 회사 총관리자(TENANT_ADMIN) 전용.
+ * T006 청구서 — 회사 총관리자(TENANT_ADMIN) 전용.
  * 결제 정보 등록(#14) + 달 선택(드롭다운) + 선택한 달의 상세(인원·단가·공급가·부가세·합계).
  */
 export function BillingScreen() {
@@ -77,11 +77,11 @@ export function BillingScreen() {
             />
           </div>
 
-          {/* 회사 정보 미등록 안내 — 청구월과 청구서 사이. 등록 화면(W019)으로 바로 이동 */}
+          {/* 회사 정보 미등록 안내 — 청구월과 청구서 사이. 등록 화면(T007)으로 바로 이동 */}
           {selected && profileLoaded && !profile && (
             <div className="inv-profile-warn" role="alert">
               <span>{t('INVOICE_PROFILE_MISSING')}</span>
-              <button type="button" onClick={() => void navigate('W019')}>
+              <button type="button" onClick={() => void navigate('T007')}>
                 {t('COMPANY_INFO')}
               </button>
             </div>

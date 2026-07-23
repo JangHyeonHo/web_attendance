@@ -8,8 +8,8 @@ import { localeOf } from '../i18n/lang'
 import type { ReportSetting, DefaultScheduleDay } from '../api/types'
 
 /**
- * W020 회사 설정 — 근태 보고서 등 회사 공통 운영 설정. 총관리자+인사관리자.
- * 회사 정보/결제(W019, 총관리자 전용 — 재무·기밀)와 분리해, 앞으로 개발되는 설정이 이 화면에 누적된다.
+ * T008 회사 설정 — 근태 보고서 등 회사 공통 운영 설정. 총관리자+인사관리자.
+ * 회사 정보/결제(T007, 총관리자 전용 — 재무·기밀)와 분리해, 앞으로 개발되는 설정이 이 화면에 누적된다.
  */
 export function CompanySettingsScreen() {
   const { t } = useApp()

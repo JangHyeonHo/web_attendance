@@ -19,7 +19,7 @@ const LAST_MONTH = (() => {
 })()
 
 /**
- * W021 근태 마감 관리 — 멤버가 신청한 월 마감을 인사관리자가 승인/반려한다.
+ * T004 근태 마감 관리 — 멤버가 신청한 월 마감을 인사관리자가 승인/반려한다.
  * 승인되면 그 (멤버, 월)의 근태 정정이 잠기고, 보고서에 도장이 날인된다.
  */
 export function AttendanceCloseAdminScreen() {
@@ -60,7 +60,7 @@ export function AttendanceCloseAdminScreen() {
   }
 
   useEffect(() => {
-    languageApi.texts('W021', lang).then(setTexts).catch(() => {})
+    languageApi.texts('T004', lang).then(setTexts).catch(() => {})
   }, [lang])
 
   const loadApproved = useCallback(async () => {

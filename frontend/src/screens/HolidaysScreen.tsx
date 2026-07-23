@@ -25,7 +25,7 @@ function syncDoneText(template: string, result: HolidaySyncResult): string {
 }
 
 /**
- * W013 공휴일 관리 — TENANT_ADMIN 전용(holiday-plan §5-1).
+ * T002 공휴일 관리 — TENANT_ADMIN 전용(holiday-plan §5-1).
  * 국가 공휴일(NATIONAL)은 읽기전용(동기화만 관리) + 회사 공휴일(COMPANY)은 등록·수정·삭제 가능(#7·#8).
  * 같은 날짜 중복 등록 허용(예: 창립기념일 + 광복절). 회사 공휴일은 매년 반복 지정 가능하며(#8)
  * 각 연도 인스턴스는 독립 행이라 연도별로 날짜/명칭 이동·삭제가 가능하다. 수정/삭제는 아이콘+툴팁.
@@ -78,7 +78,7 @@ export function HolidaysScreen() {
     setEditFieldErrors({})
   }
 
-  //요일 명칭은 사전 없이 Intl 표준 API로 생성(W006 방식).
+  //요일 명칭은 사전 없이 Intl 표준 API로 생성(M002 방식).
   //'YYYY-MM-DD'를 new Date(문자열)로 넘기면 UTC 자정 해석 — 음수 오프셋 시간대에서 전날 요일이 되므로 로컬 성분 생성
   const weekdayOf = useMemo(() => {
     const format = new Intl.DateTimeFormat(localeOf(lang), { weekday: 'short' })

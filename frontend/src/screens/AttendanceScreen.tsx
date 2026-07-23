@@ -50,7 +50,7 @@ interface PendingConfirmation {
   token: string
 }
 
-/** W005 출결 */
+/** M001 출결 */
 export function AttendanceScreen() {
   const { t, data, lang } = useApp()
   //화면 전개시 navigation 응답에 동봉된 초기 상태를 사용하고, 이후 갱신은 status API로

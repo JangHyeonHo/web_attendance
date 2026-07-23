@@ -47,7 +47,7 @@ interface CreatedNotice {
 }
 
 /**
- * W009 멤버 관리 — TENANT_ADMIN 전용.
+ * T001 멤버 관리 — TENANT_ADMIN 전용.
  * 등록은 초대 플로우(email-onboarding §8.3): 등록 모달 → 발송 전 이메일 재확인 모달 →
  * [발송]에서 비로소 POST(근무 스케줄 필드 동봉). 초기 비밀번호 방식은 폐지.
  * Phase 4: 등록 폼·스케줄 수정·파괴적 확인을 전부 모달로 이전(테이블 내 확장 행 폐지),

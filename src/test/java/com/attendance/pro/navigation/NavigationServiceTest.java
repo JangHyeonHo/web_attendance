@@ -55,17 +55,17 @@ class NavigationServiceTest {
         NavigationService service = service();
         assertThat(service.decide("W000", null, false)).isEqualTo(new Decision(Screen.INDEX, null, false));
         assertThat(service.decide("W001", null, false)).isEqualTo(new Decision(Screen.LOGIN, null, false));
-        assertThat(service.decide("W004", null, false))
+        assertThat(service.decide("A005", null, false))
                 .isEqualTo(new Decision(Screen.LOGIN, NavigationReason.LOGIN_REQUIRED, false));
-        assertThat(service.decide("W005", null, false))
+        assertThat(service.decide("M001", null, false))
                 .isEqualTo(new Decision(Screen.LOGIN, NavigationReason.LOGIN_REQUIRED, false));
-        assertThat(service.decide("W006", null, false))
+        assertThat(service.decide("M002", null, false))
                 .isEqualTo(new Decision(Screen.LOGIN, NavigationReason.LOGIN_REQUIRED, false));
-        assertThat(service.decide("W007", null, false))
+        assertThat(service.decide("A001", null, false))
                 .isEqualTo(new Decision(Screen.LOGIN, NavigationReason.LOGIN_REQUIRED, false));
-        assertThat(service.decide("W008", null, false))
+        assertThat(service.decide("A002", null, false))
                 .isEqualTo(new Decision(Screen.LOGIN, NavigationReason.LOGIN_REQUIRED, false));
-        assertThat(service.decide("W009", null, false))
+        assertThat(service.decide("T001", null, false))
                 .isEqualTo(new Decision(Screen.LOGIN, NavigationReason.LOGIN_REQUIRED, false));
     }
 
@@ -82,81 +82,81 @@ class NavigationServiceTest {
     }
 
     @Test
-    @DisplayName("MEMBER: 홈은 출결(W005), 출결/상세 접근 가능")
+    @DisplayName("MEMBER: 홈은 출결(M001), 출결/상세 접근 가능")
     void memberAllowedScreens() {
         NavigationService service = service();
         assertThat(service.decide("W001", MEMBER, false))
                 .isEqualTo(new Decision(Screen.ATTENDANCE, NavigationReason.ALREADY_LOGGED_IN, false));
         assertThat(service.decide("W000", MEMBER, false))
                 .isEqualTo(new Decision(Screen.ATTENDANCE, NavigationReason.ALREADY_LOGGED_IN, false));
-        assertThat(service.decide("W005", MEMBER, false)).isEqualTo(new Decision(Screen.ATTENDANCE, null, false));
-        assertThat(service.decide("W006", MEMBER, false)).isEqualTo(new Decision(Screen.ATT_DETAILS, null, false));
+        assertThat(service.decide("M001", MEMBER, false)).isEqualTo(new Decision(Screen.ATTENDANCE, null, false));
+        assertThat(service.decide("M002", MEMBER, false)).isEqualTo(new Decision(Screen.ATT_DETAILS, null, false));
     }
 
     @Test
-    @DisplayName("NAV-01: MEMBER가 W004 요청 → 홈(W005) + ROLE_DENIED")
+    @DisplayName("NAV-01: MEMBER가 A005 요청 → 홈(M001) + ROLE_DENIED")
     void nav01MemberDeniedAdmin() {
-        assertThat(service().decide("W004", MEMBER, false))
+        assertThat(service().decide("A005", MEMBER, false))
                 .isEqualTo(new Decision(Screen.ATTENDANCE, NavigationReason.ROLE_DENIED, false));
     }
 
     @Test
-    @DisplayName("NAV-07: MEMBER가 W009(멤버 관리) 요청 → 홈(W005) + ROLE_DENIED")
+    @DisplayName("NAV-07: MEMBER가 T001(멤버 관리) 요청 → 홈(M001) + ROLE_DENIED")
     void nav07MemberDeniedMembers() {
-        assertThat(service().decide("W009", MEMBER, false))
+        assertThat(service().decide("T001", MEMBER, false))
                 .isEqualTo(new Decision(Screen.ATTENDANCE, NavigationReason.ROLE_DENIED, false));
     }
 
     @Test
-    @DisplayName("NAV-02: TENANT_ADMIN이 W004 요청 → 자기 홈(W005) + ROLE_DENIED")
+    @DisplayName("NAV-02: TENANT_ADMIN이 A005 요청 → 자기 홈(M001) + ROLE_DENIED")
     void nav02TenantAdminDeniedAdmin() {
-        assertThat(service().decide("W004", TENANT_ADMIN, false))
+        assertThat(service().decide("A005", TENANT_ADMIN, false))
                 .isEqualTo(new Decision(Screen.ATTENDANCE, NavigationReason.ROLE_DENIED, false));
     }
 
     @Test
-    @DisplayName("NAV-04: TENANT_ADMIN이 W007/W008 요청 → 자기 홈(W005) + ROLE_DENIED")
+    @DisplayName("NAV-04: TENANT_ADMIN이 A001/A002 요청 → 자기 홈(M001) + ROLE_DENIED")
     void nav04TenantAdminDeniedSystemScreens() {
         NavigationService service = service();
-        assertThat(service.decide("W007", TENANT_ADMIN, false))
+        assertThat(service.decide("A001", TENANT_ADMIN, false))
                 .isEqualTo(new Decision(Screen.ATTENDANCE, NavigationReason.ROLE_DENIED, false));
-        assertThat(service.decide("W008", TENANT_ADMIN, false))
+        assertThat(service.decide("A002", TENANT_ADMIN, false))
                 .isEqualTo(new Decision(Screen.ATTENDANCE, NavigationReason.ROLE_DENIED, false));
     }
 
     @Test
-    @DisplayName("TENANT_ADMIN: 홈은 출결(W005), 멤버 관리(W009)는 접근 가능")
+    @DisplayName("TENANT_ADMIN: 홈은 출결(M001), 멤버 관리(T001)는 접근 가능")
     void tenantAdminAllowedScreens() {
         NavigationService service = service();
         assertThat(service.decide("W001", TENANT_ADMIN, false))
                 .isEqualTo(new Decision(Screen.ATTENDANCE, NavigationReason.ALREADY_LOGGED_IN, false));
-        assertThat(service.decide("W005", TENANT_ADMIN, false)).isEqualTo(new Decision(Screen.ATTENDANCE, null, false));
-        assertThat(service.decide("W006", TENANT_ADMIN, false)).isEqualTo(new Decision(Screen.ATT_DETAILS, null, false));
-        assertThat(service.decide("W009", TENANT_ADMIN, false)).isEqualTo(new Decision(Screen.MEMBERS, null, false));
+        assertThat(service.decide("M001", TENANT_ADMIN, false)).isEqualTo(new Decision(Screen.ATTENDANCE, null, false));
+        assertThat(service.decide("M002", TENANT_ADMIN, false)).isEqualTo(new Decision(Screen.ATT_DETAILS, null, false));
+        assertThat(service.decide("T001", TENANT_ADMIN, false)).isEqualTo(new Decision(Screen.MEMBERS, null, false));
     }
 
     @Test
-    @DisplayName("NAV-03: SYSTEM_ADMIN은 W004 허용, 홈 요청은 테넌트 목록(W007)으로")
+    @DisplayName("NAV-03: SYSTEM_ADMIN은 A005 허용, 홈 요청은 테넌트 목록(A001)으로")
     void nav03SystemAdminHome() {
         NavigationService service = service();
-        assertThat(service.decide("W004", SYSTEM_ADMIN, false)).isEqualTo(new Decision(Screen.ADMIN, null, false));
+        assertThat(service.decide("A005", SYSTEM_ADMIN, false)).isEqualTo(new Decision(Screen.ADMIN, null, false));
         assertThat(service.decide("W001", SYSTEM_ADMIN, false))
                 .isEqualTo(new Decision(Screen.SYSTEM_TENANTS, NavigationReason.ALREADY_LOGGED_IN, false));
         assertThat(service.decide("W000", SYSTEM_ADMIN, false))
                 .isEqualTo(new Decision(Screen.SYSTEM_TENANTS, NavigationReason.ALREADY_LOGGED_IN, false));
-        assertThat(service.decide("W007", SYSTEM_ADMIN, false)).isEqualTo(new Decision(Screen.SYSTEM_TENANTS, null, false));
-        assertThat(service.decide("W008", SYSTEM_ADMIN, false)).isEqualTo(new Decision(Screen.TENANT_DETAIL, null, false));
+        assertThat(service.decide("A001", SYSTEM_ADMIN, false)).isEqualTo(new Decision(Screen.SYSTEM_TENANTS, null, false));
+        assertThat(service.decide("A002", SYSTEM_ADMIN, false)).isEqualTo(new Decision(Screen.TENANT_DETAIL, null, false));
     }
 
     @Test
-    @DisplayName("NAV-05: SYSTEM_ADMIN이 W005/W006/W009 요청 → 자기 홈(W007) + ROLE_DENIED")
+    @DisplayName("NAV-05: SYSTEM_ADMIN이 M001/M002/T001 요청 → 자기 홈(A001) + ROLE_DENIED")
     void nav05SystemAdminDeniedTenantScreens() {
         NavigationService service = service();
-        assertThat(service.decide("W005", SYSTEM_ADMIN, false))
+        assertThat(service.decide("M001", SYSTEM_ADMIN, false))
                 .isEqualTo(new Decision(Screen.SYSTEM_TENANTS, NavigationReason.ROLE_DENIED, false));
-        assertThat(service.decide("W006", SYSTEM_ADMIN, false))
+        assertThat(service.decide("M002", SYSTEM_ADMIN, false))
                 .isEqualTo(new Decision(Screen.SYSTEM_TENANTS, NavigationReason.ROLE_DENIED, false));
-        assertThat(service.decide("W009", SYSTEM_ADMIN, false))
+        assertThat(service.decide("T001", SYSTEM_ADMIN, false))
                 .isEqualTo(new Decision(Screen.SYSTEM_TENANTS, NavigationReason.ROLE_DENIED, false));
     }
 
@@ -174,87 +174,87 @@ class NavigationServiceTest {
     }
 
     @Test
-    @DisplayName("W012(메일 템플릿): SYSTEM_ADMIN만 — 그 외는 홈 + ROLE_DENIED")
+    @DisplayName("A004(메일 템플릿): SYSTEM_ADMIN만 — 그 외는 홈 + ROLE_DENIED")
     void mailTemplatesScreenRoleGate() {
         NavigationService service = service();
-        assertThat(service.decide("W012", SYSTEM_ADMIN, false)).isEqualTo(new Decision(Screen.MAIL_TEMPLATES, null, false));
-        assertThat(service.decide("W012", TENANT_ADMIN, false))
+        assertThat(service.decide("A004", SYSTEM_ADMIN, false)).isEqualTo(new Decision(Screen.MAIL_TEMPLATES, null, false));
+        assertThat(service.decide("A004", TENANT_ADMIN, false))
                 .isEqualTo(new Decision(Screen.ATTENDANCE, NavigationReason.ROLE_DENIED, false));
-        assertThat(service.decide("W012", MEMBER, false))
+        assertThat(service.decide("A004", MEMBER, false))
                 .isEqualTo(new Decision(Screen.ATTENDANCE, NavigationReason.ROLE_DENIED, false));
-        assertThat(service.decide("W012", null, false))
+        assertThat(service.decide("A004", null, false))
                 .isEqualTo(new Decision(Screen.LOGIN, NavigationReason.LOGIN_REQUIRED, false));
     }
 
     @Test
-    @DisplayName("W017(감사 로그): SYSTEM_ADMIN만 — 그 외는 홈 + ROLE_DENIED")
+    @DisplayName("A003(감사 로그): SYSTEM_ADMIN만 — 그 외는 홈 + ROLE_DENIED")
     void auditScreenRoleGate() {
         NavigationService service = service();
-        assertThat(service.decide("W017", SYSTEM_ADMIN, false)).isEqualTo(new Decision(Screen.AUDIT, null, false));
-        assertThat(service.decide("W017", TENANT_ADMIN, false))
+        assertThat(service.decide("A003", SYSTEM_ADMIN, false)).isEqualTo(new Decision(Screen.AUDIT, null, false));
+        assertThat(service.decide("A003", TENANT_ADMIN, false))
                 .isEqualTo(new Decision(Screen.ATTENDANCE, NavigationReason.ROLE_DENIED, false));
-        assertThat(service.decide("W017", MEMBER, false))
+        assertThat(service.decide("A003", MEMBER, false))
                 .isEqualTo(new Decision(Screen.ATTENDANCE, NavigationReason.ROLE_DENIED, false));
     }
 
     @Test
-    @DisplayName("W018(청구서): TENANT_ADMIN만 — 인사관리자·멤버·운영사는 홈 + ROLE_DENIED")
+    @DisplayName("T006(청구서): TENANT_ADMIN만 — 인사관리자·멤버·운영사는 홈 + ROLE_DENIED")
     void billingScreenRoleGate() {
         NavigationService service = service();
-        assertThat(service.decide("W018", TENANT_ADMIN, false)).isEqualTo(new Decision(Screen.BILLING, null, false));
-        assertThat(service.decide("W018", HR_ADMIN, false))
+        assertThat(service.decide("T006", TENANT_ADMIN, false)).isEqualTo(new Decision(Screen.BILLING, null, false));
+        assertThat(service.decide("T006", HR_ADMIN, false))
                 .isEqualTo(new Decision(Screen.ATTENDANCE, NavigationReason.ROLE_DENIED, false));
-        assertThat(service.decide("W018", MEMBER, false))
+        assertThat(service.decide("T006", MEMBER, false))
                 .isEqualTo(new Decision(Screen.ATTENDANCE, NavigationReason.ROLE_DENIED, false));
-        assertThat(service.decide("W018", SYSTEM_ADMIN, false))
+        assertThat(service.decide("T006", SYSTEM_ADMIN, false))
                 .isEqualTo(new Decision(Screen.SYSTEM_TENANTS, NavigationReason.ROLE_DENIED, false));
     }
 
     @Test
-    @DisplayName("W013(공휴일): TENANT_ADMIN만 — MEMBER/SYSTEM_ADMIN은 홈 + ROLE_DENIED")
+    @DisplayName("T002(공휴일): TENANT_ADMIN만 — MEMBER/SYSTEM_ADMIN은 홈 + ROLE_DENIED")
     void holidaysScreenRoleGate() {
         NavigationService service = service();
-        assertThat(service.decide("W013", TENANT_ADMIN, false)).isEqualTo(new Decision(Screen.HOLIDAYS, null, false));
-        assertThat(service.decide("W013", MEMBER, false))
+        assertThat(service.decide("T002", TENANT_ADMIN, false)).isEqualTo(new Decision(Screen.HOLIDAYS, null, false));
+        assertThat(service.decide("T002", MEMBER, false))
                 .isEqualTo(new Decision(Screen.ATTENDANCE, NavigationReason.ROLE_DENIED, false));
-        assertThat(service.decide("W013", SYSTEM_ADMIN, false))
+        assertThat(service.decide("T002", SYSTEM_ADMIN, false))
                 .isEqualTo(new Decision(Screen.SYSTEM_TENANTS, NavigationReason.ROLE_DENIED, false));
     }
 
     @Test
-    @DisplayName("HR_ADMIN(인사관리자): 홈=출결, 멤버(W009)·공휴일(W013)·출결(W005/W006) 허용")
+    @DisplayName("HR_ADMIN(인사관리자): 홈=출결, 멤버(T001)·공휴일(T002)·출결(M001/M002) 허용")
     void hrAdminAllowedScreens() {
         NavigationService service = service();
         assertThat(service.decide("W000", HR_ADMIN, false))
                 .isEqualTo(new Decision(Screen.ATTENDANCE, NavigationReason.ALREADY_LOGGED_IN, false));
-        assertThat(service.decide("W005", HR_ADMIN, false)).isEqualTo(new Decision(Screen.ATTENDANCE, null, false));
-        assertThat(service.decide("W006", HR_ADMIN, false)).isEqualTo(new Decision(Screen.ATT_DETAILS, null, false));
-        assertThat(service.decide("W009", HR_ADMIN, false)).isEqualTo(new Decision(Screen.MEMBERS, null, false));
-        assertThat(service.decide("W013", HR_ADMIN, false)).isEqualTo(new Decision(Screen.HOLIDAYS, null, false));
-        assertThat(service.decide("W015", HR_ADMIN, false)).isEqualTo(new Decision(Screen.LEAVE, null, false));
-        assertThat(service.decide("W016", HR_ADMIN, false))
+        assertThat(service.decide("M001", HR_ADMIN, false)).isEqualTo(new Decision(Screen.ATTENDANCE, null, false));
+        assertThat(service.decide("M002", HR_ADMIN, false)).isEqualTo(new Decision(Screen.ATT_DETAILS, null, false));
+        assertThat(service.decide("T001", HR_ADMIN, false)).isEqualTo(new Decision(Screen.MEMBERS, null, false));
+        assertThat(service.decide("T002", HR_ADMIN, false)).isEqualTo(new Decision(Screen.HOLIDAYS, null, false));
+        assertThat(service.decide("M003", HR_ADMIN, false)).isEqualTo(new Decision(Screen.LEAVE, null, false));
+        assertThat(service.decide("T003", HR_ADMIN, false))
                 .isEqualTo(new Decision(Screen.LEAVE_ADMIN, null, false));
     }
 
     @Test
-    @DisplayName("휴가 화면: 멤버는 W015(휴가) 허용·W016(휴가 관리)은 홈+ROLE_DENIED")
+    @DisplayName("휴가 화면: 멤버는 M003(휴가) 허용·T003(휴가 관리)은 홈+ROLE_DENIED")
     void leaveScreensAccess() {
         NavigationService service = service();
-        assertThat(service.decide("W015", MEMBER, false)).isEqualTo(new Decision(Screen.LEAVE, null, false));
-        assertThat(service.decide("W015", TENANT_ADMIN, false)).isEqualTo(new Decision(Screen.LEAVE, null, false));
-        assertThat(service.decide("W016", MEMBER, false))
+        assertThat(service.decide("M003", MEMBER, false)).isEqualTo(new Decision(Screen.LEAVE, null, false));
+        assertThat(service.decide("M003", TENANT_ADMIN, false)).isEqualTo(new Decision(Screen.LEAVE, null, false));
+        assertThat(service.decide("T003", MEMBER, false))
                 .isEqualTo(new Decision(Screen.ATTENDANCE, NavigationReason.ROLE_DENIED, false));
-        assertThat(service.decide("W016", TENANT_ADMIN, false))
+        assertThat(service.decide("T003", TENANT_ADMIN, false))
                 .isEqualTo(new Decision(Screen.LEAVE_ADMIN, null, false));
     }
 
     @Test
-    @DisplayName("HR_ADMIN 배제: 회사 메일 템플릿(W014)·언어 마스터(W004)는 홈 + ROLE_DENIED")
+    @DisplayName("HR_ADMIN 배제: 회사 메일 템플릿(T005)·언어 마스터(A005)는 홈 + ROLE_DENIED")
     void hrAdminDeniedScreens() {
         NavigationService service = service();
-        assertThat(service.decide("W014", HR_ADMIN, false))
+        assertThat(service.decide("T005", HR_ADMIN, false))
                 .isEqualTo(new Decision(Screen.ATTENDANCE, NavigationReason.ROLE_DENIED, false));
-        assertThat(service.decide("W004", HR_ADMIN, false))
+        assertThat(service.decide("A005", HR_ADMIN, false))
                 .isEqualTo(new Decision(Screen.ATTENDANCE, NavigationReason.ROLE_DENIED, false));
     }
 
@@ -279,7 +279,7 @@ class NavigationServiceTest {
         assertThat(service.decide("W777", null, true))
                 .isEqualTo(new Decision(Screen.LOGIN, NavigationReason.UNKNOWN_SCREEN, false));
         //보호 화면은 기존 규칙 그대로
-        assertThat(service.decide("W005", null, true))
+        assertThat(service.decide("M001", null, true))
                 .isEqualTo(new Decision(Screen.LOGIN, NavigationReason.LOGIN_REQUIRED, false));
     }
 
@@ -289,7 +289,7 @@ class NavigationServiceTest {
         NavigationService service = service();
         assertThat(service.decide(null, MEMBER, true))
                 .isEqualTo(new Decision(Screen.ATTENDANCE, NavigationReason.ALREADY_LOGGED_IN, false));
-        assertThat(service.decide("W005", MEMBER, true))
+        assertThat(service.decide("M001", MEMBER, true))
                 .isEqualTo(new Decision(Screen.ATTENDANCE, null, false));
         assertThat(service.decide("W002", MEMBER, true))
                 .isEqualTo(new Decision(Screen.LOGIN, NavigationReason.LOGGED_OUT, true));
