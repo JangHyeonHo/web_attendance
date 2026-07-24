@@ -1,6 +1,6 @@
-# 04. 백엔드 빌드·환경변수·systemd
+# 05. 백엔드 빌드·환경변수·systemd
 
-> 이전: [03. 소프트웨어 설치](03-software-install.md) · 다음: [05. 프론트·nginx](05-frontend-nginx.md) / [인덱스](README.md)
+> 이전: [04. 소프트웨어 설치](04-software-install.md) · 다음: [06. 프론트·nginx](06-frontend-nginx.md) / [인덱스](README.md)
 
 ## 빌드와 배치
 
@@ -50,7 +50,7 @@ APP_MAIL_LINK_BASE_URL=https://app.<도메인>
 ```
 
 각 변수의 의미·미설정 시 동작은 [env-reference.md](env-reference.md) 참조.
-`APP_TENANT_BASE_DOMAIN`은 이 단계에서 넣지 않는다(서브도메인은 [11](11-tenant-subdomain.md)에서).
+`APP_TENANT_BASE_DOMAIN`은 이 단계에서 넣지 않는다(서브도메인은 [12](12-tenant-subdomain.md)에서).
 
 ## systemd 서비스
 

@@ -1,6 +1,22 @@
-# 03. 소프트웨어 설치 + MariaDB 초기화
+# 04. 소프트웨어 설치 + MariaDB 초기화
 
-> 이전: [02. OCI 인스턴스](02-oci-instance.md) · 다음: [04. 백엔드 서비스](04-backend-service.md) / [인덱스](README.md)
+> 이전: [03. EC2 인스턴스](03-aws-ec2.md) · 다음: [05. 백엔드 서비스](05-backend-service.md) / [인덱스](README.md)
+
+## 스왑 만들기 (메모리 2GB 인스턴스라면 필수)
+
+t4g.small(2GB)에서 JVM+MariaDB를 함께 돌리므로, 메모리 부족으로 프로세스가 죽는 것을
+막기 위해 스왑(디스크를 예비 메모리로 쓰는 영역) 2GB를 먼저 만든다:
+
+```bash
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab   # 재부팅 후에도 유지
+free -h   # Swap 행에 2.0Gi가 보이면 성공
+```
+
+(t4g.medium(4GB) 이상이면 생략해도 되지만, 만들어 둬서 손해는 없다.)
 
 ## 패키지 설치
 

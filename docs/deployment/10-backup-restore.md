@@ -1,4 +1,4 @@
-# 09. 백업·복원·암호화 키 보관
+# 10. 백업·복원·암호화 키 보관
 
 > [인덱스](README.md)
 
@@ -13,7 +13,7 @@ find /var/backups -name 'attendance-*.sql.gz' -mtime +14 -delete
 ```
 
 - `--single-transaction`: 서비스 무중단으로 일관된 스냅샷을 뜬다(InnoDB 전제).
-- 보존 14일. 서버 밖 보관(OCI Object Storage 등)을 추가하면 서버 소실에도 대비된다 —
+- 보존 14일. 서버 밖 보관(S3 등)을 추가하면 서버 소실에도 대비된다 —
   테스트 단계에서는 선택, 운영에서는 필수.
 
 ## ★암호화 키(APP_CRYPTO_KEY) 보관 — 백업의 반쪽★

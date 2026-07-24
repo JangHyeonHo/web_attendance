@@ -8,7 +8,7 @@
 | 변수 | 예 | 설명 |
 |---|---|---|
 | `SPRING_PROFILES_ACTIVE` | `prod` | 공개 서버는 항상 prod([01](01-architecture.md) 전제 참조) |
-| `APP_CRYPTO_KEY` | `openssl rand -base64 32` 출력 | 민감 필드 AES-256-GCM 키. ★분실=복호화 불가, 백업과 분리 보관([09](09-backup-restore.md))★. dev 기본키로 암호화된 데이터는 운영 반입 금지 |
+| `APP_CRYPTO_KEY` | `openssl rand -base64 32` 출력 | 민감 필드 AES-256-GCM 키. ★분실=복호화 불가, 백업과 분리 보관([10](10-backup-restore.md))★. dev 기본키로 암호화된 데이터는 운영 반입 금지 |
 | `DB_URL` | `jdbc:mariadb://127.0.0.1:3306/attendance` | |
 | `DB_USERNAME` | `attendance` | |
 | `DB_PASSWORD` | — | |
@@ -23,7 +23,7 @@
 
 | 변수 | 기본값 | 설명 |
 |---|---|---|
-| `APP_TENANT_BASE_DOMAIN` | (비움 = 꺼짐) | 테넌트 서브도메인 병행 방식([11](11-tenant-subdomain.md)). 와일드카드 DNS/TLS 준비 후에만 설정 |
+| `APP_TENANT_BASE_DOMAIN` | (비움 = 꺼짐) | 테넌트 서브도메인 병행 방식([12](12-tenant-subdomain.md)). 와일드카드 DNS/TLS 준비 후에만 설정 |
 | `APP_HOLIDAY_NAGER_BASE_URL` | `https://date.nager.at` | 공휴일 동기화 API. 바꿀 일 없음(스모크 테스트의 스텁 치환용) |
 
 ## 자주 틀리는 것
@@ -31,6 +31,6 @@
 - `APP_MAIL_LINK_BASE_URL`을 `http://localhost:5173`(dev 기본값)로 두면 초대 메일의 링크가
   전부 localhost로 나간다 — 메일은 오는데 링크가 안 열리면 이것부터 확인.
 - prod에서 기동 실패 시 로그의 `Caused by`에 어느 변수가 비었는지 나온다
-  ([04](04-backend-service.md) 기동 확인 참조).
+  ([05](05-backend-service.md) 기동 확인 참조).
 - 환경변수 파일(`/etc/attendance/attendance.env`)을 고친 뒤에는
   `sudo systemctl restart attendance`까지 해야 반영된다.
