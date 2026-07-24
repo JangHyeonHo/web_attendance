@@ -1,6 +1,6 @@
 # 공휴일 도메인 상세 설계 — 국가 공휴일 자동 취득 + 회사 지정 공휴일 (Phase 3)
 
-- 상위 문서: [plan-saas-multitenancy.md](../plan-saas-multitenancy.md) / 결정 기록: [patch-notes-2026-07-saas.md](../patch-notes-2026-07-saas.md)(D10~D20에서 이어짐)
+- 상위 문서: [plan-saas-multitenancy.md](../history/plan-saas-multitenancy.md) / 결정 기록: [patch-notes-2026-07-saas.md](../history/patch-notes/patch-notes-2026-07-saas.md)(D10~D20에서 이어짐)
 - 범위: Phase 3 공휴일 도메인 — ① 국가 공휴일 자동 동기화(Nager.Date), ② 회사 지정 공휴일 CRUD,
   ③ 그 전제가 되는 **tenant.country 승격**(V6 `tenant_profile.country` → `tenant.country` 이관).
 - 요구사항(소유자 확정):

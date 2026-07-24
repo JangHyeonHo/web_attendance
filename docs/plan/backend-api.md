@@ -1,6 +1,6 @@
 # 백엔드 API 상세 설계 — SaaS 멀티테넌시 전환 (Phase 1~2)
 
-- 상위 문서: [plan-saas-multitenancy.md](../plan-saas-multitenancy.md) (마스터 계획, 이하 "마스터")
+- 상위 문서: [plan-saas-multitenancy.md](../history/plan-saas-multitenancy.md) (마스터 계획, 이하 "마스터")
 - 범위: 마스터 Phase 1(코어 멀티테넌시) + Phase 2(테넌트 관리 기능)의 **백엔드 API 상세 설계**.
   DB 마이그레이션(V4/V5)의 DDL 상세와 프론트 화면 설계는 별도 문서로 하되, 계약에 필요한 범위만 여기서 확정한다.
 - 확정 전제(마스터 §8):

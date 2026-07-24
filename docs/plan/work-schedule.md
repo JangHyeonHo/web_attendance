@@ -1,6 +1,6 @@
 # 근무 스케줄·법정 휴게 상세 설계 — 개인 기본 스케줄 + 국가별 휴게 자동 차감 (Phase 3)
 
-- 상위 문서: [plan-saas-multitenancy.md](../plan-saas-multitenancy.md) (마스터), 결정 기록: [patch-notes-2026-07-saas.md](../patch-notes-2026-07-saas.md) (D10~D20)
+- 상위 문서: [plan-saas-multitenancy.md](../history/plan-saas-multitenancy.md) (마스터), 결정 기록: [patch-notes-2026-07-saas.md](../history/patch-notes/patch-notes-2026-07-saas.md) (D10~D20)
 - 범위: ① 멤버별 **개인 기본 근무 스케줄**(시업·종업) 등록/수정 ② 테넌트 소재국 기준 **법정 휴게 자동 부여**와
   실휴식(BREAK 스탬프) 초과분 차감 ③ 월별 상세(W006)/출결(W005) 화면 표시. **문서만 — 구현/커밋 없음.**
 - 확정 전제(소유자 확정):

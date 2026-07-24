@@ -1,6 +1,6 @@
 # SaaS 멀티테넌시 보안 계획서
 
-- 상위 문서: [`docs/plan-saas-multitenancy.md`](../plan-saas-multitenancy.md) (마스터 계획). 이 문서는 그 §5(격리 강제)·§6-1(암호화/마스킹)·§10(리스크)을 **구현 가능한 스펙 수준**으로 구체화한다.
+- 상위 문서: [`docs/history/plan-saas-multitenancy.md`](../history/plan-saas-multitenancy.md) (마스터 계획). 이 문서는 그 §5(격리 강제)·§6-1(암호화/마스킹)·§10(리스크)을 **구현 가능한 스펙 수준**으로 구체화한다.
 - 전제(확정): Pool 모델(공유 스키마 + `tenant_id`), 로그인 시 테넌트 코드 입력, 3단계 권한(SYSTEM_ADMIN/TENANT_ADMIN/MEMBER), 테넌트 생성은 운영자 전용, 기업/결제 정보는 AES-256-GCM 암호화 + 응답 마스킹(카드 원본 비저장, PG 빌링키만).
 - 현행 코드 기준: 세션 쿠키 인증(`AuthController` — 로그인 시 세션 재발급 있음), `AuthInterceptor`/`AdminInterceptor`(경로 기반), Spring Security 필터체인 없음(`spring-security-crypto`만 사용), MyBatis 어노테이션 매퍼.
 
