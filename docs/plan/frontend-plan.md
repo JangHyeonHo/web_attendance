@@ -1,7 +1,7 @@
 # 멀티테넌시 전환 — 프론트엔드 상세 설계
 
 - 대상: `frontend/` (Vite + React 19 + TypeScript strict)
-- 상위 문서: `docs/plan-saas-multitenancy.md` (마스터 계획, 2026-07-08 확정)
+- 상위 문서: `docs/history/plan-saas-multitenancy.md` (마스터 계획, 2026-07-08 확정)
 - 전제(확정): 로그인 폼에 테넌트 코드 추가 / 공개 회원가입(W003) 폐기 / role 3단계
   (SYSTEM_ADMIN·TENANT_ADMIN·MEMBER) / 기업·결제 정보는 SYSTEM_ADMIN 화면(마스킹 표시,
   수정은 전체 재입력) / 회사 소개용 랜딩페이지 신설

@@ -61,6 +61,12 @@ public final class AttendanceDtos {
         }
     }
 
+    /** 자동 스탬프 비고 작성/수정 요청 — 비고만 갱신(시각·구분·위치 불변). */
+    @Schema(description = "schema.stamp-note-request")
+    public record StampNoteRequest(
+            @Schema(description = "schema.field.stamp-note", example = "실수로 중복 등록 — 이전 기록이 잘못 찍은 것") @Size(max = 200) String note) {
+    }
+
     //수동 정정 등록(Phase 5) — 사유 필수(선택 코드 + OTHER는 자유 텍스트 필수). BREAK는 대상 외
     @Schema(description = "schema.manual-stamp-request")
     public record ManualStampRequest(

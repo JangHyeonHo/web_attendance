@@ -3,6 +3,7 @@ import { adminAuditApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { EmptyState } from '../components/EmptyState'
+import { LoadingOverlay } from '../components/LoadingOverlay'
 import { ScreenGuide } from '../components/ScreenGuide'
 import type { AuditLogEntry } from '../api/types'
 
@@ -22,13 +23,18 @@ export function AuditLogScreen() {
   const [filter, setFilter] = useState<Filter>('')
   const [rows, setRows] = useState<AuditLogEntry[]>([])
   const [error, setError] = useState<string | null>(null)
+  //데이터 도착 전 로딩 베일(이중 클릭 방지) — 빈 상태 오인 방지
+  const [loading, setLoading] = useState(true)
 
   const reload = useCallback(async () => {
+    setLoading(true)
     try {
       setRows(await adminAuditApi.list(filter || undefined, 200))
       setError(null)
     } catch (e) {
       setError(e instanceof ApiError ? e.message : String(e))
+    } finally {
+      setLoading(false)
     }
   }, [filter])
 
@@ -59,10 +65,11 @@ export function AuditLogScreen() {
 
       {error && <p className="error" role="alert">{error}</p>}
 
-      {rows.length === 0 && !error ? (
+      {!loading && rows.length === 0 && !error ? (
         <EmptyState>{t('EMPTY')}</EmptyState>
       ) : (
         <div className="table-wrap">
+          <LoadingOverlay show={loading} label={t('LOADING')} />
           <table className="detail-table">
             <thead>
               <tr>

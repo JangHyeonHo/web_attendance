@@ -11,6 +11,7 @@ import { Pagination } from '../components/Pagination'
 import { ConfirmModal } from '../components/ConfirmModal'
 import { SectionHead } from '../components/SectionHead'
 import { EmptyState } from '../components/EmptyState'
+import { LoadingOverlay } from '../components/LoadingOverlay'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { formatLeaveAmount } from '../util/leaveFormat'
 import type { LeaveBalance, LeaveBalanceRow, LeaveRequestItem, LeaveStatus, LeaveType, LeaveUnit } from '../api/types'
@@ -151,7 +152,11 @@ export function LeaveScreen() {
   const [cancelReqReason, setCancelReqReason] = useState('')
   const [rowError, setRowError] = useState<{ id: number; message: string } | null>(null)
 
+  //데이터 도착 전 로딩 베일(이중 클릭 방지) — 잔여·신청 내역을 한 번에 조회
+  const [loading, setLoading] = useState(true)
+
   const reload = useCallback(async () => {
+    setLoading(true)
     try {
       const [b, rows, ty, rq] = await Promise.all([
         leaveApi.balances(),
@@ -170,6 +175,8 @@ export function LeaveScreen() {
       setListError(null)
     } catch (e) {
       setListError(e instanceof ApiError ? e.message : String(e))
+    } finally {
+      setLoading(false)
     }
   }, [reqPage])
 
@@ -327,6 +334,7 @@ export function LeaveScreen() {
         </div>
       ) : (
         <div className="table-wrap">
+          <LoadingOverlay show={loading} label={t('LOADING')} />
           <table className="detail-table lv-bal-table">
             <thead>
               <tr>
@@ -412,7 +420,7 @@ export function LeaveScreen() {
         title={t('MY_REQUESTS')}
         hint={requests.length > 0 ? t('CANCEL_SAME_DAY') : undefined}
       />
-      {requests.length === 0 ? (
+      {!loading && requests.length === 0 ? (
         <EmptyState>{t('EMPTY')}</EmptyState>
       ) : isMobile ? (
         /* 모바일: 신청 1건=한 줄(요약), 펼치면 기간·사유·조치(#4 아코디언) */
@@ -460,6 +468,7 @@ export function LeaveScreen() {
         </div>
       ) : (
         <div className="table-wrap">
+          <LoadingOverlay show={loading} label={t('LOADING')} />
           <table className="detail-table">
             <thead>
               <tr>

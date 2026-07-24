@@ -11,6 +11,7 @@ import { IconButton } from '../components/IconButton'
 import { Pagination } from '../components/Pagination'
 import { ConfirmModal } from '../components/ConfirmModal'
 import { EmptyState } from '../components/EmptyState'
+import { LoadingOverlay } from '../components/LoadingOverlay'
 import { ScreenGuide } from '../components/ScreenGuide'
 import type { MemberSummary, Role, UserStatus } from '../api/types'
 
@@ -100,17 +101,27 @@ export function MembersScreen() {
   >(null)
   const [rowError, setRowError] = useState<{ userId: number; message: string } | null>(null)
 
+  //첫 로드부터 데이터 도착까지 로딩 베일 표시(이중 클릭 방지) — 빈 상태 오인 방지
+  const [loading, setLoading] = useState(true)
+  //검색어만 디바운스(타이핑 대응) — 초기 로드·페이지 이동·근무 시점 변경은 즉시 조회
+  const [debouncedQuery, setDebouncedQuery] = useState(query)
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedQuery(query), 250)
+    return () => clearTimeout(id)
+  }, [query])
+
   const reload = useCallback(async () => {
+    setLoading(true)
     try {
       //날짜를 지정하면 그 날짜·시각의 근무자만(실효 스케줄 — 근무 인원으로 자연 축소되므로 비페이지),
       //아니면 텍스트 필터 + 페이지 조회(#9)
       if (searchDate && searchTime) {
-        const data = await tenantMemberApi.working(searchDate, searchTime, query)
+        const data = await tenantMemberApi.working(searchDate, searchTime, debouncedQuery)
         setMembers(data)
         setTotalPages(1)
         setTotalCount(data.length)
       } else {
-        const data = await tenantMemberApi.list({ q: query, page })
+        const data = await tenantMemberApi.list({ q: debouncedQuery, page })
         setMembers(data.items)
         setTotalPages(data.totalPages)
         setTotalCount(data.totalCount)
@@ -120,18 +131,20 @@ export function MembersScreen() {
       setListError(null)
     } catch (e) {
       setListError(e instanceof ApiError ? e.message : String(e))
+    } finally {
+      setLoading(false)
     }
-  }, [query, searchDate, searchTime, page])
+  }, [debouncedQuery, searchDate, searchTime, page])
 
   //검색 조건이 바뀌면 1페이지부터 다시
   useEffect(() => {
     setPage(1)
   }, [query, searchDate, searchTime])
 
-  //검색은 백엔드 필터(#6) — 입력 변화마다 디바운스로 재조회(대규모 인원 대비)
+  //검색은 백엔드 필터(#6) — 검색어는 debouncedQuery로 이미 지연되므로 여기선 즉시 조회
+  //(과거엔 초기 로드에도 일괄 250ms 디바운스가 걸려 첫 표시가 그만큼 늦었다)
   useEffect(() => {
-    const id = setTimeout(() => { void reload() }, 250)
-    return () => clearTimeout(id)
+    void reload()
   }, [reload])
 
   useEffect(() => {
@@ -546,6 +559,7 @@ export function MembersScreen() {
       )}
 
       <div className="table-wrap">
+        <LoadingOverlay show={loading} label={t('LOADING')} />
         <table className="detail-table">
           <thead>
             <tr>
@@ -559,7 +573,7 @@ export function MembersScreen() {
             </tr>
           </thead>
           <tbody>
-            {members.length === 0 && (
+            {!loading && members.length === 0 && (
               <tr>
                 <td colSpan={7}><EmptyState>{t('EMPTY')}</EmptyState></td>
               </tr>

@@ -25,7 +25,7 @@ import com.attendance.pro.tenant.TenantDtos.BillingMethod;
 /**
  * 인당(seat) 과금 계산·청구서 서비스 — <b>등록 시점 일할계산</b>(seat-day proration).
  *
- * 정책(docs/billing-calculation.md §4 확정 v1):
+ * 정책(docs/design/billing-calculation.md §4 확정 v1):
  * <ul>
  *   <li>증원/무료→유료(업그레이드): 등록일 <b>다음 날부터</b> 월말까지 일할 과금(전환 당일 제외).</li>
  *   <li>감원/유료→무료(다운그레이드): <b>당월은 감액·환불 없음</b>, 감소분은 다음 달 1일부터 반영(비대칭).</li>

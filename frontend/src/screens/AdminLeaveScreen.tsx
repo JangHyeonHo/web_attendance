@@ -8,6 +8,7 @@ import { SelectField, TextField, TextAreaField, ModalSubject } from '../componen
 import { DateField } from '../components/DateField'
 import { SectionHead } from '../components/SectionHead'
 import { EmptyState } from '../components/EmptyState'
+import { LoadingOverlay } from '../components/LoadingOverlay'
 import { ScreenGuide } from '../components/ScreenGuide'
 import { formatLeaveAmount } from '../util/leaveFormat'
 import type {
@@ -82,13 +83,18 @@ function ApprovalsTab() {
   const [rejectTarget, setRejectTarget] = useState<LeaveRequestItem | null>(null)
   const [note, setNote] = useState('')
   const [rowError, setRowError] = useState<{ id: number; message: string } | null>(null)
+  //데이터 도착 전 로딩 베일(이중 클릭 방지)
+  const [loading, setLoading] = useState(true)
 
   const reload = useCallback(async () => {
+    setLoading(true)
     try {
       setPending(await tenantLeaveApi.pending())
       setError(null)
     } catch (e) {
       setError(e instanceof ApiError ? e.message : String(e))
+    } finally {
+      setLoading(false)
     }
   }, [])
 
@@ -111,10 +117,11 @@ function ApprovalsTab() {
   return (
     <>
       {error && <p className="error" role="alert">{error}</p>}
-      {pending.length === 0 ? (
+      {!loading && pending.length === 0 ? (
         <EmptyState>{t('NO_PENDING')}</EmptyState>
       ) : (
         <div className="table-wrap">
+          <LoadingOverlay show={loading} label={t('LOADING')} />
           <table className="detail-table">
             <thead>
               <tr>
@@ -195,8 +202,11 @@ function CancellationsTab() {
   //직접 취소 사유 모달
   const [cancelTarget, setCancelTarget] = useState<LeaveRequestItem | null>(null)
   const [cancelReason, setCancelReason] = useState('')
+  //데이터 도착 전 로딩 베일(이중 클릭 방지) — 두 목록을 한 번에 조회하므로 상태도 하나
+  const [loading, setLoading] = useState(true)
 
   const reload = useCallback(async () => {
+    setLoading(true)
     try {
       const [cr, ap] = await Promise.all([tenantLeaveApi.cancelRequests(), tenantLeaveApi.approved()])
       setRows(cr)
@@ -204,6 +214,8 @@ function CancellationsTab() {
       setError(null)
     } catch (e) {
       setError(e instanceof ApiError ? e.message : String(e))
+    } finally {
+      setLoading(false)
     }
   }, [])
 
@@ -231,10 +243,11 @@ function CancellationsTab() {
       {error && <p className="error" role="alert">{error}</p>}
 
       {/* 취소 신청 헤더는 바깥 TAB_CANCELS가 이미 표시하므로 중복 제거(#3) */}
-      {rows.length === 0 ? (
+      {!loading && rows.length === 0 ? (
         <EmptyState>{t('NO_CANCELS')}</EmptyState>
       ) : (
         <div className="table-wrap">
+          <LoadingOverlay show={loading} label={t('LOADING')} />
           <table className="detail-table">
             <thead>
               <tr>
@@ -288,10 +301,11 @@ function CancellationsTab() {
 
       {/* 현재/예정 휴가자 — 당일이라 멤버가 취소 신청을 못 만든 경우에도 관리자가 직접 취소(#11) */}
       <SectionHead title={t('CURRENT_LEAVES')} spaced />
-      {approved.length === 0 ? (
+      {!loading && approved.length === 0 ? (
         <EmptyState>{t('NO_CURRENT_LEAVES')}</EmptyState>
       ) : (
         <div className="table-wrap">
+          <LoadingOverlay show={loading} label={t('LOADING')} />
           <table className="detail-table">
             <thead>
               <tr>
@@ -371,13 +385,18 @@ function MembersTab() {
   const [detail, setDetail] = useState<MemberLeaveDetail | null>(null)
   const [bulkOpen, setBulkOpen] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
+  //데이터 도착 전 로딩 베일(이중 클릭 방지)
+  const [loading, setLoading] = useState(true)
 
   const reload = useCallback(async () => {
+    setLoading(true)
     try {
       setMembers(await tenantLeaveApi.members())
       setError(null)
     } catch (e) {
       setError(e instanceof ApiError ? e.message : String(e))
+    } finally {
+      setLoading(false)
     }
   }, [])
 
@@ -413,10 +432,11 @@ function MembersTab() {
         </div>
       )}
       {error && <p className="error" role="alert">{error}</p>}
-      {members.length === 0 ? (
+      {!loading && members.length === 0 ? (
         <EmptyState>{t('EMPTY')}</EmptyState>
       ) : (
         <div className="table-wrap">
+          <LoadingOverlay show={loading} label={t('LOADING')} />
           <table className="detail-table">
             <thead>
               <tr>
@@ -779,13 +799,18 @@ function TypesTab() {
   const [types, setTypes] = useState<LeaveType[]>([])
   const [error, setError] = useState<string | null>(null)
   const [edit, setEdit] = useState<LeaveType | 'new' | null>(null)
+  //데이터 도착 전 로딩 베일(이중 클릭 방지)
+  const [loading, setLoading] = useState(true)
 
   const reload = useCallback(async () => {
+    setLoading(true)
     try {
       setTypes(await tenantLeaveApi.types())
       setError(null)
     } catch (e) {
       setError(e instanceof ApiError ? e.message : String(e))
+    } finally {
+      setLoading(false)
     }
   }, [])
 
@@ -802,6 +827,7 @@ function TypesTab() {
       </div>
       {error && <p className="error" role="alert">{error}</p>}
       <div className="table-wrap">
+        <LoadingOverlay show={loading} label={t('LOADING')} />
         <table className="detail-table">
           <thead>
             <tr>

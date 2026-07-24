@@ -299,6 +299,58 @@ class AttendanceServiceTest {
 
             assertThat(insertedStatus[0]).isEqualTo(AttendanceStamp.STATUS_BREAK_ENDED);
         }
+
+    }
+
+    @Nested
+    @DisplayName("자동 스탬프 비고")
+    class AutoNote {
+
+        @Test
+        @DisplayName("본인 AUTO 스탬프의 비고만 갱신된다(trim 적용)")
+        void updatesNote() {
+            when(attendanceMapper.findAutoById(TENANT_ID, USER_ID, 7L))
+                    .thenReturn(stamp(AttendanceType.OFF_WORK, AttendanceStamp.STATUS_ACTIVE, LocalDateTime.now()));
+
+            service.updateAutoNote(TENANT_ID, USER_ID, 7L, "  실수로 중복 등록  ");
+
+            verify(attendanceMapper).updateAutoNote(TENANT_ID, USER_ID, 7L, "실수로 중복 등록");
+        }
+
+        @Test
+        @DisplayName("공백뿐인 비고는 null로 저장된다(비고 삭제)")
+        void blankBecomesNull() {
+            when(attendanceMapper.findAutoById(TENANT_ID, USER_ID, 7L))
+                    .thenReturn(stamp(AttendanceType.OFF_WORK, AttendanceStamp.STATUS_ACTIVE, LocalDateTime.now()));
+
+            service.updateAutoNote(TENANT_ID, USER_ID, 7L, "   ");
+
+            verify(attendanceMapper).updateAutoNote(TENANT_ID, USER_ID, 7L, null);
+        }
+
+        @Test
+        @DisplayName("대상이 없으면(타인·MANUAL·미존재) 404")
+        void notFound() {
+            when(attendanceMapper.findAutoById(TENANT_ID, USER_ID, 99L)).thenReturn(null);
+
+            assertThatThrownBy(() -> service.updateAutoNote(TENANT_ID, USER_ID, 99L, "x"))
+                    .isInstanceOf(ApiException.class)
+                    .satisfies(e -> assertThat(((ApiException) e).getCode()).isEqualTo("STAMP_NOT_FOUND"));
+        }
+
+        @Test
+        @DisplayName("마감 승인된 월의 기록에는 비고를 쓸 수 없다")
+        void closedMonthRejected() {
+            LocalDateTime at = LocalDateTime.now();
+            when(attendanceMapper.findAutoById(TENANT_ID, USER_ID, 7L))
+                    .thenReturn(stamp(AttendanceType.OFF_WORK, AttendanceStamp.STATUS_ACTIVE, at));
+            when(closeMapper.findStatus(TENANT_ID, USER_ID, at.getYear(), at.getMonthValue()))
+                    .thenReturn("APPROVED");
+
+            assertThatThrownBy(() -> service.updateAutoNote(TENANT_ID, USER_ID, 7L, "x"))
+                    .isInstanceOf(ApiException.class)
+                    .satisfies(e -> assertThat(((ApiException) e).getCode()).isEqualTo("MONTH_CLOSED"));
+        }
     }
 
     @Nested

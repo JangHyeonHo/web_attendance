@@ -1,6 +1,6 @@
 # 이메일 온보딩 · 비밀번호 재설정 상세 설계 — Phase 3
 
-- 상위 문서: [plan-saas-multitenancy.md](../plan-saas-multitenancy.md) / 결정 기록: [patch-notes-2026-07-saas.md](../patch-notes-2026-07-saas.md)(D10~D20)
+- 상위 문서: [plan-saas-multitenancy.md](../history/plan-saas-multitenancy.md) / 결정 기록: [patch-notes-2026-07-saas.md](../history/patch-notes/patch-notes-2026-07-saas.md)(D10~D20)
 - 범위: Phase 2의 **초기 비밀번호 1회 표시 방식(D11)을 이메일 초대로 대체**하고, 같은 토큰 메커니즘 위에
   **비밀번호 찾기**와 **멤버 삭제(오송신 수습)** 를 얹는다 — backend-api.md §1.4의 "Phase 3 이연" 항목의 확정.
 - 확정 전제(소유자 확정):

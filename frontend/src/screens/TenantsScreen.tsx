@@ -5,6 +5,7 @@ import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { Modal } from '../components/Modal'
 import { ConfirmModal } from '../components/ConfirmModal'
+import { LoadingOverlay } from '../components/LoadingOverlay'
 import { ScreenGuide } from '../components/ScreenGuide'
 import { TenantDetailScreen } from './TenantDetailScreen'
 import type { ProfileCountry, TenantCreateResponse, TenantStatus, TenantSummary } from '../api/types'
@@ -53,12 +54,18 @@ export function TenantsScreen() {
   /** 관리자 초대 재발송 성공 안내(행 아래 인라인) */
   const [rowNotice, setRowNotice] = useState<{ tenantId: number; message: string } | null>(null)
 
+  //데이터 도착 전 로딩 베일(이중 클릭 방지)
+  const [loading, setLoading] = useState(true)
+
   const reload = useCallback(async () => {
+    setLoading(true)
     try {
       setTenants(await systemTenantApi.list())
       setListError(null)
     } catch (e) {
       setListError(e instanceof ApiError ? e.message : String(e))
+    } finally {
+      setLoading(false)
     }
   }, [])
 
@@ -237,6 +244,7 @@ export function TenantsScreen() {
       )}
 
       <div className="table-wrap">
+        <LoadingOverlay show={loading} label={t('LOADING')} />
         <table className="detail-table">
           <thead>
             <tr>

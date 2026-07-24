@@ -305,6 +305,9 @@ export const attendanceApi = {
   /** 수동 정정 수정(잘못 입력 복구 — 시각/구분/사유 변경) — 본인 MANUAL 행만(자동 기록은 불변) */
   manualUpdate: (attendanceId: number, request: ManualStampRequest) =>
     put<StampResponse>(`/api/v1/attendance/manual/${attendanceId}`, request),
+  /** 자동 스탬프 비고 작성/수정 — 시각·구분·위치는 불변, 비고만(본인 AUTO 행만) */
+  noteUpdate: (attendanceId: number, note: string | null) =>
+    put<void>(`/api/v1/attendance/${attendanceId}/note`, { note }),
 }
 
 /** 멤버 휴가 — 본인 잔여·신청·취소 (/attendance/leave) */

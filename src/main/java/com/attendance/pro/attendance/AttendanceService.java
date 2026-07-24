@@ -135,6 +135,7 @@ public class AttendanceService {
             }
         }
         LocalDateTime now = LocalDateTime.now();
+        //비고는 등록 시 받지 않는다(출퇴근 순간의 입력 부담 배제) — 일자 상세의 사후 작성(updateAutoNote)으로만
         attendanceMapper.insert(tenantId, userId, request.type().code(), status, now,
                 request.latitude(), request.longitude(), request.placeInfo(), request.terminal(),
                 StampSource.AUTO, null, null);
@@ -219,6 +220,31 @@ public class AttendanceService {
         log.info("manual attendance updated: userId={}, attendanceId={}, type={}, at={}",
                 userId, attendanceId, request.type(), validated.stampedAt());
         return manualResponse("attendance.manual.updated", request.type(), validated.stampedAt());
+    }
+
+    /**
+     * 자동 스탬프 비고 작성/수정(본인 + AUTO 행만).
+     * 자동 기록의 시각·구분·위치는 증거로서 불변 — 비고(reason_text)만 남긴다
+     * (중복 등록 해명·특근 사유 등). 마감 승인된 월은 불가(정정과 동일한 잠금 규칙).
+     */
+    @Transactional
+    public void updateAutoNote(long tenantId, long userId, long attendanceId, String note) {
+        AttendanceStamp existing = attendanceMapper.findAutoById(tenantId, userId, attendanceId);
+        if (existing == null) {
+            throw ApiException.notFound("STAMP_NOT_FOUND", "attendance.stamp.not-found");
+        }
+        requireMonthOpen(tenantId, userId, existing.stampedAt().toLocalDate());
+        attendanceMapper.updateAutoNote(tenantId, userId, attendanceId, normalizeNote(note));
+        log.info("attendance note updated: userId={}, attendanceId={}", userId, attendanceId);
+    }
+
+    /** 비고 정규화 — 공백뿐이면 null(빈 비고를 저장하지 않는다) */
+    private String normalizeNote(String note) {
+        if (note == null) {
+            return null;
+        }
+        String trimmed = note.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     /** 검증 통과한 정정 입력(등록/수정 공통 규칙 — manual-attendance §3) */

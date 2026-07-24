@@ -8,6 +8,7 @@ import { DateField } from '../components/DateField'
 import { IconButton } from '../components/IconButton'
 import { ConfirmModal } from '../components/ConfirmModal'
 import { EmptyState } from '../components/EmptyState'
+import { LoadingOverlay } from '../components/LoadingOverlay'
 import { ScreenGuide } from '../components/ScreenGuide'
 import { localeOf } from '../i18n/lang'
 import type { HolidayEntry, HolidaySyncResult } from '../api/types'
@@ -42,6 +43,8 @@ export function HolidaysScreen() {
   const [year, setYear] = useState(currentYear)
   const [holidays, setHolidays] = useState<HolidayEntry[]>([])
   const [listError, setListError] = useState<string | null>(null)
+  //데이터 도착 전 로딩 베일(이중 클릭 방지) — 빈 상태 오인 방지
+  const [loading, setLoading] = useState(true)
 
   //동기화
   const [syncConfirm, setSyncConfirm] = useState(false)
@@ -90,11 +93,14 @@ export function HolidaysScreen() {
   }, [lang])
 
   const reload = useCallback(async () => {
+    setLoading(true)
     try {
       setHolidays(await tenantHolidayApi.list(year))
       setListError(null)
     } catch (e) {
       setListError(e instanceof ApiError ? e.message : String(e))
+    } finally {
+      setLoading(false)
     }
   }, [year])
 
@@ -320,10 +326,11 @@ export function HolidaysScreen() {
       {listError && <p className="error" role="alert">{listError}</p>}
       {rowError && <p className="error" role="alert">{rowError}</p>}
 
-      {holidays.length === 0 && !listError ? (
+      {!loading && holidays.length === 0 && !listError ? (
         <EmptyState>{t('EMPTY')}</EmptyState>
       ) : (
         <div className="table-wrap">
+          <LoadingOverlay show={loading} label={t('LOADING')} />
           <table className="detail-table">
             <thead>
               <tr>

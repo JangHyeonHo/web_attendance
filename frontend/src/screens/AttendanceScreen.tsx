@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { attendanceApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
-import type { AttendanceType, CheckRequest, StatusResponse } from '../api/types'
+import type { AttendanceType, CheckRequest, ConfirmCode, StatusResponse, WorkStatus } from '../api/types'
 import { DetailsScreen } from './DetailsScreen'
 import { Modal } from '../components/Modal'
 import { ConfirmModal } from '../components/ConfirmModal'
@@ -17,6 +17,26 @@ const TYPE_LABEL_KEYS: Record<AttendanceType, string> = {
 
 /** 스탬프 버튼 — 조퇴 폐지(Phase 5.2): 출근/퇴근/휴식 3버튼 */
 const STAMP_TYPES: AttendanceType[] = ['GO_TO_WORK', 'OFF_WORK', 'BREAK']
+
+/**
+ * 첫 등록 모달에 미리 표시할 중복 경고 — 서버 evaluate 판정과 대응.
+ * 서버 check가 같은 코드로 확인을 요구하면 2차 확인 모달을 생략한다(원스텝).
+ * 상태가 어긋나면(다른 기기에서 스탬프 등) 코드가 불일치 → 기존 2차 확인으로 폴백.
+ */
+function dupCodeFor(type: AttendanceType, status: WorkStatus | undefined): ConfirmCode | null {
+  if (type === 'OFF_WORK' && status === 'OFF_WORK_DONE') return 'ALREADY_OFF_WORK'
+  if (type === 'GO_TO_WORK' && status === 'WORKING') return 'ALREADY_WORKING'
+  if (type === 'GO_TO_WORK' && (status === 'OFF_WORK_DONE' || status === 'EARLY_DEPARTURE_DONE')) {
+    return 'RE_ATTEND'
+  }
+  return null
+}
+
+const DUP_HINT_KEYS: Partial<Record<ConfirmCode, string>> = {
+  ALREADY_OFF_WORK: 'ALREADY_OFF_HINT',
+  ALREADY_WORKING: 'ALREADY_WORK_HINT',
+  RE_ATTEND: 'RE_ATTEND_HINT',
+}
 
 /**
  * 상태에 따라 '지금 할 동작'을 주요 버튼(상단·채움)으로, 나머지 둘을 보조로 배치한다.
@@ -134,6 +154,8 @@ export function AttendanceScreen() {
       placeInfo: null,
       terminal: navigator.userAgent.slice(0, 100),
     }
+    //첫 모달에 표시한 중복 경고 — 서버가 같은 코드로 확인을 요구하면 원스텝 확정
+    const expectedDup = dupCodeFor(pending.type, status?.status)
     try {
       const check = await attendanceApi.check(request)
       if (!check.allowed) {
@@ -142,7 +164,12 @@ export function AttendanceScreen() {
         return
       }
       if (check.requiresConfirmation && check.token) {
-        //덮어쓰기/재출근: 사용자 확인 후 확정
+        if (check.code && check.code === expectedDup) {
+          //중복 경고를 이미 본 상태로 등록을 눌렀음 — 2차 확인 생략
+          await confirmStamp(request, check.token)
+          return
+        }
+        //예상 밖의 확인 요구(상태 어긋남 등) — 기존 2차 확인 모달로 폴백
         setConfirmation({ message: check.message ?? '', request, token: check.token })
         return
       }
@@ -233,6 +260,13 @@ export function AttendanceScreen() {
               {pending.longitude ?? '-'}
             </p>
             {pending.geoError && <p className="error">{pending.geoError}</p>}
+            {/* 비고는 여기서 받지 않는다(출퇴근 순간의 입력 부담 배제) — 일자 상세의 사후 작성으로만 */}
+            {/* 중복 등록 경고를 첫 모달에서 미리 안내 — 등록 시 2차 확인 없이 바로 확정 */}
+            {(() => {
+              const dup = dupCodeFor(pending.type, status?.status)
+              const key = dup ? DUP_HINT_KEYS[dup] : null
+              return key ? <p className="hint center">{t(key)}</p> : null
+            })()}
             <p>{t('CONFIRM_STAMP')}</p>
             <div className="btn-row">
               <button type="button" className="primary" onClick={() => void submit()}>

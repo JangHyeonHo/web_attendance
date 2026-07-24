@@ -1,6 +1,6 @@
 # 멀티테넌시 전환 테스트 계획서
 
-- 대상: [plan-saas-multitenancy.md](../plan-saas-multitenancy.md)의 Phase 1~2 구현
+- 대상: [plan-saas-multitenancy.md](../history/plan-saas-multitenancy.md)의 Phase 1~2 구현
 - 전제(확정): Pool 모델(격리는 테스트로 보장 — 최우선) / 3단계 role / 테넌트 코드 로그인 /
   멤버는 TENANT_ADMIN 등록제 / 기업·결제 정보 암호화+마스킹 / 마지막 관리자 보호 /
   SYSTEM_ADMIN은 출결 데이터 접근 불가

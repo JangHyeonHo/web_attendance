@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { mailTemplateApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
+import { LoadingOverlay } from '../components/LoadingOverlay'
 import { MailVarsTable } from '../components/MailVarsTable'
 import { MailPreview } from '../components/MailPreview'
 import { ScreenGuide } from '../components/ScreenGuide'
@@ -33,12 +34,18 @@ export function MailTemplatesScreen() {
   const [preview, setPreview] = useState<MailTemplatePreviewResponse | null>(null)
   const [busy, setBusy] = useState(false)
 
+  //데이터 도착 전 로딩 베일(이중 클릭 방지)
+  const [loading, setLoading] = useState(true)
+
   const reload = useCallback(async () => {
+    setLoading(true)
     try {
       setTemplates(await mailTemplateApi.list())
       setListError(null)
     } catch (e) {
       setListError(e instanceof ApiError ? e.message : String(e))
+    } finally {
+      setLoading(false)
     }
   }, [])
 
@@ -105,6 +112,7 @@ export function MailTemplatesScreen() {
       {listError && <p className="error" role="alert">{listError}</p>}
 
       <div className="table-wrap">
+      <LoadingOverlay show={loading} label={t('LOADING')} />
       <table className="detail-table">
         <thead>
           <tr>

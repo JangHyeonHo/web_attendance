@@ -6,7 +6,7 @@
   **두 개의 서로 다른 소유 주체·화면**으로 분리한다.
   - **(A) OPERATOR 계약 레코드** — 운영사(SaaS 제공자, `SYSTEM_ADMIN`)가 **고객사와의 계약**을 관리.
   - **(B) TENANT 셀프서비스 프로필** — 고객사 관리자(`TENANT_ADMIN`)가 **자기 회사의 청구/사업자 정보**를 직접 관리.
-- 이 문서는 `docs/plan-saas-multitenancy.md` §6-1(`tenant_profile`/`tenant_billing`)의 후속 상세화이며,
+- 이 문서는 `docs/history/plan-saas-multitenancy.md` §6-1(`tenant_profile`/`tenant_billing`)의 후속 상세화이며,
   기존 스키마의 "SYSTEM_ADMIN 전용" 덩어리를 A/B로 쪼개는 것이 핵심 변경이다. **코드 변경 없음(문서만).**
 
 ---
@@ -64,7 +64,7 @@
 
 - **소유/편집: `TENANT_ADMIN`(고객사)가 직접.** `SYSTEM_ADMIN`은 지원 목적 조회 가능(감사 로그 대상).
 - 세금계산서/適格請求書 **수신자 정보** + 청구 연락 + 결제수단 표시정보가 여기 산다.
-- 기존 `tenant_profile`(사업자정보) + `tenant_billing`의 청구이메일/결제표시 필드를 흡수. **카드 원본은 저장 안 함**(빌링키만, `docs/plan-saas-multitenancy.md` §6-1 3원칙 준수).
+- 기존 `tenant_profile`(사업자정보) + `tenant_billing`의 청구이메일/결제표시 필드를 흡수. **카드 원본은 저장 안 함**(빌링키만, `docs/history/plan-saas-multitenancy.md` §6-1 3원칙 준수).
 
 | 필드(영문) | 한국어 라벨 | 타입 | 소유/편집 | 필수 | 비고 |
 |-----------|-----------|------|----------|------|------|

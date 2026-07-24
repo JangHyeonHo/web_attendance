@@ -1,6 +1,6 @@
 # V4 데이터 마이그레이션 상세 계획 — 멀티테넌시 전환 (Pool 모델)
 
-- 상위 문서: [`docs/plan-saas-multitenancy.md`](../plan-saas-multitenancy.md) §3(데이터 모델), §6-1(기업/결제 정보)
+- 상위 문서: [`docs/history/plan-saas-multitenancy.md`](../history/plan-saas-multitenancy.md) §3(데이터 모델), §6-1(기업/결제 정보)
 - 대상 DB: MariaDB 10.11 / 11 (로컬은 `docker-compose.yml`의 `mariadb:11`, utf8mb4)
 - 마이그레이션 파일: `src/main/resources/db/migration/V4__multitenancy.sql` (본 문서 §2의 SQL 그대로)
 - 확정 전제: Pool 모델 · `UNIQUE(tenant_id, email)` · 3단계 `users.role` · `users.status`(ACTIVE/DISABLED 사용, PENDING은 스키마만 대비) · holiday 테넌트화 · `tenant_profile`/`tenant_billing`(암호화 컬럼 **VARCHAR — `v1:` 텍스트 암호문 저장**(교차 검증 최종 결정 D-C), 카드 원본 비저장) · 기존 데이터 `DEFAULT` 테넌트 backfill · V2 시드 관리자 SYSTEM_ADMIN 승격

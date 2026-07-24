@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { tenantMailTemplateApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
+import { LoadingOverlay } from '../components/LoadingOverlay'
 import { MailVarsTable } from '../components/MailVarsTable'
 import { MailPreview } from '../components/MailPreview'
 import { ScreenGuide } from '../components/ScreenGuide'
@@ -36,12 +37,18 @@ export function TenantMailTemplatesScreen() {
   const [confirmRevert, setConfirmRevert] = useState<EditTarget | null>(null)
   const [rowError, setRowError] = useState<string | null>(null)
 
+  //데이터 도착 전 로딩 베일(이중 클릭 방지)
+  const [loading, setLoading] = useState(true)
+
   const reload = useCallback(async () => {
+    setLoading(true)
     try {
       setTemplates(await tenantMailTemplateApi.list())
       setListError(null)
     } catch (e) {
       setListError(e instanceof ApiError ? e.message : String(e))
+    } finally {
+      setLoading(false)
     }
   }, [])
 
@@ -123,6 +130,7 @@ export function TenantMailTemplatesScreen() {
       {rowError && <p className="error" role="alert">{rowError}</p>}
 
       <div className="table-wrap">
+      <LoadingOverlay show={loading} label={t('LOADING')} />
       <table className="detail-table">
         <thead>
           <tr>
