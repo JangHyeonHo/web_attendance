@@ -506,6 +506,28 @@ textarea:hover {
   padding: 40px 36px;
 }
 
+/* 관리자 화면 상단 가이드(ScreenGuide) — 제목 아래 한 단락, 본문보다 작고 연하게.
+   제목과의 간격은 선행 요소별로 통일(제목 텍스트 아래 약 8px): 맨 h2(마진 6px) 뒤 +2,
+   툴바(마진 20px) 뒤 −12. 문구의 \n은 문장 단위 개행으로 렌더(pre-line). */
+.screen-guide {
+  margin: 0 0 22px;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--muted);
+  max-width: 68ch; /* 읽기 폭 제한 — 와이드 화면에서 한 줄로 늘어지지 않게 */
+  white-space: pre-line;
+  word-break: keep-all; /* 한국어가 낱말 중간에서 잘리지 않게(어절 단위 줄바꿈) */
+  overflow-wrap: break-word; /* 긴 연속 문자열(URL 등)만 예외적으로 절단 허용 */
+}
+
+h2 + .screen-guide {
+  margin-top: 2px;
+}
+
+.toolbar + .screen-guide {
+  margin-top: -12px;
+}
+
 .toolbar {
   display: flex;
   justify-content: space-between;
@@ -633,6 +655,8 @@ form button.primary {
   font-size: 12px;
   font-weight: 400;
   color: var(--muted);
+  word-break: keep-all; /* 설명문 공통 — 낱말 중간 절단 금지(.screen-guide와 동일 규칙) */
+  overflow-wrap: break-word;
 }
 
 .reenter-note {
@@ -1266,6 +1290,10 @@ button.ghost:hover {
 .modal-body .field-group > label:not([class]) {
   margin-bottom: 0;
 }
+/* 네이티브 select는 같은 패딩에서도 2px 크게(42px) 렌더됨 — 입력 규격(40px)으로 통일 */
+.modal-body label:not([class]) > select {
+  height: 40px;
+}
 /* 폼을 쓰지 않는 모달의 단독 주요 버튼도 폼 모달처럼 꽉 찬 바 형태로(예: 일괄 부여) */
 .modal-body > button.primary {
   width: 100%;
@@ -1464,6 +1492,13 @@ textarea.form-field-input {
 /* 미리보기/등록/취소를 한 줄에 같은 규격으로 — form button.primary의 width:100%·margin-top을 이 행에서만 무효화 */
 .btn-row button.primary {
   width: auto;
+  margin-top: 0;
+}
+
+/* 모달 폼 안의 버튼 행에도 같은 무효화 적용 — 위 규칙(0,2,1)이
+   .modal-body form button.primary(0,3,1)에 져서 primary만 24px 내려앉고
+   flex stretch로 옆 버튼이 64px로 늘어나던 문제(스탬프 등록/재출근 확인 모달) */
+.modal-body form .btn-row button.primary {
   margin-top: 0;
 }
 
@@ -3061,7 +3096,9 @@ form label .pw-field input {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  max-height: 240px;
+  /* 240px이면 일괄 부여 모달 총높이가 모달 상한(720px)을 26px 넘겨
+     하단 [수동 부여] 버튼이 잘려 보였음 — 상한 안에 들어오는 높이로 */
+  max-height: 200px;
   overflow-y: auto;
   margin: 0.5rem 0 0.75rem;
   padding: 0.5rem 0.75rem;

@@ -8,6 +8,7 @@ import { SelectField, TextField, TextAreaField, ModalSubject } from '../componen
 import { DateField } from '../components/DateField'
 import { SectionHead } from '../components/SectionHead'
 import { EmptyState } from '../components/EmptyState'
+import { ScreenGuide } from '../components/ScreenGuide'
 import { formatLeaveAmount } from '../util/leaveFormat'
 import type {
   LeaveRequestItem,
@@ -43,6 +44,7 @@ export function AdminLeaveScreen() {
       <div className="toolbar">
         <h2>{t('TITLE')}</h2>
       </div>
+      <ScreenGuide>{t('SCREEN_GUIDE')}</ScreenGuide>
       <div className="seg-toggle" role="tablist">
         <button className={tab === 'decide' ? 'active' : ''} onClick={() => setTab('decide')}>
           {t('TAB_DECIDE')}
@@ -549,12 +551,15 @@ function BulkGrantModal({
   return (
     <Modal title={t('BULK_GRANT')} onClose={onClose}>
       <div className="field-group">
-        <SelectField
-          value={String(leaveTypeId)}
-          options={types.map((ty) => ({ value: String(ty.leaveTypeId), label: ty.name }))}
-          onChange={(v) => setLeaveTypeId(Number(v))}
-          ariaLabel={t('LEAVE_TYPE')}
-        />
+        <label>
+          {t('LEAVE_TYPE')}
+          <SelectField
+            value={String(leaveTypeId)}
+            options={types.map((ty) => ({ value: String(ty.leaveTypeId), label: ty.name }))}
+            onChange={(v) => setLeaveTypeId(Number(v))}
+            ariaLabel={t('LEAVE_TYPE')}
+          />
+        </label>
         <label>
           {t('GRANT_MINUTES')}
           <input type="number" step="0.5" value={days} onChange={(e) => setDays(e.target.value)} />
@@ -727,12 +732,15 @@ function MemberDetailModal({
 
       <h4 className="section-head">{t('GRANT')}</h4>
       <div className="field-group">
-        <SelectField
-          value={String(grantTypeId)}
-          options={detail.balances.map((b) => ({ value: String(b.leaveTypeId), label: b.name }))}
-          onChange={(v) => setGrantTypeId(Number(v))}
-          ariaLabel={t('LEAVE_TYPE')}
-        />
+        <label>
+          {t('LEAVE_TYPE')}
+          <SelectField
+            value={String(grantTypeId)}
+            options={detail.balances.map((b) => ({ value: String(b.leaveTypeId), label: b.name }))}
+            onChange={(v) => setGrantTypeId(Number(v))}
+            ariaLabel={t('LEAVE_TYPE')}
+          />
+        </label>
         <label>
           {t('GRANT_MINUTES')}
           <input
@@ -742,12 +750,7 @@ function MemberDetailModal({
             onChange={(e) => setGrantDays(e.target.value)}
           />
         </label>
-        <input
-          placeholder={t('MEMO')}
-          value={memo}
-          onChange={(e) => setMemo(e.target.value)}
-          maxLength={200}
-        />
+        <TextField label={t('MEMO')} value={memo} onChange={setMemo} maxLength={200} />
         <button
           type="button"
           disabled={busy || grantTypeId === 0}

@@ -5,6 +5,7 @@ import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { Modal } from '../components/Modal'
 import { ConfirmModal } from '../components/ConfirmModal'
+import { ScreenGuide } from '../components/ScreenGuide'
 import { TenantDetailScreen } from './TenantDetailScreen'
 import type { ProfileCountry, TenantCreateResponse, TenantStatus, TenantSummary } from '../api/types'
 
@@ -143,6 +144,7 @@ export function TenantsScreen() {
           </button>
         </div>
       </div>
+      <ScreenGuide>{t('SCREEN_GUIDE')}</ScreenGuide>
 
       {listError && <p className="error" role="alert">{listError}</p>}
 

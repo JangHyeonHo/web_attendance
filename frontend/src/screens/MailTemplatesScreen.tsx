@@ -5,6 +5,7 @@ import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { MailVarsTable } from '../components/MailVarsTable'
 import { MailPreview } from '../components/MailPreview'
+import { ScreenGuide } from '../components/ScreenGuide'
 import type { MailTemplatePreviewResponse, MailTemplateResponse } from '../api/types'
 
 /** 편집 대상 식별(행 집합은 시드 6행 고정 — purpose×lang이 자연키) */
@@ -99,6 +100,7 @@ export function MailTemplatesScreen() {
   return (
     <div className="panel">
       <h2>{t('TPL_TITLE')}</h2>
+      <ScreenGuide>{t('SCREEN_GUIDE')}</ScreenGuide>
 
       {listError && <p className="error" role="alert">{listError}</p>}
 

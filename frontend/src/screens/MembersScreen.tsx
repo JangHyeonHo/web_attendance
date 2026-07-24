@@ -11,6 +11,7 @@ import { IconButton } from '../components/IconButton'
 import { Pagination } from '../components/Pagination'
 import { ConfirmModal } from '../components/ConfirmModal'
 import { EmptyState } from '../components/EmptyState'
+import { ScreenGuide } from '../components/ScreenGuide'
 import type { MemberSummary, Role, UserStatus } from '../api/types'
 
 const ROLE_LABEL_KEYS: Partial<Record<Role, string>> = {
@@ -317,6 +318,7 @@ export function MembersScreen() {
           </button>
         </div>
       </div>
+      <ScreenGuide>{t('SCREEN_GUIDE')}</ScreenGuide>
 
       {created && (
         <div className={`banner${created.mailSent ? '' : ' banner-error'}`} role="status">

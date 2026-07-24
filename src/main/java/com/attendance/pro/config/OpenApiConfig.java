@@ -31,7 +31,7 @@ public class OpenApiConfig {
     public OpenAPI openAPI() {
         //Info는 springdoc i18n(MessageSource) 해석 대상이 아니므로 3개 언어를 병기한다.
         return new OpenAPI().info(new Info()
-                .title("Web Attendance API")
+                .title("MT API")
                 .description("""
                         웹 출결 시스템 백엔드 API. 세션 쿠키 인증(`POST /api/v1/auth/login`). \
                         출결 등록은 체크 → 확정 2단계(토큰 + 변조 탐지). 언어는 Accept-Language 또는 navigation의 lang(KOR/ENG/JPN).

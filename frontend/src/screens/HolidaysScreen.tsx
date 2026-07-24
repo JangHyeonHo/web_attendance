@@ -8,6 +8,7 @@ import { DateField } from '../components/DateField'
 import { IconButton } from '../components/IconButton'
 import { ConfirmModal } from '../components/ConfirmModal'
 import { EmptyState } from '../components/EmptyState'
+import { ScreenGuide } from '../components/ScreenGuide'
 import { localeOf } from '../i18n/lang'
 import type { HolidayEntry, HolidaySyncResult } from '../api/types'
 
@@ -221,6 +222,7 @@ export function HolidaysScreen() {
           </button>
         </div>
       </div>
+      <ScreenGuide>{t('SCREEN_GUIDE')}</ScreenGuide>
 
       {syncConfirm && (
         <ConfirmModal
@@ -294,8 +296,9 @@ export function HolidaysScreen() {
             </label>
             <p className="hint">{t('RECURRING_HINT')}</p>
             {editError && <p className="error" role="alert">{editError}</p>}
+            {/* 수정 모달의 제출은 '수정' — 등록 모달과 라벨을 구분(행위 라벨) */}
             <button type="submit" className="primary" disabled={submitting}>
-              {t('SUBMIT')}
+              {t('EDIT')}
             </button>
           </form>
         </Modal>

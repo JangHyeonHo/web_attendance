@@ -17,6 +17,7 @@
 | `fields` — `TextField` `TextAreaField` `SelectField` `ModalSubject` | 폼 필드·모달 대상 표시 | 모든 입력엔 라벨 필수(1줄 고정). 서술형 입력은 TextArea. 모달의 대상 표시는 ModalSubject |
 | `DateField` / `TimeField` | 날짜·시각 선택(커스텀 팝오버) | 네이티브 date/time input 대신 항상 이것 |
 | `SectionHead` | 섹션 제목 + 안내문 슬롯 | 섹션 공통 안내는 제목 아래 hint 한 줄(행 반복 금지). 연속 섹션 2번째부터 `spaced`(인라인 margin 금지) |
+| `ScreenGuide` | 관리자 화면 상단 가이드(비개발자용 화면 소개) | 관리자(T/A) 화면 제목 아래 1개. 문구는 언어 마스터 `SCREEN_GUIDE` 키 — 실제 동작 확인 후 작성(추측 금지), **개행은 절 단위로 문구에 직접 지정**(자동 줄바꿈에 맡기지 않음) |
 | `EmptyState` | 빈 목록 표시 | 빈 결과 전용(로딩·잠금 안내는 대상 외). 내용 없는 컨테이너는 렌더링 자체를 생략 |
 | `Pagination` | 페이지 번호 방식 목록 이동 | 무한 증가 리스트는 필수(기본 20건/상한 100 — `PageResponse` 계약). 자연 상한 리스트는 근거를 주석으로 |
 | `PasswordInput` | 비밀번호 입력(표시 토글) | 비밀번호 입력 전부 |

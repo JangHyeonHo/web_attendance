@@ -4,6 +4,7 @@ import { languageApi, systemTenantApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { DateField } from '../components/DateField'
+import { ScreenGuide } from '../components/ScreenGuide'
 import type {
   BillingMethod,
   InvoiceEntry,
@@ -262,6 +263,7 @@ export function TenantDetailScreen({ tenantId, country }: { tenantId: number; co
 
   return (
     <div className="tenant-detail">
+      <ScreenGuide>{t('SCREEN_GUIDE')}</ScreenGuide>
       {/* ---- 기업 정보 카드 ---- */}
       <div className="panel">
         <div className="card-head">

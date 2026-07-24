@@ -359,8 +359,9 @@ export default function App() {
             <span aria-hidden="true">☰</span>
           </button>
         )}
+        {/* 가제 MT(미라이타임) — 정식 서비스명 확정 시 교체 */}
         <span className="brand" aria-hidden="true">
-          Web<em>Attendance</em>
+          M<em>T</em>
         </span>
         {!isMobile && <DesktopNav />}
         <div className="header-right">
