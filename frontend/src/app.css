@@ -506,6 +506,39 @@ textarea:hover {
   padding: 40px 36px;
 }
 
+/* 데이터 로딩 베일(LoadingOverlay) — 도착 전 상호작용 차단 + 스피너 */
+/* 초기 로드는 테이블이 헤더 1줄뿐이라 래퍼가 낮음 — 베일이 뜨는 동안은
+   최소 높이를 확보해 스피너가 헤더에 겹치지 않게 한다 */
+.table-wrap:has(> .loading-veil) {
+  min-height: 180px;
+}
+
+.loading-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.65);
+  border-radius: inherit;
+}
+
+.spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* 관리자 화면 상단 가이드(ScreenGuide) — 제목 아래 한 단락, 본문보다 작고 연하게.
    제목과의 간격은 선행 요소별로 통일(제목 텍스트 아래 약 8px): 맨 h2(마진 6px) 뒤 +2,
    툴바(마진 20px) 뒤 −12. 문구의 \n은 문장 단위 개행으로 렌더(pre-line). */
@@ -667,6 +700,7 @@ form button.primary {
 /* ---- 7. 테이블 ---- */
 
 .table-wrap {
+  position: relative; /* LoadingOverlay(로딩 베일)의 기준 컨테이너 */
   margin-top: 8px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);

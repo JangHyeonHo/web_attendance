@@ -20,6 +20,7 @@
 | `ScreenGuide` | 관리자 화면 상단 가이드(비개발자용 화면 소개) | 관리자(T/A) 화면 제목 아래 1개. 문구는 언어 마스터 `SCREEN_GUIDE` 키 — 실제 동작 확인 후 작성(추측 금지), **개행은 절 단위로 문구에 직접 지정**(자동 줄바꿈에 맡기지 않음) |
 | `EmptyState` | 빈 목록 표시 | 빈 결과 전용(로딩·잠금 안내는 대상 외). 내용 없는 컨테이너는 렌더링 자체를 생략 |
 | `Pagination` | 페이지 번호 방식 목록 이동 | 무한 증가 리스트는 필수(기본 20건/상한 100 — `PageResponse` 계약). 자연 상한 리스트는 근거를 주석으로 |
+| `LoadingOverlay` | 데이터 로딩 베일(스피너, 상호작용 차단) | 목록 도착 전 `.table-wrap` 위에. 로딩 중엔 EmptyState를 그리지 않는다(`!loading && 빈 목록` 분리). label=W999 `LOADING` |
 | `PasswordInput` | 비밀번호 입력(표시 토글) | 비밀번호 입력 전부 |
 | `Popover` | 앵커 기준 팝업 배치 | DateField/TimeField류의 내부 기반 |
 | `BottomSheet` / `BottomNav` | 모바일 시트·하단 탭 | 모바일 전용 내비/패널 |
