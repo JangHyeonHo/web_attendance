@@ -1266,6 +1266,10 @@ button.ghost:hover {
 .modal-body .field-group > label:not([class]) {
   margin-bottom: 0;
 }
+/* 네이티브 select는 같은 패딩에서도 2px 크게(42px) 렌더됨 — 입력 규격(40px)으로 통일 */
+.modal-body label:not([class]) > select {
+  height: 40px;
+}
 /* 폼을 쓰지 않는 모달의 단독 주요 버튼도 폼 모달처럼 꽉 찬 바 형태로(예: 일괄 부여) */
 .modal-body > button.primary {
   width: 100%;
@@ -1464,6 +1468,13 @@ textarea.form-field-input {
 /* 미리보기/등록/취소를 한 줄에 같은 규격으로 — form button.primary의 width:100%·margin-top을 이 행에서만 무효화 */
 .btn-row button.primary {
   width: auto;
+  margin-top: 0;
+}
+
+/* 모달 폼 안의 버튼 행에도 같은 무효화 적용 — 위 규칙(0,2,1)이
+   .modal-body form button.primary(0,3,1)에 져서 primary만 24px 내려앉고
+   flex stretch로 옆 버튼이 64px로 늘어나던 문제(스탬프 등록/재출근 확인 모달) */
+.modal-body form .btn-row button.primary {
   margin-top: 0;
 }
 
@@ -3061,7 +3072,9 @@ form label .pw-field input {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  max-height: 240px;
+  /* 240px이면 일괄 부여 모달 총높이가 모달 상한(720px)을 26px 넘겨
+     하단 [수동 부여] 버튼이 잘려 보였음 — 상한 안에 들어오는 높이로 */
+  max-height: 200px;
   overflow-y: auto;
   margin: 0.5rem 0 0.75rem;
   padding: 0.5rem 0.75rem;
