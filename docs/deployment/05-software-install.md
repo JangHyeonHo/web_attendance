@@ -1,6 +1,6 @@
-# 04. 소프트웨어 설치 + MariaDB 초기화
+# 05. 소프트웨어 설치 + MariaDB 초기화
 
-> 이전: [03. EC2 인스턴스](03-aws-ec2.md) · 다음: [05. 백엔드 서비스](05-backend-service.md) / [인덱스](README.md)
+> 이전: [04. EC2 인스턴스](04-aws-ec2.md) · 다음: [06. 백엔드 서비스](06-backend-service.md) / [인덱스](README.md)
 
 ## 스왑 만들기 (메모리 2GB 인스턴스라면 필수)
 

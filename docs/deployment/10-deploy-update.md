@@ -1,4 +1,4 @@
-# 09. 배포 갱신·롤백
+# 10. 배포 갱신·롤백
 
 > [인덱스](README.md)
 
@@ -42,5 +42,5 @@ sudo systemctl restart attendance
 ## 갱신 전 확인 습관
 
 - [ ] 새 마이그레이션 유무 확인: `git log --stat -- src/main/resources/db/migration | head`
-- [ ] 마이그레이션이 있으면: 직전 백업이 오늘 것인지 확인([10](10-backup-restore.md)) 후 갱신
-- [ ] 갱신 직후: [08](08-initial-setup.md)의 검증 시나리오 중 로그인·스탬프·조회 3개만 빠르게
+- [ ] 마이그레이션이 있으면: 직전 백업이 오늘 것인지 확인([11](11-backup-restore.md)) 후 갱신
+- [ ] 갱신 직후: [09](09-initial-setup.md)의 검증 시나리오 중 로그인·스탬프·조회 3개만 빠르게

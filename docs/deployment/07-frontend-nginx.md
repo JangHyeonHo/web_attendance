@@ -1,6 +1,6 @@
-# 06. 프론트 빌드·nginx 설정
+# 07. 프론트 빌드·nginx 설정
 
-> 이전: [05. 백엔드 서비스](05-backend-service.md) · 다음: [07. DNS·TLS](07-dns-tls.md) / [인덱스](README.md)
+> 이전: [06. 백엔드 서비스](06-backend-service.md) · 다음: [08. DNS·TLS](08-dns-tls.md) / [인덱스](README.md)
 
 ## 프론트 빌드·배치
 

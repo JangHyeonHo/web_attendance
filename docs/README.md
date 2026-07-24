@@ -15,7 +15,7 @@
 
 ## deployment/ — 구축·운영
 
-[deployment/README.md](deployment/README.md)에서 시작 — 구축 순서(01~08)·운영(09~14)·
+[deployment/README.md](deployment/README.md)에서 시작 — 구축 순서(01~09)·운영(10~15)·
 환경변수 레퍼런스·운영 서버 선택지 비교가 번호순으로 정리돼 있다.
 
 ## research/ — 조사·의사결정 대기

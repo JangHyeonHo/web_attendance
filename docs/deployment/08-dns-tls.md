@@ -1,9 +1,9 @@
-# 07. DNS·TLS (1단계 — 단일 도메인)
+# 08. DNS·TLS (1단계 — 단일 도메인)
 
-> 이전: [06. 프론트·nginx](06-frontend-nginx.md) · 다음: [08. 초기 설정](08-initial-setup.md) / [인덱스](README.md)
+> 이전: [07. 프론트·nginx](07-frontend-nginx.md) · 다음: [09. 초기 설정](09-initial-setup.md) / [인덱스](README.md)
 
 1단계는 **일반 인증서 하나로 단일 호스트만** 연다. 이 상태에서 로그인은 테넌트 코드 입력
-방식으로 동작한다. 테넌트 서브도메인(와일드카드)은 [12](12-tenant-subdomain.md)에서 확장한다.
+방식으로 동작한다. 테넌트 서브도메인(와일드카드)은 [13](13-tenant-subdomain.md)에서 확장한다.
 
 ## 도메인이 아직 없다면 (구매부터)
 

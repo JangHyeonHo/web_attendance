@@ -1,6 +1,6 @@
-# 14. 온디맨드 운용 — 테스트 날에만 켜기
+# 15. 온디맨드 운용 — 테스트 날에만 켜기
 
-> [인덱스](README.md) · 전제: [03. EC2](03-aws-ec2.md)에서 Elastic IP 없이 구축한 상태
+> [인덱스](README.md) · 전제: [04. EC2](04-aws-ec2.md)에서 Elastic IP 없이 구축한 상태
 
 테스트 날에만 서버를 켜서 비용을 최소화하는 운용 방식. 요금 동작과 켜고 끄는 절차,
 그리고 "켤 때마다 바뀌는 IP"를 DNS가 자동으로 따라가게 하는 설정을 다룬다.
@@ -35,7 +35,7 @@
 
 시작할 때마다 공인 IP가 바뀌므로, 부팅 시 서버가 스스로 Cloudflare에
 "내 새 IP는 이것"이라고 등록하게 한다. **도메인의 DNS를 Cloudflare(무료)에서 관리하는 것이 전제**
-([07](07-dns-tls.md)에서 Cloudflare를 권장한 이유가 이것이다).
+([08](08-dns-tls.md)에서 Cloudflare를 권장한 이유가 이것이다).
 
 ### (a) Cloudflare에서 준비물 2개
 
@@ -99,7 +99,7 @@ dig +short app.<도메인>   # 현재 공인 IP가 나오면 성공
 - **SSH 접속도 그때그때의 IP로**: 시작 후 콘솔의 퍼블릭 IPv4를 보고 접속하거나,
   DNS 반영 후 `ssh -i mt-dev-key.pem ubuntu@app.<도메인>`으로 접속하면 된다
 - **내 IP 변경으로 SSH가 막히면**: 보안 그룹의 SSH 소스가 "내 IP"라서다 —
-  콘솔에서 인바운드 규칙의 소스를 현재 IP로 갱신([03](03-aws-ec2.md) 3-6)
+  콘솔에서 인바운드 규칙의 소스를 현재 IP로 갱신([04](04-aws-ec2.md) 4-6)
 - **상시가동 전환 시**: Elastic IP 할당·연결 + 이 DDNS 서비스 비활성
   (`systemctl disable attendance-ddns`)만 하면 된다
 
