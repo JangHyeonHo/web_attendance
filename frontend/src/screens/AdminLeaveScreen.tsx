@@ -748,14 +748,7 @@ function MemberDetailModal({
             onChange={(e) => setGrantDays(e.target.value)}
           />
         </label>
-        <label>
-          {t('MEMO')}
-          <input
-            value={memo}
-            onChange={(e) => setMemo(e.target.value)}
-            maxLength={200}
-          />
-        </label>
+        <TextField label={t('MEMO')} value={memo} onChange={setMemo} maxLength={200} />
         <button
           type="button"
           disabled={busy || grantTypeId === 0}
