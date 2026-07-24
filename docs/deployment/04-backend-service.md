@@ -15,6 +15,21 @@ cd web_attendance && ./mvnw -q package -DskipTests
 sudo cp target/*.jar /opt/attendance/app.jar
 ```
 
+**비공개 레포라 clone에서 인증 오류가 나면** — 서버에 읽기 전용 열쇠(Deploy Key)를 등록한다:
+
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N ""   # 서버 안에서 키 생성
+cat ~/.ssh/id_ed25519.pub                            # 출력된 한 줄을 복사
+```
+
+GitHub에서: 레포 → Settings → Deploy keys → **Add deploy key** → 복사한 내용 붙여넣기
+(Allow write access는 **체크하지 않는다** — 서버는 읽기만). 그 후 SSH 주소로 clone:
+
+```bash
+git clone git@github.com:<소유자>/web_attendance.git web_attendance
+# 처음 접속 시 github.com fingerprint 질문 → yes
+```
+
 ## 환경변수 파일
 
 `/etc/attendance/attendance.env` — **root 소유, chmod 600** (암호화 키·DB 비밀번호가 들어간다):
