@@ -3,6 +3,7 @@ import { adminAuditApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { EmptyState } from '../components/EmptyState'
+import { ScreenGuide } from '../components/ScreenGuide'
 import type { AuditLogEntry } from '../api/types'
 
 type Filter = '' | 'AUTH' | 'ERROR'
@@ -54,6 +55,7 @@ export function AuditLogScreen() {
           <button onClick={() => void reload()}>{t('REFRESH')}</button>
         </div>
       </div>
+      <ScreenGuide>{t('SCREEN_GUIDE')}</ScreenGuide>
 
       {error && <p className="error" role="alert">{error}</p>}
 

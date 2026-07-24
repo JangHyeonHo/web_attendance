@@ -7,7 +7,9 @@ import { localeOf } from '../i18n/lang'
 import { Modal } from '../components/Modal'
 import { TextAreaField, ModalSubject, SelectField } from '../components/fields'
 import { SectionHead } from '../components/SectionHead'
+import { ConfirmModal } from '../components/ConfirmModal'
 import { EmptyState } from '../components/EmptyState'
+import { ScreenGuide } from '../components/ScreenGuide'
 import type { PayrollSettlement, PendingCloseResponse } from '../api/types'
 
 //기본 조회 월 = 지난달(가장 최근에 마감이 일어났을 달)
@@ -106,9 +108,12 @@ export function AttendanceCloseAdminScreen() {
     }
   }
 
-  //마감 취소 — 승인된 마감을 열린 상태로 되돌린다(#11). 확인 후 실행.
+  //마감 취소 — 승인된 마감을 열린 상태로 되돌린다(#11).
+  //확인은 ConfirmModal 경유(window.confirm은 언어 마스터를 못 쓰므로 미사용 — A001과 동일 규칙)
+  const [reopenTarget, setReopenTarget] = useState<PendingCloseResponse | null>(null)
+
   async function reopen(r: PendingCloseResponse) {
-    if (!window.confirm(t('CLOSE_REOPEN_CONFIRM'))) return
+    setReopenTarget(null)
     setBusy(true)
     setError(null)
     try {
@@ -145,7 +150,7 @@ export function AttendanceCloseAdminScreen() {
                 </button>
               </>
             ) : (
-              <button className="danger" disabled={busy} onClick={() => void reopen(r)}>
+              <button className="danger" disabled={busy} onClick={() => setReopenTarget(r)}>
                 {t('CLOSE_REOPEN')}
               </button>
             )}
@@ -179,7 +184,7 @@ export function AttendanceCloseAdminScreen() {
   return (
     <div className="panel">
       <h2>{t('CLOSE_ADMIN_TITLE')}</h2>
-      <p className="muted">{t('CLOSE_ADMIN_SUB')}</p>
+      <ScreenGuide>{t('SCREEN_GUIDE')}</ScreenGuide>
       {error && <p className="error" role="alert">{error}</p>}
 
       {/* 결재 대기 — REQUESTED만(상시 소수) */}
@@ -252,6 +257,22 @@ export function AttendanceCloseAdminScreen() {
             <button onClick={() => setRejecting(null)}>{commonT('CANCEL')}</button>
           </div>
         </Modal>
+      )}
+
+      {/* 마감 해제 확인 — 승인 취소는 파괴적 조작이라 ConfirmModal 경유 */}
+      {reopenTarget && (
+        <ConfirmModal
+          title={t('CLOSE_REOPEN')}
+          subject={reopenTarget.userName}
+          secondary={`${reopenTarget.year}. ${String(reopenTarget.month).padStart(2, '0')}`}
+          hint={t('CLOSE_REOPEN_CONFIRM')}
+          danger
+          busy={busy}
+          confirmLabel={t('CLOSE_REOPEN')}
+          cancelLabel={commonT('CANCEL')}
+          onConfirm={() => void reopen(reopenTarget)}
+          onClose={() => setReopenTarget(null)}
+        />
       )}
     </div>
   )

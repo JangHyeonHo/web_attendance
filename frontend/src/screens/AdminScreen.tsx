@@ -4,6 +4,7 @@ import { adminUiThemeApi, languageApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { Modal } from '../components/Modal'
+import { ScreenGuide } from '../components/ScreenGuide'
 import type { Lang, LanguageEntry, UiThemeSetting } from '../api/types'
 
 const LANGS: Lang[] = ['KOR', 'ENG', 'JPN']
@@ -97,6 +98,7 @@ export function AdminScreen() {
   return (
     <>
       <div className="panel">
+        <ScreenGuide>{t('SCREEN_GUIDE')}</ScreenGuide>
         <h2>{t('THEME_TITLE')}</h2>
         <p className="muted">{t('THEME_DESC')}</p>
         <div className="theme-options" role="radiogroup" aria-label={t('THEME_TITLE')}>

@@ -5,6 +5,7 @@ import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { SelectField } from '../components/fields'
 import { SectionHead } from '../components/SectionHead'
+import { ScreenGuide } from '../components/ScreenGuide'
 import type {
   BillingMethod,
   ContractSummaryResponse,
@@ -59,7 +60,7 @@ export function CompanyInfoScreen() {
   return (
     <div className="panel">
       <h2>{t('COMPANY_INFO_TITLE')}</h2>
-      <p className="muted">{t('COMPANY_INFO_NOTE')}</p>
+      <ScreenGuide>{t('SCREEN_GUIDE')}</ScreenGuide>
       <BusinessProfileSection />
       <PaymentSection />
       <ContractSection />

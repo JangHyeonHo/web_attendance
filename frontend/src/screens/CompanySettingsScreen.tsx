@@ -4,6 +4,7 @@ import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { TimeField } from '../components/fields'
 import { SectionHead } from '../components/SectionHead'
+import { ScreenGuide } from '../components/ScreenGuide'
 import { localeOf } from '../i18n/lang'
 import type { ReportSetting, DefaultScheduleDay } from '../api/types'
 
@@ -16,7 +17,7 @@ export function CompanySettingsScreen() {
   return (
     <div className="panel">
       <h2>{t('COMPANY_SETTINGS_TITLE')}</h2>
-      <p className="muted">{t('COMPANY_SETTINGS_NOTE')}</p>
+      <ScreenGuide>{t('SCREEN_GUIDE')}</ScreenGuide>
       <DefaultScheduleSection />
       <ReportSettingSection />
     </div>

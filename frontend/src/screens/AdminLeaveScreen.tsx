@@ -8,6 +8,7 @@ import { SelectField, TextField, TextAreaField, ModalSubject } from '../componen
 import { DateField } from '../components/DateField'
 import { SectionHead } from '../components/SectionHead'
 import { EmptyState } from '../components/EmptyState'
+import { ScreenGuide } from '../components/ScreenGuide'
 import { formatLeaveAmount } from '../util/leaveFormat'
 import type {
   LeaveRequestItem,
@@ -43,6 +44,7 @@ export function AdminLeaveScreen() {
       <div className="toolbar">
         <h2>{t('TITLE')}</h2>
       </div>
+      <ScreenGuide>{t('SCREEN_GUIDE')}</ScreenGuide>
       <div className="seg-toggle" role="tablist">
         <button className={tab === 'decide' ? 'active' : ''} onClick={() => setTab('decide')}>
           {t('TAB_DECIDE')}

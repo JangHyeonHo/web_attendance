@@ -8,6 +8,7 @@ import { DateField } from '../components/DateField'
 import { IconButton } from '../components/IconButton'
 import { ConfirmModal } from '../components/ConfirmModal'
 import { EmptyState } from '../components/EmptyState'
+import { ScreenGuide } from '../components/ScreenGuide'
 import { localeOf } from '../i18n/lang'
 import type { HolidayEntry, HolidaySyncResult } from '../api/types'
 
@@ -221,6 +222,7 @@ export function HolidaysScreen() {
           </button>
         </div>
       </div>
+      <ScreenGuide>{t('SCREEN_GUIDE')}</ScreenGuide>
 
       {syncConfirm && (
         <ConfirmModal

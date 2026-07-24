@@ -5,6 +5,7 @@ import { useApp } from '../app/AppContext'
 import { SelectField } from '../components/fields'
 import { EmptyState } from '../components/EmptyState'
 import { InvoiceDocument } from '../components/InvoiceDocument'
+import { ScreenGuide } from '../components/ScreenGuide'
 import type { InvoiceEntry, TenantProfileResponse } from '../api/types'
 
 /**
@@ -55,7 +56,8 @@ export function BillingScreen() {
         </div>
       </div>
 
-      {/* 결제/회사 정보 등록은 별도 '회사 정보' 화면으로 분리 예정(#14) — 청구서는 내역만 */}
+      <ScreenGuide>{t('SCREEN_GUIDE')}</ScreenGuide>
+      {/* 요금 계산 규칙 안내(무료 인원·일할 계산) — 화면 가이드와 별도 존치 */}
       <p className="muted">{t('NOTE')}</p>
       {error && <p className="error" role="alert">{error}</p>}
 

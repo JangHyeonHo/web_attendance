@@ -5,6 +5,7 @@ import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { MailVarsTable } from '../components/MailVarsTable'
 import { MailPreview } from '../components/MailPreview'
+import { ScreenGuide } from '../components/ScreenGuide'
 import type { MailTemplatePreviewResponse, TenantMailTemplateResponse } from '../api/types'
 
 interface EditTarget {
@@ -116,6 +117,7 @@ export function TenantMailTemplatesScreen() {
   return (
     <div className="panel">
       <h2>{t('TPL_TITLE')}</h2>
+      <ScreenGuide>{t('SCREEN_GUIDE')}</ScreenGuide>
 
       {listError && <p className="error" role="alert">{listError}</p>}
       {rowError && <p className="error" role="alert">{rowError}</p>}
