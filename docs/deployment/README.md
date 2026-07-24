@@ -30,6 +30,7 @@
 | 11 | [security-checklist.md](11-security-checklist.md) | 공개 전·정기 보안 점검 목록 |
 | 12 | [tenant-subdomain.md](12-tenant-subdomain.md) | 테넌트 서브도메인 켜기(와일드카드 DNS/TLS — 2단계 확장) |
 | 13 | [test-operation-policy.md](13-test-operation-policy.md) | 테스트 서버 운영 정책(실판매 없음 고지·데이터 취급) |
+| 14 | [on-demand.md](14-on-demand.md) | 온디맨드 운용 — 테스트 날에만 켜기(요금 동작·시작/정지·DNS 자동 갱신) |
 
 ## 참조
 
