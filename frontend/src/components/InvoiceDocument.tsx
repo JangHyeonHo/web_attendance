@@ -69,7 +69,7 @@ export function InvoiceDocument({
       <section className="inv-parties">
         <div className="inv-party">
           <span className="inv-party-label">{t('INV_SUPPLIER')}</span>
-          <strong>WebAttendance</strong>
+          <strong>MT</strong>
         </div>
         <div className="inv-party">
           <span className="inv-party-label">{t('INV_BILL_TO')}</span>

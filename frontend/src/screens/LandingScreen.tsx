@@ -11,7 +11,7 @@ export function LandingScreen() {
   const contactEmail = t('CONTACT_EMAIL')
   //문의 메일 주소는 언어 마스터 키(CONTACT_EMAIL)로 관리 — 하드코딩 금지
   const mailtoHref = `mailto:${contactEmail}?subject=${encodeURIComponent(
-    `[Web Attendance] ${t('LANDING_CTA_CONTACT')}`,
+    `[MT] ${t('LANDING_CTA_CONTACT')}`,
   )}`
 
   //방어 분기: 로그인 상태로 랜딩이 렌더되면 주 CTA를 출결 화면 이동으로 대체(헤더 ATTEND 키 재사용)

@@ -1,4 +1,4 @@
-# web_attendance — 웹 출결 SaaS
+# MT — 웹 출결 SaaS (가제 · 레포: web_attendance)
 
 Spring Boot 4 + MyBatis + **MariaDB** 기반의 **멀티테넌트(SaaS)** 웹 출결(근태) 관리 시스템.
 

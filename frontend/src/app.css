@@ -516,6 +516,8 @@ textarea:hover {
   color: var(--muted);
   max-width: 68ch; /* 읽기 폭 제한 — 와이드 화면에서 한 줄로 늘어지지 않게 */
   white-space: pre-line;
+  word-break: keep-all; /* 한국어가 낱말 중간에서 잘리지 않게(어절 단위 줄바꿈) */
+  overflow-wrap: break-word; /* 긴 연속 문자열(URL 등)만 예외적으로 절단 허용 */
 }
 
 h2 + .screen-guide {
@@ -653,6 +655,8 @@ form button.primary {
   font-size: 12px;
   font-weight: 400;
   color: var(--muted);
+  word-break: keep-all; /* 설명문 공통 — 낱말 중간 절단 금지(.screen-guide와 동일 규칙) */
+  overflow-wrap: break-word;
 }
 
 .reenter-note {
