@@ -399,8 +399,6 @@ export interface CheckRequest {
   longitude?: number | null
   placeInfo?: string | null
   terminal?: string | null
-  /** 비고(선택) — 특근 사유·중복 등록 해명 등, 스탬프와 함께 저장 */
-  note?: string | null
 }
 
 export interface CheckResponse {

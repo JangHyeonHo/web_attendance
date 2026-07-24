@@ -23,8 +23,7 @@ public final class AttendanceDtos {
             @Schema(description = "schema.field.latitude", example = "37.5665000") Double latitude,
             @Schema(description = "schema.field.longitude", example = "126.9780000") Double longitude,
             @Schema(description = "schema.field.place-info", example = "서울시 중구") @Size(max = 200) String placeInfo,
-            @Schema(description = "schema.field.terminal", example = "Chrome/Windows") @Size(max = 100) String terminal,
-            @Schema(description = "schema.field.stamp-note", example = "고객 대응으로 특근") @Size(max = 200) String note) {
+            @Schema(description = "schema.field.terminal", example = "Chrome/Windows") @Size(max = 100) String terminal) {
     }
 
     @Schema(description = "schema.check-response")
@@ -55,11 +54,10 @@ public final class AttendanceDtos {
             @Schema(description = "schema.field.latitude", example = "37.5665000") Double latitude,
             @Schema(description = "schema.field.longitude", example = "126.9780000") Double longitude,
             @Schema(description = "schema.field.place-info", example = "서울시 중구") @Size(max = 200) String placeInfo,
-            @Schema(description = "schema.field.terminal", example = "Chrome/Windows") @Size(max = 100) String terminal,
-            @Schema(description = "schema.field.stamp-note", example = "고객 대응으로 특근") @Size(max = 200) String note) {
+            @Schema(description = "schema.field.terminal", example = "Chrome/Windows") @Size(max = 100) String terminal) {
 
         public CheckRequest toCheckRequest() {
-            return new CheckRequest(type, latitude, longitude, placeInfo, terminal, note);
+            return new CheckRequest(type, latitude, longitude, placeInfo, terminal);
         }
     }
 

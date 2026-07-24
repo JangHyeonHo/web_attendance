@@ -135,10 +135,10 @@ public class AttendanceService {
             }
         }
         LocalDateTime now = LocalDateTime.now();
-        //비고(선택) — 특근 사유·중복 등록 해명 등을 스탬프와 함께 남긴다(reason_code 없이 자유 텍스트)
+        //비고는 등록 시 받지 않는다(출퇴근 순간의 입력 부담 배제) — 일자 상세의 사후 작성(updateAutoNote)으로만
         attendanceMapper.insert(tenantId, userId, request.type().code(), status, now,
                 request.latitude(), request.longitude(), request.placeInfo(), request.terminal(),
-                StampSource.AUTO, null, normalizeNote(request.note()));
+                StampSource.AUTO, null, null);
         log.debug("attendance stamped: userId={}, type={}, status={}", userId, request.type(), status);
 
         String message = messages.get("attendance.stamp.success",
@@ -578,8 +578,7 @@ public class AttendanceService {
                 + "|" + orEmpty(request.latitude())
                 + "|" + orEmpty(request.longitude())
                 + "|" + orEmpty(request.placeInfo())
-                + "|" + orEmpty(request.terminal())
-                + "|" + orEmpty(request.note());
+                + "|" + orEmpty(request.terminal());
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-256");
             return HexFormat.of().formatHex(md.digest(canonical.getBytes(StandardCharsets.UTF_8)));

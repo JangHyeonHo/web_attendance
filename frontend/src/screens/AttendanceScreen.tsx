@@ -6,7 +6,6 @@ import type { AttendanceType, CheckRequest, ConfirmCode, StatusResponse, WorkSta
 import { DetailsScreen } from './DetailsScreen'
 import { Modal } from '../components/Modal'
 import { ConfirmModal } from '../components/ConfirmModal'
-import { TextField } from '../components/fields'
 import { localeOf } from '../i18n/lang'
 
 const TYPE_LABEL_KEYS: Record<AttendanceType, string> = {
@@ -79,8 +78,6 @@ export function AttendanceScreen() {
   const [status, setStatus] = useState<StatusResponse | null>((data as StatusResponse) ?? null)
   const [pending, setPending] = useState<PendingStamp | null>(null)
   const [confirmation, setConfirmation] = useState<PendingConfirmation | null>(null)
-  //비고(선택) — 특근 사유·중복 등록 해명 등, 스탬프와 함께 저장
-  const [note, setNote] = useState('')
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [showDetails, setShowDetails] = useState(true) //출결 조회 기본 표시(#9)
@@ -124,7 +121,6 @@ export function AttendanceScreen() {
     setMessage(null)
     setError(null)
     setConfirmation(null)
-    setNote('')
     if (!('geolocation' in navigator)) {
       setPending({ type, latitude: null, longitude: null, geoError: t('GEO_FAIL') })
       return
@@ -157,7 +153,6 @@ export function AttendanceScreen() {
       longitude: pending.longitude,
       placeInfo: null,
       terminal: navigator.userAgent.slice(0, 100),
-      note: note.trim() || null,
     }
     //첫 모달에 표시한 중복 경고 — 서버가 같은 코드로 확인을 요구하면 원스텝 확정
     const expectedDup = dupCodeFor(pending.type, status?.status)
@@ -192,7 +187,6 @@ export function AttendanceScreen() {
       setMessage(stamped.message)
       setPending(null)
       setConfirmation(null)
-      setNote('')
       setStampCount((n) => n + 1) //출결 조회 목록 즉시 갱신
       await refreshStatus()
     } catch (e) {
@@ -266,13 +260,7 @@ export function AttendanceScreen() {
               {pending.longitude ?? '-'}
             </p>
             {pending.geoError && <p className="error">{pending.geoError}</p>}
-            {/* 비고(선택) — 특근 사유·중복 등록 해명 등을 스탬프와 함께 남긴다 */}
-            <TextField
-              label={t('NOTE_LABEL')}
-              value={note}
-              onChange={setNote}
-              maxLength={200}
-            />
+            {/* 비고는 여기서 받지 않는다(출퇴근 순간의 입력 부담 배제) — 일자 상세의 사후 작성으로만 */}
             {/* 중복 등록 경고를 첫 모달에서 미리 안내 — 등록 시 2차 확인 없이 바로 확정 */}
             {(() => {
               const dup = dupCodeFor(pending.type, status?.status)
