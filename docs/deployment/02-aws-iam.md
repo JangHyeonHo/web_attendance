@@ -34,7 +34,9 @@
      → 콘솔 비밀번호: "사용자 지정 비밀번호"로 직접 설정
      → "다음 로그인 시 새 비밀번호 생성 필요"는 본인용이므로 **체크 해제**해도 된다
 4. 권한 설정: **"직접 정책 연결(Attach policies directly)"** →
-   검색창에 `AdministratorAccess` → 같은 이름의 정책 체크 → 다음 → **사용자 생성**
+   검색창에 `AdministratorAccess` → **정확히 이 이름 그대로인 것 하나만** 체크 → 다음 → **사용자 생성**
+   - 검색하면 `AdministratorAccess-Amplify`, `AdministratorAccess-AWSElasticBeanstalk` 등
+     접미사 붙은 변종이 함께 뜨는데, 특정 서비스 전용이므로 전부 무시(우리는 안 쓴다)
 5. 생성 완료 화면의 **콘솔 로그인 URL**을 북마크:
    `https://<계정ID>.signin.aws.amazon.com/console`
 
