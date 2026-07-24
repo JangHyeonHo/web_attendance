@@ -24,6 +24,7 @@ import com.attendance.pro.attendance.AttendanceDtos.DailyResponse;
 import com.attendance.pro.attendance.AttendanceDtos.ManualBreakRequest;
 import com.attendance.pro.attendance.AttendanceDtos.ManualStampRequest;
 import com.attendance.pro.attendance.AttendanceDtos.MonthlyResponse;
+import com.attendance.pro.attendance.AttendanceDtos.StampNoteRequest;
 import com.attendance.pro.attendance.AttendanceDtos.StampResponse;
 import com.attendance.pro.attendance.AttendanceDtos.StatusResponse;
 import com.attendance.pro.attendance.export.AttendanceExporters;
@@ -133,6 +134,19 @@ public class AttendanceController {
             @PathVariable("attendanceId") long attendanceId,
             @Valid @RequestBody ManualStampRequest request) {
         return attendanceService.updateManual(user.tenantId(), user.userId(), attendanceId, request);
+    }
+
+    @Operation(summary = "api.attendance.note.summary", description = "api.attendance.note.description")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "api.attendance.note.204"),
+            @ApiResponse(responseCode = "404", description = "api.attendance.note.404")
+    })
+    @PutMapping("/{attendanceId}/note")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void updateNote(@LoginUser SessionUser user,
+            @PathVariable("attendanceId") long attendanceId,
+            @Valid @RequestBody StampNoteRequest request) {
+        attendanceService.updateAutoNote(user.tenantId(), user.userId(), attendanceId, request.note());
     }
 
     @Operation(summary = "api.attendance.daily.summary", description = "api.attendance.daily.description")

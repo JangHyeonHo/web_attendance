@@ -5,7 +5,7 @@ import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { Modal } from '../components/Modal'
 import { TimesheetPrintReport } from '../components/TimesheetPrintReport'
-import { SelectField, TimeField } from '../components/fields'
+import { SelectField, TextField, TimeField } from '../components/fields'
 import { EmptyState } from '../components/EmptyState'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { localeOf } from '../i18n/lang'
@@ -92,6 +92,12 @@ export function DetailsScreen({ refreshSignal = 0 }: { refreshSignal?: number } 
   const [closeConfirm, setCloseConfirm] = useState(false)
   //근무표 다운로드 확인 모달 — 형식 선택 시 바로 실행하지 않고 확인 후 실행
   const [pendingDownload, setPendingDownload] = useState<'excel' | 'pdf' | null>(null)
+
+  //자동 스탬프 비고 작성/수정 모달 — 비고만 갱신(시각·구분·위치는 증거로서 불변)
+  const [noteTarget, setNoteTarget] = useState<DailyStampEntry | null>(null)
+  const [noteText, setNoteText] = useState('')
+  const [noteBusy, setNoteBusy] = useState(false)
+  const [noteError, setNoteError] = useState<string | null>(null)
 
   //일자 상세 모달(스탬프 이력)
   const [detailDate, setDetailDate] = useState<string | null>(null)
@@ -248,6 +254,28 @@ export function DetailsScreen({ refreshSignal = 0 }: { refreshSignal?: number } 
       setDetailStamps(response.stamps)
     } catch (e) {
       setDetailError(e instanceof ApiError ? e.message : String(e))
+    }
+  }
+
+  /** 자동 스탬프 비고 모달 열기 — 기존 비고가 있으면 채워서(수정) */
+  function openNote(stamp: DailyStampEntry) {
+    setNoteTarget(stamp)
+    setNoteText(stamp.reasonText ?? '')
+    setNoteError(null)
+  }
+
+  async function saveNote() {
+    if (!noteTarget || !detailDate) return
+    setNoteBusy(true)
+    setNoteError(null)
+    try {
+      await attendanceApi.noteUpdate(noteTarget.attendanceId, noteText.trim() || null)
+      setNoteTarget(null)
+      await openDetail(detailDate) //일자 상세 갱신(비고 표시 반영)
+    } catch (e) {
+      setNoteError(e instanceof ApiError ? e.message : String(e))
+    } finally {
+      setNoteBusy(false)
     }
   }
 
@@ -578,10 +606,19 @@ export function DetailsScreen({ refreshSignal = 0 }: { refreshSignal?: number } 
                       </button>
                     </span>
                   )}
-                  {stamp.reasonCode && (
+                  {/* 자동 스탬프는 시각·구분·위치 불변 — 비고만 사후 작성/수정(중복 등록 해명·특근 사유 등) */}
+                  {stamp.source !== 'MANUAL' && !locked && (
+                    <span className="stamp-actions">
+                      <button type="button" onClick={() => openNote(stamp)}>
+                        {t('NOTE')}
+                      </button>
+                    </span>
+                  )}
+                  {(stamp.reasonCode || stamp.reasonText) && (
                     <span className="stamp-reason muted">
-                      {t(`REASON_${stamp.reasonCode}`)}
-                      {stamp.reasonText ? ` — ${stamp.reasonText}` : ''}
+                      {stamp.reasonCode
+                        ? `${t(`REASON_${stamp.reasonCode}`)}${stamp.reasonText ? ` — ${stamp.reasonText}` : ''}`
+                        : stamp.reasonText}
                     </span>
                   )}
                 </li>
@@ -596,6 +633,29 @@ export function DetailsScreen({ refreshSignal = 0 }: { refreshSignal?: number } 
               </button>
             )}
             <button onClick={() => setDetailDate(null)}>{commonT('CLOSE')}</button>
+          </div>
+        </Modal>
+      )}
+
+      {/* 자동 스탬프 비고 작성/수정 — 입력형 모달(결과 안내 한 줄 규칙 준수) */}
+      {noteTarget && (
+        <Modal title={t('NOTE_TITLE')} onClose={() => setNoteTarget(null)}>
+          <TextField
+            label={t('NOTE')}
+            value={noteText}
+            onChange={setNoteText}
+            maxLength={200}
+            autoFocus
+          />
+          <p className="hint center">{t('NOTE_HINT')}</p>
+          {noteError && <p className="error" role="alert">{noteError}</p>}
+          <div className="btn-row">
+            <button className="primary" disabled={noteBusy} onClick={() => void saveNote()}>
+              {commonT('SAVE')}
+            </button>
+            <button disabled={noteBusy} onClick={() => setNoteTarget(null)}>
+              {commonT('CANCEL')}
+            </button>
           </div>
         </Modal>
       )}

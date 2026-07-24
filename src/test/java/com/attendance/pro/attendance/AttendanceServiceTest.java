@@ -199,7 +199,7 @@ class AttendanceServiceTest {
         @DisplayName("체크 통과시 토큰이 발급된다")
         void checkIssuesToken() {
             when(attendanceMapper.findLatest(TENANT_ID, USER_ID)).thenReturn(null);
-            CheckRequest request = new CheckRequest(AttendanceType.GO_TO_WORK, 37.5, 127.0, "서울", "Chrome");
+            CheckRequest request = new CheckRequest(AttendanceType.GO_TO_WORK, 37.5, 127.0, "서울", "Chrome", null);
 
             CheckResponse response = service.check(TENANT_ID, USER_ID, request);
 
@@ -212,7 +212,7 @@ class AttendanceServiceTest {
         @DisplayName("불가 코드면 토큰 없이 거절된다")
         void checkRejected() {
             when(attendanceMapper.findLatest(TENANT_ID, USER_ID)).thenReturn(null);
-            CheckRequest request = new CheckRequest(AttendanceType.OFF_WORK, null, null, null, null);
+            CheckRequest request = new CheckRequest(AttendanceType.OFF_WORK, null, null, null, null, null);
 
             CheckResponse response = service.check(TENANT_ID, USER_ID, request);
 
@@ -225,7 +225,7 @@ class AttendanceServiceTest {
         @DisplayName("확정시 체크 시점과 데이터가 다르면 변조로 거절된다")
         void confirmDetectsTampering() {
             when(attendanceMapper.findLatest(TENANT_ID, USER_ID)).thenReturn(null);
-            CheckRequest checkRequest = new CheckRequest(AttendanceType.GO_TO_WORK, 37.5, 127.0, "서울", "Chrome");
+            CheckRequest checkRequest = new CheckRequest(AttendanceType.GO_TO_WORK, 37.5, 127.0, "서울", "Chrome", null);
             //체크시 저장된 해시를 캡쳐
             final String[] storedHash = new String[1];
             when(attendanceMapper.insertCheck(eq(TENANT_ID), anyString(), eq(USER_ID), anyString(), any()))
@@ -238,7 +238,7 @@ class AttendanceServiceTest {
 
             //위치 정보를 변조하여 확정 요청
             ConfirmRequest tampered = new ConfirmRequest(checkResponse.token(),
-                    AttendanceType.GO_TO_WORK, 35.0, 129.0, "부산", "Chrome");
+                    AttendanceType.GO_TO_WORK, 35.0, 129.0, "부산", "Chrome", null);
 
             //예외는 메시지 키를 담고, 실제 문구는 GlobalExceptionHandler가 요청 언어로 해석한다
             assertThatThrownBy(() -> service.confirm(TENANT_ID, USER_ID, tampered))
@@ -254,7 +254,7 @@ class AttendanceServiceTest {
         @DisplayName("확정시 동일 데이터면 스탬프가 등록된다")
         void confirmStamps() {
             when(attendanceMapper.findLatest(TENANT_ID, USER_ID)).thenReturn(null);
-            CheckRequest checkRequest = new CheckRequest(AttendanceType.GO_TO_WORK, 37.5, 127.0, "서울", "Chrome");
+            CheckRequest checkRequest = new CheckRequest(AttendanceType.GO_TO_WORK, 37.5, 127.0, "서울", "Chrome", null);
             final String[] storedHash = new String[1];
             when(attendanceMapper.insertCheck(eq(TENANT_ID), anyString(), eq(USER_ID), anyString(), any()))
                     .thenAnswer(inv -> {
@@ -265,7 +265,7 @@ class AttendanceServiceTest {
             when(attendanceMapper.findCheckHash(TENANT_ID, checkResponse.token(), USER_ID)).thenReturn(storedHash[0]);
 
             ConfirmRequest confirm = new ConfirmRequest(checkResponse.token(),
-                    AttendanceType.GO_TO_WORK, 37.5, 127.0, "서울", "Chrome");
+                    AttendanceType.GO_TO_WORK, 37.5, 127.0, "서울", "Chrome", null);
             var response = service.confirm(TENANT_ID, USER_ID, confirm);
 
             assertThat(response.type()).isEqualTo(AttendanceType.GO_TO_WORK);
@@ -285,7 +285,7 @@ class AttendanceServiceTest {
                         return 1;
                     });
             CheckResponse checkResponse = service.check(TENANT_ID, USER_ID,
-                    new CheckRequest(AttendanceType.BREAK, null, null, null, null));
+                    new CheckRequest(AttendanceType.BREAK, null, null, null, null, null));
             when(attendanceMapper.findCheckHash(TENANT_ID, checkResponse.token(), USER_ID)).thenReturn(storedHash[0]);
 
             final int[] insertedStatus = new int[]{-1};
@@ -295,9 +295,111 @@ class AttendanceServiceTest {
                         return 1;
                     });
 
-            service.confirm(TENANT_ID, USER_ID, new ConfirmRequest(checkResponse.token(), AttendanceType.BREAK, null, null, null, null));
+            service.confirm(TENANT_ID, USER_ID, new ConfirmRequest(checkResponse.token(), AttendanceType.BREAK, null, null, null, null, null));
 
             assertThat(insertedStatus[0]).isEqualTo(AttendanceStamp.STATUS_BREAK_ENDED);
+        }
+
+        @Test
+        @DisplayName("확정 시 비고가 스탬프와 함께 저장된다(공백뿐이면 null)")
+        void confirmStoresNote() {
+            when(attendanceMapper.findLatest(TENANT_ID, USER_ID)).thenReturn(null);
+            CheckRequest checkRequest = new CheckRequest(AttendanceType.GO_TO_WORK, 37.5, 127.0, "서울", "Chrome",
+                    "  고객 대응으로 특근  ");
+            final String[] storedHash = new String[1];
+            when(attendanceMapper.insertCheck(eq(TENANT_ID), anyString(), eq(USER_ID), anyString(), any()))
+                    .thenAnswer(inv -> {
+                        storedHash[0] = inv.getArgument(3);
+                        return 1;
+                    });
+            CheckResponse checkResponse = service.check(TENANT_ID, USER_ID, checkRequest);
+            when(attendanceMapper.findCheckHash(TENANT_ID, checkResponse.token(), USER_ID)).thenReturn(storedHash[0]);
+
+            final String[] insertedNote = new String[]{"unset"};
+            when(attendanceMapper.insert(eq(TENANT_ID), anyLong(), anyInt(), anyInt(),
+                    any(), any(), any(), any(), any(), any(), any(), any())).thenAnswer(inv -> {
+                        insertedNote[0] = inv.getArgument(11);
+                        return 1;
+                    });
+
+            service.confirm(TENANT_ID, USER_ID, new ConfirmRequest(checkResponse.token(),
+                    AttendanceType.GO_TO_WORK, 37.5, 127.0, "서울", "Chrome", "  고객 대응으로 특근  "));
+
+            //trim되어 저장(공백만이면 null이 되는 것은 normalizeNote 계약)
+            assertThat(insertedNote[0]).isEqualTo("고객 대응으로 특근");
+        }
+
+        @Test
+        @DisplayName("비고가 체크 시점과 다르면 변조로 거절된다")
+        void noteTamperDetected() {
+            when(attendanceMapper.findLatest(TENANT_ID, USER_ID)).thenReturn(null);
+            final String[] storedHash = new String[1];
+            when(attendanceMapper.insertCheck(eq(TENANT_ID), anyString(), eq(USER_ID), anyString(), any()))
+                    .thenAnswer(inv -> {
+                        storedHash[0] = inv.getArgument(3);
+                        return 1;
+                    });
+            CheckResponse checkResponse = service.check(TENANT_ID, USER_ID,
+                    new CheckRequest(AttendanceType.GO_TO_WORK, null, null, null, null, "원래 비고"));
+            when(attendanceMapper.findCheckHash(TENANT_ID, checkResponse.token(), USER_ID)).thenReturn(storedHash[0]);
+
+            ConfirmRequest tampered = new ConfirmRequest(checkResponse.token(),
+                    AttendanceType.GO_TO_WORK, null, null, null, null, "바꿔치기한 비고");
+
+            assertThatThrownBy(() -> service.confirm(TENANT_ID, USER_ID, tampered))
+                    .isInstanceOf(ApiException.class)
+                    .satisfies(e -> assertThat(((ApiException) e).getCode()).isEqualTo("CHECK_MISMATCH"));
+        }
+    }
+
+    @Nested
+    @DisplayName("자동 스탬프 비고")
+    class AutoNote {
+
+        @Test
+        @DisplayName("본인 AUTO 스탬프의 비고만 갱신된다(trim 적용)")
+        void updatesNote() {
+            when(attendanceMapper.findAutoById(TENANT_ID, USER_ID, 7L))
+                    .thenReturn(stamp(AttendanceType.OFF_WORK, AttendanceStamp.STATUS_ACTIVE, LocalDateTime.now()));
+
+            service.updateAutoNote(TENANT_ID, USER_ID, 7L, "  실수로 중복 등록  ");
+
+            verify(attendanceMapper).updateAutoNote(TENANT_ID, USER_ID, 7L, "실수로 중복 등록");
+        }
+
+        @Test
+        @DisplayName("공백뿐인 비고는 null로 저장된다(비고 삭제)")
+        void blankBecomesNull() {
+            when(attendanceMapper.findAutoById(TENANT_ID, USER_ID, 7L))
+                    .thenReturn(stamp(AttendanceType.OFF_WORK, AttendanceStamp.STATUS_ACTIVE, LocalDateTime.now()));
+
+            service.updateAutoNote(TENANT_ID, USER_ID, 7L, "   ");
+
+            verify(attendanceMapper).updateAutoNote(TENANT_ID, USER_ID, 7L, null);
+        }
+
+        @Test
+        @DisplayName("대상이 없으면(타인·MANUAL·미존재) 404")
+        void notFound() {
+            when(attendanceMapper.findAutoById(TENANT_ID, USER_ID, 99L)).thenReturn(null);
+
+            assertThatThrownBy(() -> service.updateAutoNote(TENANT_ID, USER_ID, 99L, "x"))
+                    .isInstanceOf(ApiException.class)
+                    .satisfies(e -> assertThat(((ApiException) e).getCode()).isEqualTo("STAMP_NOT_FOUND"));
+        }
+
+        @Test
+        @DisplayName("마감 승인된 월의 기록에는 비고를 쓸 수 없다")
+        void closedMonthRejected() {
+            LocalDateTime at = LocalDateTime.now();
+            when(attendanceMapper.findAutoById(TENANT_ID, USER_ID, 7L))
+                    .thenReturn(stamp(AttendanceType.OFF_WORK, AttendanceStamp.STATUS_ACTIVE, at));
+            when(closeMapper.findStatus(TENANT_ID, USER_ID, at.getYear(), at.getMonthValue()))
+                    .thenReturn("APPROVED");
+
+            assertThatThrownBy(() -> service.updateAutoNote(TENANT_ID, USER_ID, 7L, "x"))
+                    .isInstanceOf(ApiException.class)
+                    .satisfies(e -> assertThat(((ApiException) e).getCode()).isEqualTo("MONTH_CLOSED"));
         }
     }
 
@@ -516,7 +618,7 @@ class AttendanceServiceTest {
         @DisplayName("ISO-14b: check가 조회/토큰 저장 모두 tenantId 스코프로 호출한다")
         void checkPropagatesTenantId() {
             when(attendanceMapper.findLatest(TENANT_ID, USER_ID)).thenReturn(null);
-            service.check(TENANT_ID, USER_ID, new CheckRequest(AttendanceType.GO_TO_WORK, null, null, null, null));
+            service.check(TENANT_ID, USER_ID, new CheckRequest(AttendanceType.GO_TO_WORK, null, null, null, null, null));
             verify(attendanceMapper).findLatest(eq(TENANT_ID), eq(USER_ID));
             verify(attendanceMapper).insertCheck(eq(TENANT_ID), anyString(), eq(USER_ID), anyString(), any());
         }
@@ -532,12 +634,12 @@ class AttendanceServiceTest {
                         return 1;
                     });
             CheckResponse checkResponse = service.check(TENANT_ID, USER_ID,
-                    new CheckRequest(AttendanceType.GO_TO_WORK, null, null, null, null));
+                    new CheckRequest(AttendanceType.GO_TO_WORK, null, null, null, null, null));
             when(attendanceMapper.findCheckHash(TENANT_ID, checkResponse.token(), USER_ID))
                     .thenReturn(storedHash[0]);
 
             service.confirm(TENANT_ID, USER_ID,
-                    new ConfirmRequest(checkResponse.token(), AttendanceType.GO_TO_WORK, null, null, null, null));
+                    new ConfirmRequest(checkResponse.token(), AttendanceType.GO_TO_WORK, null, null, null, null, null));
 
             verify(attendanceMapper).findCheckHash(eq(TENANT_ID), anyString(), eq(USER_ID));
             verify(attendanceMapper).deleteCheck(eq(TENANT_ID), anyString(), eq(USER_ID));
@@ -551,7 +653,7 @@ class AttendanceServiceTest {
             //세션 테넌트(TENANT_ID)로 조회하면 타 테넌트 토큰은 존재하지 않는 것으로 처리된다
             when(attendanceMapper.findCheckHash(eq(TENANT_ID), anyString(), eq(USER_ID))).thenReturn(null);
             ConfirmRequest request = new ConfirmRequest("other-tenant-token",
-                    AttendanceType.GO_TO_WORK, null, null, null, null);
+                    AttendanceType.GO_TO_WORK, null, null, null, null, null);
             assertThatThrownBy(() -> service.confirm(TENANT_ID, USER_ID, request))
                     .isInstanceOf(ApiException.class)
                     .satisfies(e -> assertThat(((ApiException) e).getCode()).isEqualTo("CHECK_MISMATCH"));

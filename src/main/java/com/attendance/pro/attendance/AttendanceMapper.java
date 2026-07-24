@@ -112,6 +112,40 @@ public interface AttendanceMapper {
             @Param("attendanceId") long attendanceId);
 
     /**
+     * 비고 편집 대상 확인 — 본인 + AUTO 행만 반환(월 잠금 판정용 시각 포함).
+     * MANUAL은 기존 정정 수정 경로가 사유를 다루므로 대상 외. 불일치는 null → 404(존재 비노출).
+     */
+    @Select("""
+            SELECT attendance_id, user_id, type AS type_code, status, stamped_at,
+                   source, reason_code, reason_text
+            FROM attendance
+            WHERE attendance_id = #{attendanceId}
+              AND tenant_id = #{tenantId}
+              AND user_id = #{userId}
+              AND source = 'AUTO'
+            """)
+    AttendanceStamp findAutoById(@Param("tenantId") long tenantId,
+            @Param("userId") long userId,
+            @Param("attendanceId") long attendanceId);
+
+    /**
+     * 자동 스탬프의 비고만 갱신 — 시각·구분·위치·상태는 불변(자동 기록의 증거성 유지).
+     * 본인 + AUTO 행만(불일치는 0행 → 호출부 404).
+     */
+    @Update("""
+            UPDATE attendance
+            SET reason_text = #{note}
+            WHERE attendance_id = #{attendanceId}
+              AND tenant_id = #{tenantId}
+              AND user_id = #{userId}
+              AND source = 'AUTO'
+            """)
+    int updateAutoNote(@Param("tenantId") long tenantId,
+            @Param("userId") long userId,
+            @Param("attendanceId") long attendanceId,
+            @Param("note") String note);
+
+    /**
      * 수동 정정 스탬프 수정(잘못 입력 복구 — 본인 + MANUAL 행만, 시각/구분/사유 변경).
      * AUTO 행은 불변 — 조건 불일치는 0행(호출부에서 404, 존재 비노출).
      */

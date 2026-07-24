@@ -23,7 +23,8 @@ public final class AttendanceDtos {
             @Schema(description = "schema.field.latitude", example = "37.5665000") Double latitude,
             @Schema(description = "schema.field.longitude", example = "126.9780000") Double longitude,
             @Schema(description = "schema.field.place-info", example = "서울시 중구") @Size(max = 200) String placeInfo,
-            @Schema(description = "schema.field.terminal", example = "Chrome/Windows") @Size(max = 100) String terminal) {
+            @Schema(description = "schema.field.terminal", example = "Chrome/Windows") @Size(max = 100) String terminal,
+            @Schema(description = "schema.field.stamp-note", example = "고객 대응으로 특근") @Size(max = 200) String note) {
     }
 
     @Schema(description = "schema.check-response")
@@ -54,11 +55,18 @@ public final class AttendanceDtos {
             @Schema(description = "schema.field.latitude", example = "37.5665000") Double latitude,
             @Schema(description = "schema.field.longitude", example = "126.9780000") Double longitude,
             @Schema(description = "schema.field.place-info", example = "서울시 중구") @Size(max = 200) String placeInfo,
-            @Schema(description = "schema.field.terminal", example = "Chrome/Windows") @Size(max = 100) String terminal) {
+            @Schema(description = "schema.field.terminal", example = "Chrome/Windows") @Size(max = 100) String terminal,
+            @Schema(description = "schema.field.stamp-note", example = "고객 대응으로 특근") @Size(max = 200) String note) {
 
         public CheckRequest toCheckRequest() {
-            return new CheckRequest(type, latitude, longitude, placeInfo, terminal);
+            return new CheckRequest(type, latitude, longitude, placeInfo, terminal, note);
         }
+    }
+
+    /** 자동 스탬프 비고 작성/수정 요청 — 비고만 갱신(시각·구분·위치 불변). */
+    @Schema(description = "schema.stamp-note-request")
+    public record StampNoteRequest(
+            @Schema(description = "schema.field.stamp-note", example = "실수로 중복 등록 — 이전 기록이 잘못 찍은 것") @Size(max = 200) String note) {
     }
 
     //수동 정정 등록(Phase 5) — 사유 필수(선택 코드 + OTHER는 자유 텍스트 필수). BREAK는 대상 외
