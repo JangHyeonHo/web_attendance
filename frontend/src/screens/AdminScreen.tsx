@@ -100,7 +100,7 @@ export function AdminScreen() {
       <div className="panel">
         <ScreenGuide>{t('SCREEN_GUIDE')}</ScreenGuide>
         <h2>{t('THEME_TITLE')}</h2>
-        <p className="muted">{t('THEME_DESC')}</p>
+        <p className="hint">{t('THEME_DESC')}</p>
         <div className="theme-options" role="radiogroup" aria-label={t('THEME_TITLE')}>
           {THEME_OPTIONS.map((option) => (
             <label

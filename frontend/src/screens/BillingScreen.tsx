@@ -58,7 +58,7 @@ export function BillingScreen() {
 
       <ScreenGuide>{t('SCREEN_GUIDE')}</ScreenGuide>
       {/* 요금 계산 규칙 안내(무료 인원·일할 계산) — 화면 가이드와 별도 존치 */}
-      <p className="muted">{t('NOTE')}</p>
+      <p className="hint">{t('NOTE')}</p>
       {error && <p className="error" role="alert">{error}</p>}
 
       {rows.length === 0 && !error ? (

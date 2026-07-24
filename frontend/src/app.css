@@ -506,13 +506,24 @@ textarea:hover {
   padding: 40px 36px;
 }
 
-/* 관리자 화면 상단 가이드(ScreenGuide) — 제목 아래 한 단락, 본문보다 작고 연하게 */
+/* 관리자 화면 상단 가이드(ScreenGuide) — 제목 아래 한 단락, 본문보다 작고 연하게.
+   제목과의 간격은 선행 요소별로 통일(제목 텍스트 아래 약 8px): 맨 h2(마진 6px) 뒤 +2,
+   툴바(마진 20px) 뒤 −12. 문구의 \n은 문장 단위 개행으로 렌더(pre-line). */
 .screen-guide {
-  margin: -10px 0 22px; /* 툴바 하단 여백(20px)과 겹치지 않게 제목 쪽으로 당김 */
+  margin: 0 0 22px;
   font-size: 13px;
   line-height: 1.65;
   color: var(--muted);
   max-width: 68ch; /* 읽기 폭 제한 — 와이드 화면에서 한 줄로 늘어지지 않게 */
+  white-space: pre-line;
+}
+
+h2 + .screen-guide {
+  margin-top: 2px;
+}
+
+.toolbar + .screen-guide {
+  margin-top: -12px;
 }
 
 .toolbar {
