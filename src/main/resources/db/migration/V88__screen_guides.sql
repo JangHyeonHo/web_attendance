@@ -104,6 +104,11 @@ Choose the seasonal theme applied across all screens, and manage on-screen text 
 ('A005','SCREEN_GUIDE','JPN','運営会社共通の設定画面です。
 全画面に適用される季節テーマを選び、画面に表示される文言（韓国語・英語・日本語）を画面IDとテキストキー単位で管理します。');
 
+-- A005 메뉴·화면 타이틀: '관리자' → '운영 설정' (화면 타이틀 신설과 함께 메뉴 라벨도 일치)
+UPDATE language_master SET lang_value = '운영 설정' WHERE window_id = 'W999' AND lang_key = 'ADMIN' AND lang = 'KOR';
+UPDATE language_master SET lang_value = 'Operations Settings' WHERE window_id = 'W999' AND lang_key = 'ADMIN' AND lang = 'ENG';
+UPDATE language_master SET lang_value = '運営設定' WHERE window_id = 'W999' AND lang_key = 'ADMIN' AND lang = 'JPN';
+
 -- SCREEN_GUIDE로 대체된 기존 화면 설명 키 제거
 DELETE FROM language_master WHERE window_id = 'T004' AND lang_key = 'CLOSE_ADMIN_SUB';
 DELETE FROM language_master WHERE window_id = 'T007' AND lang_key = 'COMPANY_INFO_NOTE';

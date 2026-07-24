@@ -5,6 +5,7 @@ import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { Modal } from '../components/Modal'
 import { ScreenGuide } from '../components/ScreenGuide'
+import { SectionHead } from '../components/SectionHead'
 import type { Lang, LanguageEntry, UiThemeSetting } from '../api/types'
 
 const LANGS: Lang[] = ['KOR', 'ENG', 'JPN']
@@ -98,9 +99,12 @@ export function AdminScreen() {
   return (
     <>
       <div className="panel">
+        {/* 화면 타이틀 — 사이드바 메뉴 라벨(W999 ADMIN)과 동일 키로 일치 */}
+        <div className="toolbar">
+          <h2>{t('ADMIN')}</h2>
+        </div>
         <ScreenGuide>{t('SCREEN_GUIDE')}</ScreenGuide>
-        <h2>{t('THEME_TITLE')}</h2>
-        <p className="hint">{t('THEME_DESC')}</p>
+        <SectionHead title={t('THEME_TITLE')} hint={t('THEME_DESC')} />
         <div className="theme-options" role="radiogroup" aria-label={t('THEME_TITLE')}>
           {THEME_OPTIONS.map((option) => (
             <label
