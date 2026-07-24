@@ -5,6 +5,7 @@ import { useApp } from '../app/AppContext'
 import type { AttendanceType, CheckRequest, StatusResponse } from '../api/types'
 import { DetailsScreen } from './DetailsScreen'
 import { Modal } from '../components/Modal'
+import { ConfirmModal } from '../components/ConfirmModal'
 import { localeOf } from '../i18n/lang'
 
 const TYPE_LABEL_KEYS: Record<AttendanceType, string> = {
@@ -220,10 +221,10 @@ export function AttendanceScreen() {
         )}
       </div>
 
+      {/* 확인성 모달(입력 없음)이라 엔터 제출 비대상 — form 미사용(엔터는 폼 역할 화면 전용) */}
       {pending && !confirmation && (
         <Modal title={t(TYPE_LABEL_KEYS[pending.type])} onClose={() => setPending(null)}>
-          {/* form 래핑 — 엔터로 바로 등록(#1) */}
-          <form className="center" onSubmit={(e) => { e.preventDefault(); void submit() }}>
+          <div className="center">
             <p className="stamp-meta">
               {t('CURRENT_TIME')}: {now.toLocaleTimeString(localeOf(lang))}
             </p>
@@ -234,37 +235,28 @@ export function AttendanceScreen() {
             {pending.geoError && <p className="error">{pending.geoError}</p>}
             <p>{t('CONFIRM_STAMP')}</p>
             <div className="btn-row">
-              <button type="submit" className="primary">
+              <button type="button" className="primary" onClick={() => void submit()}>
                 {t('SUBMIT')}
               </button>
               <button type="button" onClick={() => selectType(pending.type)}>{t('RETRY')}</button>
               <button type="button" onClick={() => setPending(null)}>{t('CANCEL')}</button>
             </div>
-          </form>
+          </div>
         </Modal>
       )}
 
+      {/* 덮어쓰기/재출근 확정 — 확인 모달 공통 부품 사용(확인 버튼=행위 라벨) */}
       {confirmation && (
-        <Modal
+        <ConfirmModal
           title={t(TYPE_LABEL_KEYS[confirmation.request.type])}
-          onClose={() => setConfirmation(null)}
           danger
+          confirmLabel={t(TYPE_LABEL_KEYS[confirmation.request.type])}
+          cancelLabel={t('CANCEL')}
+          onConfirm={() => void confirmStamp(confirmation.request, confirmation.token)}
+          onClose={() => setConfirmation(null)}
         >
-          {/* form 래핑 — 엔터로 바로 확정(#1) */}
-          <form
-            className="center"
-            onSubmit={(e) => { e.preventDefault(); void confirmStamp(confirmation.request, confirmation.token) }}
-          >
-            <p>{confirmation.message}</p>
-            <div className="btn-row">
-              {/* 확인 버튼은 행위 라벨(출근/퇴근/휴식) — 범용 SUBMIT('등록') 재사용 금지 */}
-              <button type="submit" className="primary">
-                {t(TYPE_LABEL_KEYS[confirmation.request.type])}
-              </button>
-              <button type="button" onClick={() => setConfirmation(null)}>{t('CANCEL')}</button>
-            </div>
-          </form>
-        </Modal>
+          <p className="center">{confirmation.message}</p>
+        </ConfirmModal>
       )}
 
       <div className="center">
