@@ -294,8 +294,9 @@ export function HolidaysScreen() {
             </label>
             <p className="hint">{t('RECURRING_HINT')}</p>
             {editError && <p className="error" role="alert">{editError}</p>}
+            {/* 수정 모달의 제출은 '수정' — 등록 모달과 라벨을 구분(행위 라벨) */}
             <button type="submit" className="primary" disabled={submitting}>
-              {t('SUBMIT')}
+              {t('EDIT')}
             </button>
           </form>
         </Modal>

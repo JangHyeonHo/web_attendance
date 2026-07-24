@@ -60,6 +60,8 @@ export function AttendanceScreen() {
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [showDetails, setShowDetails] = useState(true) //출결 조회 기본 표시(#9)
+  //스탬프 확정 횟수 — 아래 출결 조회(DetailsScreen)가 확정 즉시 재조회하게 하는 신호
+  const [stampCount, setStampCount] = useState(0)
   const [now, setNow] = useState(new Date())
 
   useEffect(() => {
@@ -157,6 +159,7 @@ export function AttendanceScreen() {
       setMessage(stamped.message)
       setPending(null)
       setConfirmation(null)
+      setStampCount((n) => n + 1) //출결 조회 목록 즉시 갱신
       await refreshStatus()
     } catch (e) {
       setError(e instanceof ApiError ? e.message : String(e))
@@ -254,8 +257,9 @@ export function AttendanceScreen() {
           >
             <p>{confirmation.message}</p>
             <div className="btn-row">
+              {/* 확인 버튼은 행위 라벨(출근/퇴근/휴식) — 범용 SUBMIT('등록') 재사용 금지 */}
               <button type="submit" className="primary">
-                {t('SUBMIT')}
+                {t(TYPE_LABEL_KEYS[confirmation.request.type])}
               </button>
               <button type="button" onClick={() => setConfirmation(null)}>{t('CANCEL')}</button>
             </div>
@@ -268,7 +272,7 @@ export function AttendanceScreen() {
           {t('ATTDETAILS')}
         </button>
       </div>
-      {showDetails && <DetailsScreen />}
+      {showDetails && <DetailsScreen refreshSignal={stampCount} />}
     </div>
   )
 }

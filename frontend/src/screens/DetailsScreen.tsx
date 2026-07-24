@@ -68,8 +68,11 @@ interface EditingStamp {
  * - 정정 모달: 날짜 고정, 출근·퇴근 행을 한 그룹으로(시각은 "HH:mm" 단일 필드 — 통합 타임피커)
  * - 조퇴 UI 폐지(출근/퇴근만) — 과거 조퇴 데이터는 이력 표기만 유지
  * - 잘못 입력 복구는 [수정](시각·구분·사유 변경) — 이력 삭제는 제공하지 않는다
+ *
+ * refreshSignal: 부모(M001)가 스탬프 확정 직후 목록을 다시 읽게 하는 신호(증가 카운터).
+ * 값이 바뀔 때마다 월 데이터를 재조회한다 — 근퇴 버튼 결과가 아래 조회 목록에 즉시 반영되게.
  */
-export function DetailsScreen() {
+export function DetailsScreen({ refreshSignal = 0 }: { refreshSignal?: number } = {}) {
   const { t: commonT, lang, userName, tenantName, userDepartment } = useApp()
   const isMobile = useIsMobile()
   const today = new Date()
@@ -201,7 +204,7 @@ export function DetailsScreen() {
 
   useEffect(() => {
     void reload()
-  }, [reload])
+  }, [reload, refreshSignal]) //refreshSignal — 스탬프 확정 즉시 재조회
 
   useEffect(() => {
     void reloadClose()
