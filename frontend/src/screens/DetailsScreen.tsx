@@ -7,6 +7,7 @@ import { Modal } from '../components/Modal'
 import { TimesheetPrintReport } from '../components/TimesheetPrintReport'
 import { SelectField, TextField, TimeField } from '../components/fields'
 import { EmptyState } from '../components/EmptyState'
+import { LoadingOverlay } from '../components/LoadingOverlay'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { localeOf } from '../i18n/lang'
 import type {
@@ -454,8 +455,9 @@ export function DetailsScreen({ refreshSignal = 0 }: { refreshSignal?: number } 
         </div>
       )}
       {error && <p className="error center">{error}</p>}
-      {loading && <p className="muted center">{commonT('LOADING')}</p>}
-      {monthly && !loading && (
+      {/* 첫 로드(데이터 없음)만 텍스트 안내 — 이후 재조회는 표를 유지한 채 로딩 베일로 덮는다 */}
+      {loading && !monthly && <p className="muted center">{commonT('LOADING')}</p>}
+      {monthly && (
       <div className="printable">
         {/* 인쇄(→PDF) 전용 — 엑셀과 동일한 근무표 양식. 화면에는 안 보이고 인쇄 시에만 노출. */}
         <TimesheetPrintReport
@@ -477,6 +479,7 @@ export function DetailsScreen({ refreshSignal = 0 }: { refreshSignal?: number } 
       )}
       {!isMobile && (
         <div className="table-wrap">
+        <LoadingOverlay show={loading} label={commonT('LOADING')} />
         <table className="detail-table">
           <thead>
             <tr>

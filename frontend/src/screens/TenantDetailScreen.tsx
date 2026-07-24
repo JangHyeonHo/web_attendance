@@ -4,6 +4,7 @@ import { languageApi, systemTenantApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
 import { DateField } from '../components/DateField'
+import { LoadingOverlay } from '../components/LoadingOverlay'
 import { ScreenGuide } from '../components/ScreenGuide'
 import type {
   BillingMethod,
@@ -104,6 +105,8 @@ export function TenantDetailScreen({ tenantId, country }: { tenantId: number; co
   // ---- 청구서(월별) — 운영사 조회·마감 ----
   const [invoices, setInvoices] = useState<InvoiceEntry[]>([])
   const [invoiceError, setInvoiceError] = useState<string | null>(null)
+  //청구서 목록 도착 전 로딩 베일(이중 클릭 방지)
+  const [invoicesLoading, setInvoicesLoading] = useState(true)
 
   const load = useCallback(async () => {
     //미등록은 404로 내려온다 → null(NOT_REGISTERED 표시)로 흡수
@@ -129,11 +132,14 @@ export function TenantDetailScreen({ tenantId, country }: { tenantId: number; co
     } finally {
       setBillingLoaded(true)
     }
+    setInvoicesLoading(true)
     try {
       setInvoices(await systemTenantApi.invoices(tenantId))
       setInvoiceError(null)
     } catch (e) {
       setInvoiceError(e instanceof ApiError ? e.message : String(e))
+    } finally {
+      setInvoicesLoading(false)
     }
   }, [tenantId])
 
@@ -553,10 +559,11 @@ export function TenantDetailScreen({ tenantId, country }: { tenantId: number; co
           <h3>{t('INVOICES')}</h3>
         </div>
         {invoiceError && <p className="error" role="alert">{invoiceError}</p>}
-        {invoices.length === 0 && !invoiceError ? (
+        {!invoicesLoading && invoices.length === 0 && !invoiceError ? (
           <p className="muted">{t('EMPTY')}</p>
         ) : (
           <div className="table-wrap">
+            <LoadingOverlay show={invoicesLoading} label={t('LOADING')} />
             <table className="detail-table">
               <thead>
                 <tr>

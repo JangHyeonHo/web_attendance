@@ -9,6 +9,7 @@ import { TextAreaField, ModalSubject, SelectField } from '../components/fields'
 import { SectionHead } from '../components/SectionHead'
 import { ConfirmModal } from '../components/ConfirmModal'
 import { EmptyState } from '../components/EmptyState'
+import { LoadingOverlay } from '../components/LoadingOverlay'
 import { ScreenGuide } from '../components/ScreenGuide'
 import type { PayrollSettlement, PendingCloseResponse } from '../api/types'
 
@@ -65,22 +66,32 @@ export function AttendanceCloseAdminScreen() {
     languageApi.texts('T004', lang).then(setTexts).catch(() => {})
   }, [lang])
 
+  //데이터 도착 전 로딩 베일(이중 클릭 방지) — 대기/완료 목록 각각
+  const [pendingLoading, setPendingLoading] = useState(true)
+  const [approvedLoading, setApprovedLoading] = useState(true)
+
   const loadApproved = useCallback(async () => {
+    setApprovedLoading(true)
     try {
       setApprovedRows(await tenantCloseApi.approved(appYear, appMonth))
       setError(null)
     } catch (e) {
       setError(e instanceof ApiError ? e.message : String(e))
+    } finally {
+      setApprovedLoading(false)
     }
   }, [appYear, appMonth])
 
   const reload = useCallback(async () => {
+    setPendingLoading(true)
     try {
       setRows(await tenantCloseApi.pending())
       setError(null)
       await loadApproved()
     } catch (e) {
       setError(e instanceof ApiError ? e.message : String(e))
+    } finally {
+      setPendingLoading(false)
     }
   }, [loadApproved])
 
@@ -189,10 +200,11 @@ export function AttendanceCloseAdminScreen() {
 
       {/* 결재 대기 — REQUESTED만(상시 소수) */}
       <SectionHead title={t('CLOSE_PENDING_SECTION')} />
-      {rows.length === 0 ? (
+      {!pendingLoading && rows.length === 0 ? (
         <EmptyState>{t('CLOSE_PENDING_NONE')}</EmptyState>
       ) : (
         <div className="table-wrap">
+          <LoadingOverlay show={pendingLoading} label={t('LOADING')} />
           <table className="detail-table">
             {head}
             <tbody>{renderRows(rows)}</tbody>
@@ -217,10 +229,11 @@ export function AttendanceCloseAdminScreen() {
           onChange={(v) => setAppMonth(Number(v))}
         />
       </div>
-      {approvedRows.length === 0 ? (
+      {!approvedLoading && approvedRows.length === 0 ? (
         <EmptyState>{t('CLOSE_APPROVED_NONE')}</EmptyState>
       ) : (
         <div className="table-wrap">
+          <LoadingOverlay show={approvedLoading} label={t('LOADING')} />
           <table className="detail-table">
             {head}
             <tbody>{renderRows(approvedRows)}</tbody>

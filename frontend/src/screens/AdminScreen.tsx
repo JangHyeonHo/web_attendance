@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { adminUiThemeApi, languageApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
 import { useApp } from '../app/AppContext'
+import { LoadingOverlay } from '../components/LoadingOverlay'
 import { Modal } from '../components/Modal'
 import { ScreenGuide } from '../components/ScreenGuide'
 import { SectionHead } from '../components/SectionHead'
@@ -38,11 +39,17 @@ export function AdminScreen() {
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
 
+  //데이터 도착 전 로딩 베일(이중 클릭 방지) — 언어 마스터는 행이 많아 체감이 큼
+  const [loading, setLoading] = useState(true)
+
   const reload = useCallback(async () => {
+    setLoading(true)
     try {
       setEntries(await languageApi.adminList())
     } catch (e) {
       setError(e instanceof ApiError ? e.message : String(e))
+    } finally {
+      setLoading(false)
     }
   }, [])
 
@@ -173,6 +180,7 @@ export function AdminScreen() {
         )}
 
         <div className="table-wrap">
+          <LoadingOverlay show={loading} label={t('LOADING')} />
           <table className="detail-table">
             <thead>
               <tr>
